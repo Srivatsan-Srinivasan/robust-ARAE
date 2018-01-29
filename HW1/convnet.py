@@ -55,7 +55,7 @@ class Convnet(t.nn.Module):
             if i >= len(iterator) - 1:
                 break
         iterator.batch_size = bs
-        return (count.float() / len(iterator)).data.numpy()[0]
+        return (count.float() / (bs*len(iterator))).data.numpy()[0]
 
     def fit(self, train_iter, val_iter, n_epochs, TEXT, vdim=300):
 
@@ -116,7 +116,7 @@ def main(n_epochs, learning_rate, vdim=300):
     true = []
     for batch in test_iter:
         # Your prediction data here (don't cheat!)
-        probs = (convnet.forward(variable(vectorize(batch.text, TEXT, vdim=vdim))) > 0.5).long()
+        probs = (convnet.forward(variable(vectorize(batch.text, TEXT, vdim=vdim)))[:, 1] > 0.5).long()
         upload += list(probs.data)
         true += batch.label.data.numpy().tolist()
     true = [x if x == 1 else 0 for x in true]
