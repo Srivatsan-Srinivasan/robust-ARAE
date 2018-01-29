@@ -1,6 +1,8 @@
 from collections import Counter
 import torch as t
 import numpy as np
+import torchtext
+from torchtext.vocab import Vectors, GloVe
 
 
 def predict_NB(text, W, bias):
@@ -57,3 +59,43 @@ def train_NB(TEXT, train_iter, alpha=1):
     bias = np.log(pos / neg)
 
     return W, bias
+
+
+def main():
+    # Text text processing library and methods for pretrained word embeddings
+
+    # Our input $x$
+    TEXT = torchtext.data.Field()
+
+    # Our labels $y$
+    LABEL = torchtext.data.Field(sequential=False)
+
+    train_dataset, val_dataset, test_dataset = torchtext.datasets.SST.splits(
+        TEXT, LABEL,
+        filter_pred=lambda ex: ex.label != 'neutral')
+
+    TEXT.build_vocab(train_dataset)
+    LABEL.build_vocab(train_dataset)
+
+    train_iter, val_iter, test_iter = torchtext.data.BucketIterator.splits(
+        (train_dataset, val_dataset, test_dataset), batch_size=10, device=-1)
+
+    url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
+    TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
+
+    W, b = train_NB(TEXT, train_iter)
+
+    upload = []
+    true = []
+    for batch in test_iter:
+        # Your prediction data here (don't cheat!)
+        probs = predict_NB(batch.text, W, b).long()
+        upload += list(probs.data)
+        true += batch.label.data.numpy().tolist()
+    true = [x if x == 1 else -1 for x in true]
+    print("test accuracy:")
+    print(sum([(x*y == 1) for x,y in zip(upload,true)])/ len(upload))
+
+
+if __name__ == '__main__':
+    main()
