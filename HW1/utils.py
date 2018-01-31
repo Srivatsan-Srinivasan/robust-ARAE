@@ -26,3 +26,5 @@ def embed_sentence(batch, TEXT, vec_dim=300, sentence_length=16):
     return t.cat([TEXT.vocab.vectors[batch.text.data.long()[:,i]].view(1,sentence_length,vec_dim) for i in range(batch.batch_size)])
 
 
+def batch2text(batch, TEXT):
+    return " ".join([TEXT.vocab.itos[i] for i in batch.text[:, 0].data])

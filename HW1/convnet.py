@@ -32,6 +32,9 @@ class Convnet(t.nn.Module):
         xx = self.fc2(xx)
         return softmax(xx)
 
+    def pred_label(self, text, TEXT, threshold=.5, vdim=300):
+        return (self.forward(variable(vectorize(text, TEXT, vdim=vdim)))[:, 1] > threshold).long()
+
 
 def main(n_epochs, learning_rate, vdim=300):
     # Text text processing library and methods for pretrained word embeddings
