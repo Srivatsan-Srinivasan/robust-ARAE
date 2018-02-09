@@ -1,5 +1,6 @@
 import numpy as np
 import torch as t
+from torchtext.vocab import Vectors, GloVe
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=False):
@@ -29,3 +30,12 @@ def embed_sentence(batch, TEXT, vec_dim=300, sentence_length=16):
 
 def batch2text(batch, TEXT):
     return " ".join([TEXT.vocab.itos[i] for i in batch.text[:, 0].data])
+
+
+def load_embedding(TEXT):
+    """
+    By default it loads GloVe because it works well.
+    It could be implemented so that it could load any other one but I think this is not very important
+    @:param TEXT: torchtext.data.Field()
+    """
+    TEXT.vocab.load_vectors(vectors=GloVe())
