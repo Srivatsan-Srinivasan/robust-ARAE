@@ -1,6 +1,6 @@
 Entry Script : main.py - could be run from command line. For the list of arguments, check file. 
 
-A sample run would look like <b>python main.py --model LSTM debug True lstm\_nl 2 save True optimizer Adam exp\_n 'Some experiment</b>
+A sample run would look like <b>python main.py --model LSTM --debug True --lstm\_nl 2 --save True --optimizer Adam --exp\_n 'Some experiment</b>
 
 <b>CODE FLOW</b>
 
