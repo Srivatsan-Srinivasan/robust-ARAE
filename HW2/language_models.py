@@ -102,7 +102,7 @@ class NNLM(t.nn.Module):
         self.conv = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
 
     def forward(self, x):
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         xx = self.w(x).transpose(2, 1)
         xx = self.conv(xx)
         return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch

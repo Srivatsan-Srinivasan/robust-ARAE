@@ -29,7 +29,6 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
 
     # Params passed in as dict to model.
-    import pdb; pdb.set_trace()
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
     #model.train()
     optimizer = init_optimizer(opt_params, model)
@@ -43,7 +42,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
         criterion = criterion.cuda()
         
     print("All set. Actual Training begins")
-    for epoch in range(train_params.get('n_ep', default=30)):
+    for epoch in range(train_params.get('n_ep', 30)):
         # monitoring variables
         total_loss = 0
         count = 0
