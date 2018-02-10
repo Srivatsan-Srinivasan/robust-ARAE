@@ -11,13 +11,17 @@ def get_params(args):
     model_params = {}
     opt_params   = {}
     train_params = {}
+    args = vars(args)
     for k,v in model_params_args_map.items():
-        model_params[k] = args[v]
+        if v in args:
+            model_params[k] = args[v]
     for k,v in opt_params_args_map.items():
-        opt_params[k] = args[v]
+        if v in args:
+            opt_params[k] = args[v]
     for k,v in train_params_args_map.items():
-        train_params[k] = [v]
-    
+        if v in args:
+            train_params[k] = args[v]
+   
     return model_params, opt_params, train_params     
 
 def check_args(args):

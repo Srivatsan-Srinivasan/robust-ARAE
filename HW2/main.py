@@ -26,7 +26,7 @@ parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
 parser.add_argument('--save', default=False, help='States if you need to pickle validation loss')
 
 # MODEL PARAMS
-parser.add_argument('--model', default='Trigram', help='state which model to use')
+parser.add_argument('--model', default='NNLM', help='state which model to use')
 parser.add_argument('--lstm_nl', default=1)
 parser.add_argument('--lstm_h_dim', default=100)
 parser.add_argument('--emb_size', default=300)
