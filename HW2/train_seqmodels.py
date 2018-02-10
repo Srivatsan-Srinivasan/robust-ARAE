@@ -20,36 +20,38 @@ def init_optimizer(opt_params, model):
     if optimizer == 'Adam':
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
     if optimizer == 'Adamax':
-        optimizer = optim.AdaMax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
 
     return optimizer
 
 
-def train(model_str, embeddings, train_iter, model_params={}, opt_params={}, train_params={},
+def train(model_str, embeddings, train_iter, context_size=None, model_params={}, opt_params={}, train_params={},
           cuda=CUDA_DEFAULT):
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
-    loss_fn = nn.CrossEntropyLoss()
     optimizer = init_optimizer(opt_params, model)
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', default=30)):
+        total_loss = 0
+        count = 0
+
         model.zero_grad()
         if model_str in recur_models:
             model.hidden = model.init_hidden()
 
-        for i, next_batch in enumerate(train_iter):
-            ##UGLY PROCESSING FUNCTION FOR CONVERTING INPUTS INTO X and TARGET
-            if i == 0:
-                last_batch = next_batch
-                current_batch = next_batch
-            x_train, y_train, last_batch, current_batch = generate_inp_out(model_str, i, next_batch, last_batch, current_batch, cuda=cuda)
-            ##UGLY FUNCTION OVER
-
+        for x_train, y_train in data_generator(train_iter, model_str, context_size, cuda=cuda):
+            # backprop
+            optimizer.zero_grad()
             output = model(x_train)
-            loss = loss_fn(output, y_train)
+            loss = F.cross_entropy(output, y_train)
             loss.backward()
             optimizer.step()
-        print("Last batch loss after %d epochs is %4f", loss)
+
+            # monitoring
+            count += x_train.size(0)
+            total_loss += t.sum(loss)
+        avg_loss = total_loss / count
+        print("Average loss after %d epochs is %.4f", (epoch, avg_loss.data.numpy()[0]))
     return model
 
 
@@ -62,6 +64,8 @@ def predict(model, model_str, test_iter, valid_epochs=10, context_size=None,
         for x_test, y_test in data_generator(test_iter, model_str, context_size, cuda=cuda):
             output = model(x_test)
             loss = F.cross_entropy(output, y_test)
+
+            # monitoring
             total_loss += loss
             count += x_test.size(0)
 
@@ -71,3 +75,4 @@ def predict(model, model_str, test_iter, valid_epochs=10, context_size=None,
             pickle_entry(losses, "val_loss" + expt_name)
         else:
             print("Avg. loss (per batch) after %d epochs is %4f", epoch, avg_loss)
+    return losses
