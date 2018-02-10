@@ -32,7 +32,12 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
     model.train()
     optimizer = init_optimizer(opt_params, model)
-
+    criterion = F.cross_entropy()
+    
+    if cuda :
+        model = model.cuda()
+        criterion = criterion.cuda()
+        
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', default=30)):
         # monitoring variables
@@ -45,9 +50,11 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
 
         for x_train, y_train in data_generator(train_iter, model_str, context_size, cuda=cuda):
             # backprop
+            if cuda and (not x_train.is_cuda or not y_train.is_cuda):
+                raise Exception("Cuda enabled but variables dont obey that")                
             optimizer.zero_grad()
             output = model(x_train)
-            loss = F.cross_entropy(output, y_train)
+            loss = criterion(output, y_train)
             loss.backward()
             optimizer.step()
 

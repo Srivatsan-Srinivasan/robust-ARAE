@@ -59,21 +59,21 @@ class LSTM(t.nn.Module):
 
 
 class GRU(LSTM):
-    def __init__(self, params, embeddings, cuda=False):
+    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'GRU'
         self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
 
 
 class BiGRU(LSTM):
-    def __init__(self, params, embeddings, cuda=False):
+    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'BiGRU'
         self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
 class BiLSTM(LSTM):
-    def __init__(self, params, embeddings, cuda=False):
+    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'BiLSTM'
         self.rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
