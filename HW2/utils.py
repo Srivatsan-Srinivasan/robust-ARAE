@@ -1,6 +1,7 @@
 import numpy as np
 import torch as t
 from torchtext.vocab import Vectors, GloVe
+import pickle
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=False):
@@ -41,3 +42,33 @@ def load_embedding(TEXT):
     @:param TEXT: torchtext.data.Field()
     """
     TEXT.vocab.load_vectors(vectors=GloVe())
+
+
+def generate_inp_out(model_str, i, next_batch, last_batch, current_batch, context_size = None, cuda = False):
+    if i == 0:
+        current_batch = next_batch
+    else:
+        if model_str == 'NNLM' and context_size is not None:
+            if i > 1 :
+                starting_words = last_batch.text.transpose(0,1)[:, -context_size:]
+            else:
+                starting_words = t.zeros(current_batch.text.size(1), context_size).float()
+        x = t.cat([variable(starting_words, to_float=False).long(), current_batch.text.transpose(0,1).long()], 1)
+
+        # you need the next batch first word to know what the target of the last word of the current batch is
+        ending_word = next_batch.text.transpose(0,1)[:, :1]
+        target = t.cat([current_batch.text.transpose(0,1)[:, 1:], ending_word], 1)
+        
+        last_batch = current_batch
+        current_batch = next_batch
+        
+        return x,target,last_batch,current_batch
+    
+def pickle_entry(entry, name):
+    pickle.dump(entry,open( name+ ".p", "wb" ))
+
+def load_pickle_entry(file_name):
+    return pickle.load( open(file_name, "rb" ) )
+            
+            
+    
