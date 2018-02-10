@@ -48,8 +48,47 @@ def load_embedding(TEXT):
     TEXT.vocab.load_vectors(vectors=GloVe())
 
 
+def data_generator(train_iterator, model_str, context_size, cuda=True):
+    """
+    A generator that yields (x, target) couples. x is the input of the model, and target is the output (the next word)
+    We need that because the last target of the current batch is the first word of the next batch
+    Also, if not using a RNN, the prediction for the first few words necessitates to have the last words of the last batch, so that x is a bit
+    different
+
+    :param context_size: the size of the context size. None for RNN, an integer for NNLM
+    :param model_str: the kind of model you want to use. See const.models and/or language_models.py for details
+    :param cuda: whether to use GPU or not
+    :param train_iterator: the torchtext training iterator
+    :yield: (x, y)
+    """
+    for i, next_batch in enumerate(train_iterator):
+        if i == 0:
+            current_batch = next_batch
+        else:
+            if model_str == 'NNLM':
+                if context_size is not None:
+                    if i > 1:
+                        starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
+                    else:
+                        starting_words = t.zeros(current_batch.text.size(1), context_size).float()
+                    x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), current_batch.text.transpose(0, 1).long()], 1)
+                else:
+                    raise ValueError('`context_size` should not be None')
+            else:
+                x = current_batch.text.transpose(0, 1).long()
+
+            # you need the next batch first word to know what the target of the last word of the current batch is
+            ending_word = next_batch.text.transpose(0, 1)[:, :1]
+            target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], ending_word], 1)
+
+            last_batch = current_batch
+            current_batch = next_batch
+
+            yield x, target
+
+
 def generate_inp_out(model_str, i, next_batch, last_batch, current_batch,
-                     requires_grad=True, context_size=None, cuda=False):
+                     context_size=None, cuda=False):
     if i == 0:
         current_batch = next_batch
     else:
@@ -58,7 +97,7 @@ def generate_inp_out(model_str, i, next_batch, last_batch, current_batch,
                 starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
             else:
                 starting_words = t.zeros(current_batch.text.size(1), context_size).float()
-            x = t.cat([variable(starting_words, to_float=False).long(), current_batch.text.transpose(0, 1).long()], 1)
+            x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), current_batch.text.transpose(0, 1).long()], 1)
         else:
             x = current_batch.text.transpose(0, 1).long()
 
