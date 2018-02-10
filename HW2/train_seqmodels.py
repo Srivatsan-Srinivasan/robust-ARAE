@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from language_models import LSTM, GRU, BiLSTM
+from language_models import LSTM, GRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
 from const import *
 import torch.nn as nn
 import torch.nn.functional as F
@@ -32,9 +32,12 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
     model.train()
     optimizer = init_optimizer(opt_params, model)
-    criterion = F.cross_entropy()
+    if model_str != 'NNLM':
+        criterion = t.nn.CrossEntropyLoss()
+    else:
+        criterion = TemporalCrossEntropyLoss()
     
-    if cuda :
+    if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
         

@@ -103,20 +103,70 @@ class NNLM(t.nn.Module):
         xx = self.conv(xx)
         return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
 
-    @staticmethod
-    def criterion(pred, true):
-        """
-        pred is a batch_size x |V| x T tensor
-        true is a batch_size x T tensor
 
-        The output of the model is a distribution probability for each word in the batch
-        It makes batch_size x T class prediction
-        Therefore you need to apply the cross_entropy loss on each column t=1..T
-        You can see it as T classification outputs at the same time
-        """
+class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
+    r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
+
+    It is useful when training a temporal classification problem with `C` classes over time series of length `T`.
+    If provided, the optional argument `weight` should be a 1D `Tensor`
+    assigning weight to each of the classes.
+    This is particularly useful when you have an unbalanced training set.
+
+    The `input` is expected to contain scores for each class.
+
+    `input` has to be a 3D `Tensor` of size `(minibatch, C, T)`.
+
+    This criterion expects a class index (0 to C-1) as the
+    `target` for each value of a 2D tensor of size `(minibatch, T)`
+
+    The loss can be described as, for each time step `t`::
+
+        loss(x, class, t) = -log(exp(x[class]) / (\sum_j exp(x[j])))
+                       = -x[class] + log(\sum_j exp(x[j]))
+    The total loss being:
+        loss(x, class) = \sum_t loss(x, class, t)
+
+
+    or in the case of the `weight` argument being specified::
+
+        loss(x, class, t) = weight[class] * (-x[class] + log(\sum_j exp(x[j])))
+
+    The losses are averaged across observations for each minibatch.
+
+    Args:
+        weight (Tensor, optional): a manual rescaling weight given to each class.
+           If given, has to be a Tensor of size "C"
+        size_average (bool, optional): By default, the losses are averaged over observations for each minibatch.
+           However, if the field size_average is set to ``False``, the losses are
+           instead summed for each minibatch. Ignored if reduce is ``False``.
+        ignore_index (int, optional): Specifies a target value that is ignored
+            and does not contribute to the input gradient. When size_average is
+            ``True``, the loss is averaged over non-ignored targets.
+
+    Shape:
+        - Input: :math:`(N, C, T)` where `C = number of classes` and `T = sentence length`
+        - Target: :math:`(N, T)` where each value is `0 <= targets[i] <= C-1`
+        - Output: scalar. If reduce is ``False``, then :math:`(N)` instead.
+
+    Examples::
+
+        >>> loss = nn.CrossEntropyLoss2D()
+        >>> input = variable(torch.randn(batch_size, vocab_size, sentence_length), requires_grad=True)  # for each element of the batch, for each position x=0..sentence_length-1, it gives a probability distribution over the |V| possible words
+        >>> target = variable(...)  # size (batch_size, sentence_length). LongTensor containing the correct class (correct next word) at each position of the sentence
+        >>> output = loss(input, target)
+        >>> output.backward()
+    """
+
+    def __init__(self, weight=None, size_average=True, ignore_index=-100):
+        """Average over the batch_size"""
+        super(TemporalCrossEntropyLoss, self).__init__(weight, size_average)
+        self.ignore_index = ignore_index
+
+    def forward(self, pred, true):
+        t.nn.modules.loss._assert_no_grad(true)
         l = 0
         for k in range(pred.size(2)):  # one cross entropy per column
             pred_ = pred[:, :, k:k + 1].squeeze()
             true_ = true[:, k:k + 1].squeeze()
-            l += F.cross_entropy(pred_, true_)
+            l += F.cross_entropy(pred_, true_, self.weight, self.size_average, self.ignore_index)
         return l / pred.size(2)
