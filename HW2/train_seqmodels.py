@@ -92,8 +92,10 @@ def predict(model, test_iter, valid_epochs = 1, context_size = None,
                 x_test = x_test.cuda()
                 y_test = y_test.cuda()
             output = model(x_test)
-            loss = F.cross_entropy(output, y_test)
-
+            if model.model_str != 'NNLM':
+                loss = F.cross_entropy(output, y_test)
+            else:
+                loss = TemporalCrossEntropyLoss().forward(output, y_test)
             # monitoring
             total_loss += loss
             count += x_test.size(0)
