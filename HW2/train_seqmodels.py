@@ -49,9 +49,11 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
             model.hidden = model.init_hidden()
 
         for x_train, y_train in data_generator(train_iter, model_str, context_size, cuda=cuda):
-            # backprop
-            if cuda and (not x_train.is_cuda or not y_train.is_cuda):
-                raise Exception("Cuda enabled but variables dont obey that")                
+            # backprop           
+            if cuda:
+                x_train = x_train.cuda()
+                y_train = y_train.cuda()
+               
             optimizer.zero_grad()
             output = model(x_train)
             loss = criterion(output, y_train)
@@ -81,6 +83,9 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
         total_loss = 0
         count = 0
         for x_test, y_test in data_generator(test_iter, model.model_str, context_size, cuda=cuda):
+            if cuda:
+                x_test = x_test.cuda()
+                y_test = y_test.cuda()
             output = model(x_test)
             loss = F.cross_entropy(output, y_test)
 
