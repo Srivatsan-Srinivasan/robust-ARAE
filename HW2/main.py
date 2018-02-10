@@ -32,6 +32,7 @@ parser.add_argument('--lstm_h_dim', default=100)
 parser.add_argument('--emb_size', default=300)
 parser.add_argument('--batch_size', default=10)
 parser.add_argument('--dropout', default=0.5)
+parser.add_argument('--context_size', default=None)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
@@ -39,7 +40,7 @@ parser.add_argument('--lr', default=0.1)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
-check_args()
+check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
@@ -47,11 +48,11 @@ train_iter, valid_iter, test_iter, TEXT, model_params.vocab_size, embeddings = g
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda=args.cuda,
+trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda=args.cuda, context_size=args.context_size,
                       model_params=model_params, train_params=train_params, opt_params=opt_params)
 
 # Predict Model
-predict(trained_model, args.model, valid_iter, save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
+predict(trained_model, args.model, valid_iter, context_size=args.context_size, save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
 
 # Dummy code.
 print("The model is ", args.model)
