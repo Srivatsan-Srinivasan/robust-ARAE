@@ -82,21 +82,21 @@ class NNLM(t.nn.Module):
 
     However it makes shuffling impossible, which is a problem for SGD (breaks the iid assumption)
     """
-    def __init__(self, context_size, embeddings):
+    def __init__(self, context_size, embeddings, train_embedding=False):
         super(NNLM, self).__init__()
         self.context_size = context_size
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
-        self.w.weight = t.nn.Parameter(embeddings, requires_grad=False)
+        self.w.weight = t.nn.Parameter(embeddings, requires_grad=train_embedding)
 
         self.conv = t.nn.Conv1d(self.embed_dim, self.vocab_size, context_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
         xx = self.conv(xx)
-        return xx
+        return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
 
     @staticmethod
     def criterion(pred, true):
