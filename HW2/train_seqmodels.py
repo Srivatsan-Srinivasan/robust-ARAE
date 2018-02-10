@@ -25,13 +25,17 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def train(model_str, embeddings, train_iter, context_size=None, model_params={}, opt_params={}, train_params={},
+def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, model_params={}, opt_params={}, train_params={},
           cuda=CUDA_DEFAULT):
+
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
+    model.train()
     optimizer = init_optimizer(opt_params, model)
+
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', default=30)):
+        # monitoring variables
         total_loss = 0
         count = 0
 
@@ -50,12 +54,20 @@ def train(model_str, embeddings, train_iter, context_size=None, model_params={},
             # monitoring
             count += x_train.size(0)
             total_loss += t.sum(loss)
+
+        # monitoring
         avg_loss = total_loss / count
         print("Average loss after %d epochs is %.4f", (epoch, avg_loss.data.numpy()[0]))
+        if val_iter is not None:
+            model.eval()
+            predict(model, val_iter, valid_epochs=1, context_size=context_size,
+                    save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT)
+            model.train()
+
     return model
 
 
-def predict(model, test_iter, valid_epochs=10, context_size=None,
+def predict(model, test_iter, valid_epochs=1, context_size=None,
             save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):
@@ -72,7 +84,7 @@ def predict(model, test_iter, valid_epochs=10, context_size=None,
         avg_loss = total_loss / count
         if save_loss:
             losses[epoch] = avg_loss
-            pickle_entry(losses, "val_loss" + expt_name)
+            pickle_entry(losses, "val_loss " + expt_name)
         else:
             print("Avg. loss (per batch) after %d epochs is %4f", epoch, avg_loss)
     return losses

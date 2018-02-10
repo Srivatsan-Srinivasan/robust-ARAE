@@ -8,7 +8,7 @@ Created on Fri Feb  9 15:25:48 2018
 # Mostly dummy code for now to illustrate argparser.
 import argparse
 import torch as t
-from process_params import check_args
+from process_params import check_args, get_params
 from const import *
 from train_seqmodels import train, predict
 from data_process import generate_iterators
@@ -50,9 +50,6 @@ train_iter, valid_iter, test_iter, TEXT, model_params.vocab_size, embeddings = g
 # Train Model
 trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda=args.cuda, context_size=args.context_size,
                       model_params=model_params, train_params=train_params, opt_params=opt_params)
-
-# Predict Model
-predict(trained_model, args.model, valid_iter, context_size=args.context_size, save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
 
 # Dummy code.
 print("The model is ", args.model)
