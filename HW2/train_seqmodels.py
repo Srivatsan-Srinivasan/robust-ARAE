@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from lstm import *
+from lstm import LSTM, GRU, BiLSTM
 from const import *
 import torch.nn as nn
 import torch.optim as optim
@@ -21,7 +21,7 @@ def init_optimizer(opt_params,model):
     return optimizer
 
 def train(model_str, train_iter, model_params = {}, opt_params = {}, train_params = {},
-          optimizer = 'SGD', cuda = False):
+          cuda = False):
     #Params passed in as dict to model. 
     model     = eval(model_str)(model_params)
     loss_fn   = nn.CrossEntropyLoss()
@@ -46,6 +46,7 @@ def train(model_str, train_iter, model_params = {}, opt_params = {}, train_param
             loss.backward()
             optimizer.step()
         print("Last batch loss after %d epochs is %4f", loss)
+    return model
      
 def predict(model, model_str, test_iter, valid_epochs = 10, 
             save_loss=False, expt_name = "dummy_expt", cuda = False):

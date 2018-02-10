@@ -20,15 +20,15 @@ class LSTM():
         super(LSTM, self).__init__()
         
         #Initialize hyperparams.
-        self.hidden_dim         = params.get(hidden_dim, default = 100)
-        self.batch_size         = params.get(batch_size, default = 32)
-        self.embedding_dim      = params.get(embedding_dim, default = 300)
-        self.vocab_size         = params.get(vocab_size)
-        self.output_size        = params.get(output_size , default = self.vocab_size)
-        self.num_layers         = params.get(num_layers, default = 1)
-        self.dropout            = params.get(dropout, default = 0.5)
+        self.hidden_dim         = params.get('hidden_dim', default = 100)
+        self.batch_size         = params.get('batch_size', default = 32)
+        self.embedding_dim      = params.get('embedding_dim', default = 300)
+        self.vocab_size         = params.get('vocab_size', default = 1000)
+        self.output_size        = params.get('output_size' , default = self.vocab_size)
+        self.num_layers         = params.get('num_layers', default = 1)
+        self.dropout            = params.get('dropout', default = 0.5)
                 
-        #Initialize embeddings.
+        #Initialize embeddings. Static embeddings for now.
         self.word_embeddings           = t.nn.Embedding(self.vocab_size, self.embedding_size)
         self.word_embeddings.weight    = nn.Parameter(embeddings, requires_grad = False)
         
