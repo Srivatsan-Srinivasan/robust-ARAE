@@ -49,18 +49,6 @@ def load_embedding(TEXT):
 
 
 def data_generator(iterator, model_str, context_size, cuda=True):
-    """
-    A generator that yields (x, target) couples. x is the input of the model, and target is the output (the next word)
-    We need that because the last target of the current batch is the first word of the next batch
-    Also, if not using a RNN, the prediction for the first few words necessitates to have the last words of the last batch, so that x is a bit
-    different
-
-    :param context_size: the size of the context size. None for RNN, an integer for NNLM
-    :param model_str: the kind of model you want to use. See const.models and/or language_models.py for details
-    :param cuda: whether to use GPU or not
-    :param iterator: the torchtext training iterator
-    :yield: (x, y)
-    """
     for i, next_batch in enumerate(iterator):
         if i == 0:
             current_batch = next_batch
@@ -73,13 +61,11 @@ def data_generator(iterator, model_str, context_size, cuda=True):
                         starting_words = t.zeros(current_batch.text.size(1), context_size).float()
                     x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), current_batch.text.transpose(0, 1).long()], 1)
                 else:
-                    raise ValueError('`context_size` should not be None')
+                    raise ValueError('`context_size` should not be None for NNLM')
             else:
                 x = current_batch.text.transpose(0, 1).long()
 
-            # you need the next batch first word to know what the target of the last word of the current batch is
-            ending_word = next_batch.text.transpose(0, 1)[:, :1]
-            target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], ending_word], 1)
+            target = current_batch.text.transpose(0, 1)
 
             last_batch = current_batch
             current_batch = next_batch
