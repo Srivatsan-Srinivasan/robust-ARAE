@@ -48,7 +48,7 @@ def load_embedding(TEXT):
     TEXT.vocab.load_vectors(vectors=GloVe())
 
 
-def data_generator(iterator, model_str, context_size = None, cuda=True):
+def data_generator(iterator, model_str, context_size=None, cuda=True):
     for i, next_batch in enumerate(iterator):
         if i == 0:
             current_batch = next_batch
@@ -65,7 +65,15 @@ def data_generator(iterator, model_str, context_size = None, cuda=True):
             else:
                 x = current_batch.text.transpose(0, 1).long()
 
-            target = current_batch.text.transpose(0, 1)
+            if model_str == 'NNLM':
+                # for CNN, you predict all the time steps between 0 and T-1 included
+                # you do not predict the time step T (time step 0 of next batch)
+                target = current_batch.text.transpose(0, 1)
+            elif model_str in recur_models:
+                # for RNN, you predict all the time steps between 1 and T-1, as well as T (0th of the next batch)
+                target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], next_batch[:, :1]], 1)
+            else:
+                raise NotImplementedError("Not implemented or not put into the right list in const.py")
 
             last_batch = current_batch
             current_batch = next_batch
