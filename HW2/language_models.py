@@ -34,13 +34,13 @@ class LSTM(t.nn.Module):
         self.train_embedding = params.get('train_embedding',False)
 
         # Initialize embeddings. Static embeddings for now.
-        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_size)
+        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad = self.train_embedding)
 
         # Initialize networks.
-        self.rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
+        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        self.hidden = self.init_hidden(self.num_layers)
+        self.hidden = self.init_hidden()
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
@@ -49,7 +49,8 @@ class LSTM(t.nn.Module):
 
     def forward(self, x_batch):
         embeds = self.word_embeddings(x_batch)
-        rnn_out, self.hidden = self.rnn(embeds, self.hidden_dim)
+        import pdb; pdb.set_trace()
+        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)       
 
         # Need to train it once and check the output to match dimensions.
         # Won't work in the present state.
@@ -63,21 +64,21 @@ class GRU(LSTM):
     def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'GRU'
-        self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
 
 
 class BiGRU(LSTM):
     def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'BiGRU'
-        self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
 class BiLSTM(LSTM):
     def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
         self.model_str = 'BiLSTM'
-        self.rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
+        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
 class NNLM(t.nn.Module):
