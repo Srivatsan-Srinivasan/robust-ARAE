@@ -71,7 +71,7 @@ def data_generator(iterator, model_str, context_size=None, cuda=True):
                 target = current_batch.text.transpose(0, 1)
             elif model_str in recur_models:
                 # for RNN, you predict all the time steps between 1 and T-1, as well as T (0th of the next batch)
-                target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], next_batch[:, :1]], 1)
+                target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], next_batch.text.transpose(0,1)[:, :1]], 1)
             else:
                 raise NotImplementedError("Not implemented or not put into the right list in const.py")
 
