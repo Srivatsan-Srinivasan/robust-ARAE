@@ -55,13 +55,13 @@ def train(model_str, embeddings, train_iter, context_size=None, model_params={},
     return model
 
 
-def predict(model, model_str, test_iter, valid_epochs=10, context_size=None,
+def predict(model, test_iter, valid_epochs=10, context_size=None,
             save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):
         total_loss = 0
         count = 0
-        for x_test, y_test in data_generator(test_iter, model_str, context_size, cuda=cuda):
+        for x_test, y_test in data_generator(test_iter, model.model_str, context_size, cuda=cuda):
             output = model(x_test)
             loss = F.cross_entropy(output, y_test)
 
