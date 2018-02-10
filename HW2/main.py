@@ -33,6 +33,7 @@ parser.add_argument('--emb_size', default=300)
 parser.add_argument('--batch_size', default=10)
 parser.add_argument('--dropout', default=0.5)
 parser.add_argument('--context_size', default=None)
+parser.add_argument('--train_embedding', default=False)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
@@ -44,7 +45,7 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params.vocab_size, embeddings = generate_iterators(debug=args.debug)
+train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(debug=args.debug)
 
 # Call for different models code should be here.
 # Train Model

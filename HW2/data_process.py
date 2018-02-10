@@ -12,7 +12,7 @@ def generate_iterators(debug=False, batch_size=10, emb='GloVe'):
     TEXT = torchtext.data.Field()
     # Data distributed with the assignment
     train, val, test = torchtext.datasets.LanguageModelingDataset.splits(
-        path=".",
+        path="../HW2/",
         train="train.txt", validation="valid.txt", test="valid.txt", text_field=TEXT)
     if debug:
         TEXT.build_vocab(train, max_size=1000)
@@ -26,9 +26,9 @@ def generate_iterators(debug=False, batch_size=10, emb='GloVe'):
 
     # Load pre-trained word embddings if any
     if emb == 'GloVe':
-        TEXT.vocab.load_vectors(vectors=GloVe(name='6B'))
+        TEXT.vocab.load_vectors(vectors=GloVe())
     elif emb == 'fasttext':
         url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
         TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
 
-    return train_iter, val_iter, test_iter, TEXT, len(TEXT.vocab)
+    return train_iter, val_iter, test_iter, TEXT, len(TEXT.vocab), TEXT.vocab.vectors
