@@ -48,7 +48,7 @@ def load_embedding(TEXT):
     TEXT.vocab.load_vectors(vectors=GloVe())
 
 
-def data_generator(train_iterator, model_str, context_size, cuda=True):
+def data_generator(iterator, model_str, context_size, cuda=True):
     """
     A generator that yields (x, target) couples. x is the input of the model, and target is the output (the next word)
     We need that because the last target of the current batch is the first word of the next batch
@@ -58,10 +58,10 @@ def data_generator(train_iterator, model_str, context_size, cuda=True):
     :param context_size: the size of the context size. None for RNN, an integer for NNLM
     :param model_str: the kind of model you want to use. See const.models and/or language_models.py for details
     :param cuda: whether to use GPU or not
-    :param train_iterator: the torchtext training iterator
+    :param iterator: the torchtext training iterator
     :yield: (x, y)
     """
-    for i, next_batch in enumerate(train_iterator):
+    for i, next_batch in enumerate(iterator):
         if i == 0:
             current_batch = next_batch
         else:
