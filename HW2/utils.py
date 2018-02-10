@@ -59,19 +59,21 @@ def data_generator(iterator, model_str, context_size=None, cuda=True):
                         starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
                     else:
                         starting_words = t.zeros(current_batch.text.size(1), context_size).float()
-                    x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), current_batch.text.transpose(0, 1).long()], 1)
+                    x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), variable(current_batch.text.transpose(0, 1).data, cuda=cuda, to_float=False).long()], 1)
                 else:
                     raise ValueError('`context_size` should not be None for NNLM')
             else:
-                x = current_batch.text.transpose(0, 1).long()
+                x = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda).long()
 
             if model_str == 'NNLM':
                 # for CNN, you predict all the time steps between 0 and T-1 included
                 # you do not predict the time step T (time step 0 of next batch)
-                target = current_batch.text.transpose(0, 1)
+                target = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda)
             elif model_str in recur_models:
                 # for RNN, you predict all the time steps between 1 and T-1, as well as T (0th of the next batch)
-                target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], next_batch.text.transpose(0,1)[:, :1]], 1)
+                target = t.cat([variable(current_batch.text.transpose(0, 1)[:, 1:].data, to_float=False, cuda=cuda).long(),
+                                variable(next_batch.text.transpose(0, 1)[:, :1].data, cuda=cuda, to_float=False).long()],
+                               1)
             else:
                 raise NotImplementedError("Not implemented or not put into the right list in const.py")
 
