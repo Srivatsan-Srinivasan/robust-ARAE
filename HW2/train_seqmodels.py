@@ -13,7 +13,7 @@ from utils import *
 
 
 def init_optimizer(opt_params, model):
-    optimizer = opt_params.get('optimizer', default='SGD')
+    optimizer = opt_params.get('optimizer','SGD')
     lr = opt_params.get('lr', default=0.1)
     if optimizer == 'SGD':
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
@@ -29,8 +29,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
 
     # Params passed in as dict to model.
+    import pdb; pdb.set_trace()
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
-    model.train()
+    #model.train()
     optimizer = init_optimizer(opt_params, model)
     if model_str != 'NNLM':
         criterion = t.nn.CrossEntropyLoss()
