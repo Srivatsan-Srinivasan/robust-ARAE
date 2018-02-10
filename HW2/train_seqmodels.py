@@ -75,7 +75,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
         if val_iter is not None:
             model.eval()
             predict(model, val_iter, valid_epochs=1, context_size=context_size,
-                    save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT)
+                    save_loss=False, expt_name="dummy_expt", cuda=cuda)
             model.train()
 
     return model
