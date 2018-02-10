@@ -7,6 +7,7 @@ Created on Fri Feb  9 16:12:30 2018
 from language_models import LSTM, GRU, BiLSTM
 from const import *
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 from utils import *
 
@@ -52,26 +53,21 @@ def train(model_str, embeddings, train_iter, model_params={}, opt_params={}, tra
     return model
 
 
-def predict(model, model_str, test_iter, valid_epochs=10,
+def predict(model, model_str, test_iter, valid_epochs=10, context_size=None,
             save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):
-        avg_loss = 0
-        for i, next_batch in enumerate(test_iter):
-            ##UGLY PROCESSING FUNCTION FOR CONVERTING INPUTS INTO X and TARGET
-            if i == 0:
-                last_batch = next_batch
-                current_batch = next_batch
-            x_test, y_test, last_batch, current_batch = generate_inp_out(model_str, i, next_batch, last_batch, current_batch, cuda=cuda)
-            ##UGLY FUNCTION OVER
-
+        total_loss = 0
+        count = 0
+        for x_test, y_test in data_generator(test_iter, model_str, context_size, cuda=cuda):
             output = model(x_test)
-            loss_fn = nn.CrossEntropyLoss()
-            loss = loss_fn(output, y_test)
-            avg_loss = (i * avg_loss + loss) / (i + 1)
+            loss = F.cross_entropy(output, y_test)
+            total_loss += loss
+            count += x_test.size(0)
 
+        avg_loss = total_loss / count
         if save_loss:
             losses[epoch] = avg_loss
             pickle_entry(losses, "val_loss" + expt_name)
         else:
-            print("Avg. loss after %d epochs is %4f", i, avg_loss)
+            print("Avg. loss (per batch) after %d epochs is %4f", epoch, avg_loss)
