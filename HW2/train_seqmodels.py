@@ -69,6 +69,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
 
         # monitoring
         avg_loss = total_loss / count
+        if cuda:
+            avg_loss = avg_loss.cpu()
         print("Average loss after %d epochs is %.4f", (epoch, avg_loss.data.numpy()[0]))
         if val_iter is not None:
             model.eval()
@@ -97,6 +99,9 @@ def predict(model, test_iter, valid_epochs = 1, context_size = None,
             count += x_test.size(0)
 
         avg_loss = total_loss / count
+        if cuda:
+            avg_loss = avg_loss.cpu()
+        avg_loss = avg_loss.data.numpy()[0]
         if save_loss:
             losses[epoch] = avg_loss
             pickle_entry(losses, "val_loss " + expt_name)
