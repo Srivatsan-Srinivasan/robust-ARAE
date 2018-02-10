@@ -6,7 +6,8 @@ Created on Fri Feb  9 15:25:48 2018
 """
 
 # Mostly dummy code for now to illustrate argparser.
-import argparse, torch as t
+import argparse
+import torch as t
 from process_params import check_args
 from const import *
 from train_seqmodels import train, predict
