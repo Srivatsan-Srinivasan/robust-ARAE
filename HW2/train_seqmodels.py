@@ -29,8 +29,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
 
     # Params passed in as dict to model.
-    model = eval(model_str)(model_params, embeddings, cuda=cuda)
-    #model.train()
+    model = eval(model_str)(model_params, embeddings)
+    model.train()  # important!
     optimizer = init_optimizer(opt_params, model)
     if model_str != 'NNLM':
         criterion = t.nn.CrossEntropyLoss()
@@ -38,7 +38,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
         criterion = TemporalCrossEntropyLoss()
     
     if cuda:
-        model = model.cuda()
+        model.cuda()
         criterion = criterion.cuda()
         
     print("All set. Actual Training begins")
