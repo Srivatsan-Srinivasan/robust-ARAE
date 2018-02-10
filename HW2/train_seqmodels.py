@@ -25,8 +25,8 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, model_params={}, opt_params={}, train_params={},
-          cuda=CUDA_DEFAULT):
+def train(model_str, embeddings, train_iter, val_iter=None, context_size = None, 
+          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
 
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings, cuda=cuda)
@@ -51,7 +51,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
         if model_str in recur_models:
             model.hidden = model.init_hidden()
 
-        for x_train, y_train in data_generator(train_iter, model_str, context_size, cuda=cuda):
+        for x_train, y_train in data_generator(train_iter, model_str, context_size = context_size, cuda=cuda):
             # backprop           
             if cuda:
                 x_train = x_train.cuda()
@@ -79,13 +79,13 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, m
     return model
 
 
-def predict(model, test_iter, valid_epochs=1, context_size=None,
-            save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
+def predict(model, test_iter, valid_epochs = 1, context_size = None,
+            save_loss = False, expt_name = "dummy_expt", cuda = CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):
         total_loss = 0
         count = 0
-        for x_test, y_test in data_generator(test_iter, model.model_str, context_size, cuda=cuda):
+        for x_test, y_test in data_generator(test_iter, model.model_str, context_size = context_size, cuda=cuda):
             if cuda:
                 x_test = x_test.cuda()
                 y_test = y_test.cuda()

@@ -19,25 +19,25 @@ parser = argparse.ArgumentParser(description="For CS287 HW2")
 
 # Add arguments to be parsed.
 # GENERAL PARAMS
-parser.add_argument('--debug', default=False)
+parser.add_argument('--debug', default=False, type = bool)
 parser.add_argument('--emb', default='GloVe')
-parser.add_argument('--cuda', default=CUDA_DEFAULT)
+parser.add_argument('--cuda', default=CUDA_DEFAULT, type = bool)
 parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
-parser.add_argument('--save', default=False, help='States if you need to pickle validation loss')
+parser.add_argument('--save', default=False, help='States if you need to pickle validation loss', type=bool)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='NNLM', help='state which model to use')
-parser.add_argument('--lstm_nl', default=1)
-parser.add_argument('--lstm_h_dim', default=100)
-parser.add_argument('--emb_size', default=300)
-parser.add_argument('--batch_size', default=10)
-parser.add_argument('--dropout', default=0.5)
-parser.add_argument('--context_size', default=None)
-parser.add_argument('--train_embedding', default=False)
+parser.add_argument('--lstm_nl', default=1, type=int)
+parser.add_argument('--lstm_h_dim', default=100, type=int)
+parser.add_argument('--emb_size', default=300, type=int)
+parser.add_argument('--batch_size', default=10, type=int)
+parser.add_argument('--dropout', default=0.5, type=float)
+parser.add_argument('--con_size', default=None, type=int)
+parser.add_argument('--emb_train', default=False, type=bool)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
-parser.add_argument('--lr', default=0.1)
+parser.add_argument('--lr', default=0.1, type = float)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
@@ -49,7 +49,7 @@ train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings 
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda=args.cuda, context_size=args.context_size,
+trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda=args.cuda, context_size=int(args.context_size),
                       model_params=model_params, train_params=train_params, opt_params=opt_params)
 
 # Predict Model

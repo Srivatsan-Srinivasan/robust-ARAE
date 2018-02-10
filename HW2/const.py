@@ -16,7 +16,9 @@ model_params_args_map = {'num_layers'    : 'lstm_nl',
                          'hidden_dim'    : 'lstm_h_dim',
                          'embedding_dim' : 'emb_size',
                          'batch_size'    : 'batch_size',
-                         'dropout'       : 'dropout'                        
+                         'dropout'       : 'dropout',
+                         'context_size'  : 'con_size',
+                         'train_embedding' : 'emb_train'                         
                         }
 
 opt_params_args_map = { 'optimizer' : 'optimizer',

@@ -48,7 +48,7 @@ def load_embedding(TEXT):
     TEXT.vocab.load_vectors(vectors=GloVe())
 
 
-def data_generator(iterator, model_str, context_size, cuda=True):
+def data_generator(iterator, model_str, context_size = None, cuda=True):
     for i, next_batch in enumerate(iterator):
         if i == 0:
             current_batch = next_batch
