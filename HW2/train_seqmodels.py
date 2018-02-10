@@ -14,7 +14,7 @@ from utils import *
 
 def init_optimizer(opt_params, model):
     optimizer = opt_params.get('optimizer','SGD')
-    lr = opt_params.get('lr', default=0.1)
+    lr = opt_params.get('lr', 0.1)
     if optimizer == 'SGD':
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
     if optimizer == 'Adam':
