@@ -2,9 +2,10 @@ import numpy as np
 import torch as t
 from torchtext.vocab import Vectors, GloVe
 import pickle
+from const import *
 
 
-def variable(array, requires_grad=False, to_float=True, cuda=False):
+def variable(array, requires_grad=False, to_float=True, cuda = CUDA_DEFAULT):
     """Wrapper for t.autograd.Variable"""
     if isinstance(array, np.ndarray):
         v = t.autograd.Variable(t.from_numpy(array), requires_grad=requires_grad)
@@ -44,7 +45,8 @@ def load_embedding(TEXT):
     TEXT.vocab.load_vectors(vectors=GloVe())
 
 
-def generate_inp_out(model_str, i, next_batch, last_batch, current_batch, context_size = None, cuda = False):
+def generate_inp_out(model_str, i, next_batch, last_batch, current_batch, 
+                     requires_grad = True, context_size = None, cuda = False):    
     if i == 0:
         current_batch = next_batch
     else:
@@ -53,7 +55,9 @@ def generate_inp_out(model_str, i, next_batch, last_batch, current_batch, contex
                 starting_words = last_batch.text.transpose(0,1)[:, -context_size:]
             else:
                 starting_words = t.zeros(current_batch.text.size(1), context_size).float()
-        x = t.cat([variable(starting_words, to_float=False).long(), current_batch.text.transpose(0,1).long()], 1)
+            x = t.cat([variable(starting_words, to_float=False).long(), current_batch.text.transpose(0,1).long()], 1, requires_grad = requires_grad)
+        else:
+            x = current_batch.text.transpose(0,1).long()
 
         # you need the next batch first word to know what the target of the last word of the current batch is
         ending_word = next_batch.text.transpose(0,1)[:, :1]

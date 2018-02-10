@@ -14,22 +14,23 @@ def init_optimizer(opt_params,model):
     optimizer = opt_params.get('optimizer', default = 'SGD')
     lr = opt_params.get('lr', default = 0.1)
     if optimizer == 'SGD':
-        optimizer = optim.SGD(model.parameters(), lr = lr)
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
     if optimizer == 'Adam':
-        optimizer = optim.Adam(model.parameters(), lr = lr)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
+    if optimizer == 'Adamax':
+        optimizer = optim.AdaMax(filter(lambda p: p.requires_grad, model.parameters()), lr = lr)
         
     return optimizer
 
-def train(model_str, train_iter, model_params = {}, opt_params = {}, train_params = {},
-          cuda = False):
+def train(model_str, embeddings, train_iter, model_params = {}, opt_params = {}, train_params = {},
+          cuda = CUDA_DEFAULT):
     #Params passed in as dict to model. 
-    model     = eval(model_str)(model_params)
+    model     = eval(model_str)(model_params, embeddings, cuda = cuda)
     loss_fn   = nn.CrossEntropyLoss()
     optimizer = init_optimizer(opt_params,model)
-    print("Actual Training begins")
+    print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', default = 30)):
-        model.zero_grad()
-        
+        model.zero_grad()        
         if model_str in recur_models:
             model.hidden = model.init_hidden()
             
@@ -49,7 +50,7 @@ def train(model_str, train_iter, model_params = {}, opt_params = {}, train_param
     return model
      
 def predict(model, model_str, test_iter, valid_epochs = 10, 
-            save_loss=False, expt_name = "dummy_expt", cuda = False):
+            save_loss=False, expt_name = "dummy_expt", cuda = CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):   
         avg_loss = 0

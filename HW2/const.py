@@ -6,8 +6,11 @@ Created on Fri Feb  9 15:28:37 2018
 """
 
 models = ['NNLM', 'LSTM', 'BiLSTM', 'GRU', 'Trigram']
-optimizers = ['SGD', 'Adam']
+optimizers = ['SGD', 'Adam', 'AdaMax']
 recur_models = ['LSTM', 'GRU', 'BiLSTM']
+embeddings = ['GloVe', 'fasttext']
+
+CUDA_DEFAULT = False
 
 model_params_args_map = {'num_layers'    : 'lstm_nl',
                          'hidden_dim'    : 'lstm_h_dim',

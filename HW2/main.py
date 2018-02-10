@@ -6,18 +6,21 @@ Created on Fri Feb  9 15:25:48 2018
 """
 
 #Mostly dummy code for now to illustrate argparser.
-import argparse
+import argparse, torch as t
 from process_params import check_args
 from const import *
 from train_seqmodels import train, predict
 from data_process import generate_iterators
+
+t.manual_seed(1)
 #Create Parser.
 parser = argparse.ArgumentParser(description = "For CS287 HW2")
 
 #Add arguments to be parsed.
 #GENERAL PARAMS
 parser.add_argument('--debug', default = False )
-parser.add_argument('--cuda', default = False)
+parser.add_argument('--emb', default = 'GloVe')
+parser.add_argument('--cuda', default = CUDA_DEFAULT)
 parser.add_argument('--exp_n', default = 'dummy_expt', help = 'Give name for expt')
 parser.add_argument('--save', default = False, help = 'States if you need to pickle validation loss')
 
@@ -39,11 +42,11 @@ check_args()
 model_params, opt_params, train_params = get_params(args)
     
 #Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params.vocab_size  = generate_iterators(debug = args.debug)
+train_iter, valid_iter, test_iter, TEXT, model_params.vocab_size, embeddings  = generate_iterators(debug = args.debug)
 
 #Call for different models code should be here.
 #Train Model
-trained_model = train(args.model, train_iter, cuda = args.cuda, 
+trained_model = train(args.model, TEXT.vocab.vectors, train_iter, cuda = args.cuda, 
                       model_params = model_params, train_params = train_params, opt_params = opt_params )
 
 #Predict Model

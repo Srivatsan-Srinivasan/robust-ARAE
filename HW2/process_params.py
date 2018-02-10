@@ -22,6 +22,11 @@ def get_params(args):
 
 def check_args(args):
     if args.model not in models:
-        raise Exception("Given model string not in valid models. Add your new model to const.py")
+        raise Exception("Given model string not in valid models. Add your new model to const.py"+ 
+                        "Could also be case mismatch. Check const.py")
     if args.optimizer not in optimizers:
-        raise Exception("Given optimizer string not in valid models. Add your new model to const.py and train_seqmodels.py")
+        raise Exception("Given optimizer string not in valid models. Add your new model to const.py and train_seqmodels.py" +
+                        "Could also be case mismatch. Check const.py")
+    if args.emb not in embeddings:            
+        raise Exception("Given embedding string not in valid models. Add your new embedding to const.py and data_process.py" +
+                        "Could also be case mismatch. Check const.py")
