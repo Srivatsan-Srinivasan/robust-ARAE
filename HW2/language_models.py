@@ -21,6 +21,7 @@ class LSTM(t.nn.Module):
     def __init__(self, params, embeddings, cuda=CUDA_DEFAULT):
         super(LSTM, self).__init__()
         self.cuda = cuda
+        self.model_str = 'LSTM'
 
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', default=100)
@@ -60,18 +61,21 @@ class LSTM(t.nn.Module):
 class GRU(LSTM):
     def __init__(self, params, embeddings, cuda=False):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
+        self.model_str = 'GRU'
         self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
 
 
 class BiGRU(LSTM):
     def __init__(self, params, embeddings, cuda=False):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
+        self.model_str = 'BiGRU'
         self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
 class BiLSTM(LSTM):
     def __init__(self, params, embeddings, cuda=False):
         LSTM.__init__(self, params, embeddings, cuda=cuda)
+        self.model_str = 'BiLSTM'
         self.rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
@@ -84,6 +88,7 @@ class NNLM(t.nn.Module):
     """
     def __init__(self, context_size, embeddings, train_embedding=False):
         super(NNLM, self).__init__()
+        self.model_str = 'NNLM'
         self.context_size = context_size
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
