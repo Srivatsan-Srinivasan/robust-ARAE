@@ -130,8 +130,8 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
 
         for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
             if cuda:
-                x_test = x_test.cuda()
-                y_test = y_test.cuda()
+                x_test = x_test.long().cuda()
+                y_test = y_test.long().cuda()
             output = model(x_test)
             if model.model_str in recur_models:
                 output = output.permute(0, 2, 1)
