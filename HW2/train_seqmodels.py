@@ -34,12 +34,6 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
 
-    if val_iter is not None:
-        model.eval()
-        predict(model, val_iter, valid_epochs=1, context_size=context_size,
-                save_loss=False, expt_name="dummy_expt", cuda=cuda)
-        model.train()
-
     if model_str == 'NNLM2':
         # in that case `train_iter` is a list of numpy arrays
         Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
@@ -52,6 +46,12 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
+
+    if val_iter is not None:
+        model.eval()
+        predict(model, val_iter, valid_epochs=1, context_size=context_size,
+                save_loss=False, expt_name="dummy_expt", cuda=cuda)
+        model.train()
         
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
