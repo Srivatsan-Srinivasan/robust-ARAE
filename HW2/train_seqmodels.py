@@ -117,10 +117,10 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
                 x_test = x_test.cuda()
                 y_test = y_test.cuda()
             output = model(x_test)
-            if model.model_str != 'NNLM':
-                output = output.view(y_test.size()[0],-1,y_test.size()[1])
+            if model.model_str in recur_models:
+                output = output.permute(0, 2, 1)
 
-            loss = TemporalCrossEntropyLoss().forward(output, y_test)
+            loss = TemporalCrossEntropyLoss(size_average=False).forward(output, y_test) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False).forward(output, y_test)
             # monitoring
             total_loss += loss
             count += x_test.size(0)
