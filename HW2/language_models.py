@@ -17,9 +17,9 @@ from utils import *
 from const import *
 
 class LSTM(t.nn.Module):
-    def __init__(self, params, embeddings, cuda=CUDA_DEFAULT):
+    def __init__(self, params, embeddings):
         super(LSTM, self).__init__()
-        self.cuda_flag = cuda
+        self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
         self.model_str = 'LSTM'
 
         # Initialize hyperparams.
@@ -64,22 +64,22 @@ class LSTM(t.nn.Module):
 
 
 class GRU(LSTM):
-    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
-        LSTM.__init__(self, params, embeddings, cuda=cuda)
+    def __init__(self, params, embeddings):
+        LSTM.__init__(self, params, embeddings)
         self.model_str = 'GRU'
         self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
 
 
 class BiGRU(LSTM):
-    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
-        LSTM.__init__(self, params, embeddings, cuda=cuda)
+    def __init__(self, params, embeddings):
+        LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiGRU'
         self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
 
 class BiLSTM(LSTM):
-    def __init__(self, params, embeddings, cuda= CUDA_DEFAULT):
-        LSTM.__init__(self, params, embeddings, cuda=cuda)
+    def __init__(self, params, embeddings):
+        LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiLSTM'
         self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
 
