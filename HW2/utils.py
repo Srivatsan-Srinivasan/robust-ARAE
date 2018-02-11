@@ -122,7 +122,7 @@ def rebuild_iterators(TEXT, batch_size=10):
     :param TEXT:
     :return:
     """
-    if 'shuffled_train.txt' not in os.listdir():
+    if 'shuffled_train.txt' in os.listdir():
         shuffle_train_txt_file('shuffled_train.txt', 'shuffled_train.txt')
     else:
         shuffle_train_txt_file('train.txt', 'shuffled_train.txt')
