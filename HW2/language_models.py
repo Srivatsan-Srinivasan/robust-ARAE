@@ -135,7 +135,7 @@ class NNLM2(t.nn.Module):
 
         self.dropout = t.nn.Dropout()
         self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, 100)
-        self.fc2 = t.nn.Linear(100, self.vocab_size, bias=False)
+        self.fc2 = t.nn.Linear(100, self.vocab_size)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
