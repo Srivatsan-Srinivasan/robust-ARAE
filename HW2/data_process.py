@@ -79,7 +79,7 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
             #Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
             x_test = variable(np.matrix(word_markers), requires_grad = False, cuda = cuda)           
-            output = trained_model(x_test)
+            output = trained_model(x_test, test = True)
             #Batch * NO of words * vocab
             output = output.view(1,len(word_markers),-1).numpy()
             output = output[0]
