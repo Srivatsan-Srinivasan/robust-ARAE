@@ -39,7 +39,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     else:
         train_iter_ = train_iter
     optimizer = init_optimizer(opt_params, model)
-    criterion = TemporalCrossEntropyLoss()
+    criterion = TemporalCrossEntropyLoss() if model.model_str != 'NNLM2' else nn.CrossEntropyLoss()
 
     if cuda:
         model = model.cuda()
