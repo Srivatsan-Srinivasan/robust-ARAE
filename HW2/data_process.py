@@ -9,6 +9,7 @@ from torchtext.vocab import Vectors, GloVe
 from utils import variable
 from const import *
 
+
 def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None):
     TEXT = torchtext.data.Field()
     # Data distributed with the assignment
@@ -67,6 +68,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
         TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
 
     return train_iter, val_iter, test_iter, TEXT, len(TEXT.vocab), TEXT.vocab.vectors
+
 
 def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
     with open(expt_name + ".txt", "w") as fout: 
