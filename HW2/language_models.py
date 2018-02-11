@@ -40,7 +40,7 @@ class LSTM(t.nn.Module):
         self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
         self.hidden     = self.init_hidden()
-        self.dropout_1  = nn.Dropout(self.dropout)
+        self.dropout_1  = nn.Dropout(self.dropout, inplace = True)
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function

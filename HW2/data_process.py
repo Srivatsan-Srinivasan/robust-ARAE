@@ -74,7 +74,6 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT, h_
     with open(expt_name + ".txt", "w") as fout: 
         print("id,word", file=fout)
         for i, l in enumerate(open("input.txt"), 1):
-            import pdb; pdb.set_trace()
             word_markers = [TEXT.vocab.stoi[s] for s in l.split()][:-1]
             #Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
@@ -86,9 +85,15 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT, h_
                    ))     
             output = trained_model(x_test.long(), test = True)
             #Batch * NO of words * vocab
-            output = output.view(1,len(word_markers),-1).numpy()
+            output = output.view(1,len(word_markers),-1)
+            if cuda:
+                output = output.data.cpu().numpy()
+            else:
+                output = output.data.numpy()
+                
             output = output[0]
             #top 20 predicitons for Last word
-            n_predictions = (-output[-1]).argsort()[:20]    
-            print("%d,%s"%(i, " ".join(n_predictions)), file=fout)
+            n_predictions = (-output[-1]).argsort()[:20]  
+            predictions   = [TEXT.vocab.itos[i] for i in n_predictions]
+            print("%d,%s"%(i, " ".join(predictions)), file=fout)
         print("Completed writing the output file")
