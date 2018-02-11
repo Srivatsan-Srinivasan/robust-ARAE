@@ -6,7 +6,7 @@ Created on Fri Feb  9 16:12:30 2018
 """
 from language_models import LSTM, GRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
 from const import *
-import torch.nn as nn
+import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
 from utils import *
