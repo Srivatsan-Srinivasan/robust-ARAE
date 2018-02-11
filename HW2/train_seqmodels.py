@@ -75,7 +75,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
             output = model(x_train)
 
             # Dimension matching to cut it right for loss function.
-            batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            batch_size, sent_length = y_train.size(0), y_train.size(1)
             if model_str in recur_models:
                 loss = criterion(output.view(batch_size, -1, sent_length), y_train)
             else:
