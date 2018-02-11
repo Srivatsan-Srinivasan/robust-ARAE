@@ -32,6 +32,17 @@ def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
         return v
 
 
+def save_model(model, path):
+    t.save(model.state_dict(), path)
+
+
+def load_model(untrained_model, path, cuda=True):
+    if cuda:
+        untrained_model.load_state_dict(t.load(path, map_location=lambda storage, loc: storage.cuda(0)))
+    else:
+        untrained_model.load_state_dict(t.load(path, map_location=lambda storage, loc: storage))
+
+
 def batch2text(batch, TEXT):
     return " ".join([TEXT.vocab.itos[i] for i in batch.text[:, 0].data])
 
