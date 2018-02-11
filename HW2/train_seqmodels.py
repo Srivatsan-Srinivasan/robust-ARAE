@@ -52,11 +52,11 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
             model.hidden = model.init_hidden()
 
         for x_train, y_train in data_generator(train_iter, model_str, context_size = context_size, cuda=cuda):
-            # backprop           
+            # backprop
             if cuda:
                 x_train = x_train.cuda()
                 y_train = y_train.cuda()
-               
+
             optimizer.zero_grad()
             output = model(x_train)
             loss = criterion(output, y_train)
