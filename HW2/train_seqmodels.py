@@ -10,6 +10,7 @@ import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
+from collections import namedtuple
 from utils import *
 
 
@@ -31,9 +32,15 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
+    if model_str == 'NNLM2':
+        # in that case `train_iter` is a list of numpy arrays
+        Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
+        train_iter_ = Iterator(dataset=train_iter, batch_size=model_params['batch_size'])
+    else:
+        train_iter_ = train_iter
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss()
-    
+
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
@@ -51,7 +58,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
         if reshuffle_train:
             train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
-        for x_train, y_train in data_generator(train_iter, model_str, context_size=context_size, cuda=cuda):
+        for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
             # Treating each batch as separate instance otherwise Torch accumulates gradients.
             # That could be computationally expensive.
             # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch

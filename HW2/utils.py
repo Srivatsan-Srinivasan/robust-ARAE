@@ -32,83 +32,72 @@ def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
         return v
 
 
-def embed_sentence(batch, TEXT, vec_dim=300, sentence_length=16):
-    """Convert integer-encoded sentence to word vector representation"""
-    return t.cat([TEXT.vocab.vectors[batch.text.data.long()[:, i]].view(1, sentence_length, vec_dim) for i in range(batch.batch_size)])
-
-
 def batch2text(batch, TEXT):
     return " ".join([TEXT.vocab.itos[i] for i in batch.text[:, 0].data])
 
 
-def load_embedding(TEXT):
-    """
-    By default it loads GloVe because it works well.
-    It could be implemented so that it could load any other one but I think this is not very important
-    @:param TEXT: torchtext.data.Field()
-    """
-    TEXT.vocab.load_vectors(vectors=GloVe())
+def pickle_entry(entry, name):
+    pickle.dump(entry, open(name + ".p", "wb"))
+
+
+def load_pickle_entry(file_name):
+    return pickle.load(open(file_name, "rb"))
 
 
 def data_generator(iterator, model_str, context_size=None, cuda=True):
-    for i, next_batch in enumerate(iterator):
-        if i == 0:
-            current_batch = next_batch
-        else:
-            if model_str == 'NNLM':
-                if context_size is not None:
-                    if i > 1:
-                        starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
+    """
+    Treats differently NNLM2 from other models
+
+    :yield: (x,y) pairs
+        For NNLM2: x is the context, y is the word that follows
+        For the rest: x is the sentence, y is the shiffted sentence
+    """
+    if model_str != 'NNLM2':
+        for i, next_batch in enumerate(iterator):
+            if i == 0:
+                current_batch = next_batch
+            else:
+                if model_str == 'NNLM':
+                    if context_size is not None:
+                        if i > 1:
+                            starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
+                        else:
+                            starting_words = t.zeros(current_batch.text.size(1), context_size).float()
+                        x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), variable(current_batch.text.transpose(0, 1).data, cuda=cuda, to_float=False).long()], 1)
                     else:
-                        starting_words = t.zeros(current_batch.text.size(1), context_size).float()
-                    x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), variable(current_batch.text.transpose(0, 1).data, cuda=cuda, to_float=False).long()], 1)
+                        raise ValueError('`context_size` should not be None for NNLM')
                 else:
-                    raise ValueError('`context_size` should not be None for NNLM')
-            else:
-                x = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda).long()
+                    x = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda).long()
 
-            if model_str == 'NNLM':
-                # for CNN, you predict all the time steps between 0 and T-1 included
-                # you do not predict the time step T (time step 0 of next batch)
-                target = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda)
-            elif model_str in recur_models:
-                # for RNN, you predict all the time steps between 1 and T-1, as well as T (0th of the next batch)
-                target = t.cat([variable(current_batch.text.transpose(0, 1)[:, 1:].data, to_float=False, cuda=cuda).long(),
-                                variable(next_batch.text.transpose(0, 1)[:, :1].data, cuda=cuda, to_float=False).long()],
-                               1)
-            else:
-                raise NotImplementedError("Not implemented or not put into the right list in const.py")
+                if model_str == 'NNLM':
+                    # for CNN, you predict all the time steps between 0 and T-1 included
+                    # you do not predict the time step T (time step 0 of next batch)
+                    target = variable(current_batch.text.transpose(0, 1).data, to_float=False, cuda=cuda)
+                elif model_str in recur_models:
+                    # for RNN, you predict all the time steps between 1 and T-1, as well as T (0th of the next batch)
+                    target = t.cat([variable(current_batch.text.transpose(0, 1)[:, 1:].data, to_float=False, cuda=cuda).long(),
+                                    variable(next_batch.text.transpose(0, 1)[:, :1].data, cuda=cuda, to_float=False).long()],
+                                   1)
+                else:
+                    raise NotImplementedError("Not implemented or not put into the right list in const.py")
 
-            last_batch = current_batch
-            current_batch = next_batch
+                last_batch = current_batch
+                current_batch = next_batch
 
-            yield x, target
-
-
-def generate_inp_out(model_str, i, next_batch, last_batch, current_batch,
-                     context_size=None, cuda=False):
-    if i == 0:
-        current_batch = next_batch
+                yield x, target
     else:
-        if model_str == 'NNLM' and context_size is not None:
-            if i > 1:
-                starting_words = last_batch.text.transpose(0, 1)[:, -context_size:]
-            else:
-                starting_words = t.zeros(current_batch.text.size(1), context_size).float()
-            x = t.cat([variable(starting_words, to_float=False, cuda=cuda).long(), current_batch.text.transpose(0, 1).long()], 1)
-        else:
-            x = current_batch.text.transpose(0, 1).long()
-
-        # you need the next batch first word to know what the target of the last word of the current batch is
-        ending_word = next_batch.text.transpose(0, 1)[:, :1]
-        target = t.cat([current_batch.text.transpose(0, 1)[:, 1:], ending_word], 1)
-
-        last_batch = current_batch
-        current_batch = next_batch
-
-        return x, target, last_batch, current_batch
+        """In that case `iterator` is  a `namedtuple` with fields `dataset`and `batch_size`"""
+        batch_size = iterator.batch_size
+        dataset_ = shuffle(iterator.dataset)
+        for k in range(0, len(dataset_), batch_size):
+            batch = np.concatenate(dataset_[k:k + batch_size], 0)
+            x = variable(batch[:, :-1], to_float=False, cuda=cuda).long()
+            y = variable(batch[:, -1], to_float=False, cuda=cuda).long()
+            yield x, y
 
 
+# UTILS FOR THE CNN-IMPLEMENTED NNLM
+# SHUFFLE THE TRAINING TEXT FILE AND RECREATE THE ITERATOR (IID ASSUMPTION)
 def shuffle_train_txt_file(input_filename, output_filename):
     with open(input_filename, 'r') as ifile:
         text = shuffle(ifile.read().split('\n'))
@@ -132,16 +121,3 @@ def rebuild_iterators(TEXT, batch_size=10):
     train_iter, val_iter, test_iter = torchtext.data.BPTTIterator.splits(
         (train, val, test), batch_size=batch_size, device=-1, bptt_len=32, repeat=False, shuffle=False)
     return train_iter, val_iter, test_iter
-
-
-def pickle_entry(entry, name):
-    pickle.dump(entry, open(name + ".p", "wb"))
-
-
-def load_pickle_entry(file_name):
-    return pickle.load(open(file_name, "rb"))
-
-
-if __name__ == '__main__':
-    # test
-    variable(np.zeros((10, 10)))

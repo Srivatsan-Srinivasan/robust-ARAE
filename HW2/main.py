@@ -12,6 +12,7 @@ from process_params import check_args, get_params
 from const import *
 from train_seqmodels import train, predict
 from data_process import generate_iterators
+from utils import generate_dataset_for_nnlm2_aux
 
 t.manual_seed(1)
 # Create Parser.
@@ -49,7 +50,7 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(debug=args.debug, batch_size = args.batch_size)
+train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'])
 
 # Call for different models code should be here.
 # Train Model
@@ -58,7 +59,8 @@ trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid
                       train_params=train_params, opt_params=opt_params, TEXT=TEXT, reshuffle_train=(args.model == 'NNLM'))
 
 # Predict Model
-predict(trained_model, args.model, test_iter, context_size= int(args.con_size), 
+# @todo: make it work for nnlm2
+predict(trained_model, args.model, test_iter, context_size=int(args.con_size),
         save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
 
 # Dummy code.

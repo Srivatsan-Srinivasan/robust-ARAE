@@ -102,14 +102,40 @@ class NNLM(t.nn.Module):
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad = self.train_embedding )
 
-        self.dropout = t.nn.Dropout()
+        # self.dropout = t.nn.Dropout()
         self.conv = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
-        xx = self.dropout(xx)
+        # xx = self.dropout(xx)
         xx = self.conv(xx)
         return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
+
+
+class NNLM2(t.nn.Module):
+    """
+    Model defined in 'A Neural Probabilistic Language Model'
+    It is implemented using a linear
+    """
+    def __init__(self, params, embeddings):
+        super(NNLM2, self).__init__()
+        self.model_str = 'NNLM2'
+        self.context_size = int(params.get('context_size'))
+        self.train_embedding = params.get('train_embedding', False)
+        self.vocab_size = embeddings.size(0)
+        self.embed_dim = embeddings.size(1)
+
+        self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
+        self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
+
+        # self.dropout = t.nn.Dropout()
+        self.fc = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
+
+    def forward(self, x):
+        xx = self.w(x).transpose(2, 1)
+        # xx = self.dropout(xx)
+        xx = self.fc(xx.contiguous().view(xx.size(0), -1))
+        return xx  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
@@ -169,7 +195,7 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
         """Average over the batch_size"""
         super(TemporalCrossEntropyLoss, self).__init__(weight, size_average)
         self.ignore_index = ignore_index
-        self.cross_entropy = nn.CrossEntropyLoss()
+        self.cross_entropy = nn.CrossEntropyLoss(weight=weight, size_average=size_average, ignore_index=ignore_index)
 
     def forward(self, pred, true):
         """
@@ -181,14 +207,9 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
         :return:
         """
         t.nn.modules.loss._assert_no_grad(true)
-        # l = 0
-        # for k in range(pred.size(2)):  # one cross entropy per column
-        #     pred_ = pred[:, :, k:k + 1].squeeze()
-        #     true_ = true[:, k:k + 1].squeeze()
-        #     l += F.cross_entropy(pred_, true_, self.weight, self.size_average, self.ignore_index)
-        # return l / pred.size(2)
+
+        # doing it this way allows to use parallelism. Better than looping on last dim !
+        # note that this version of pytorch seems outdated
         true_ = true.contiguous().view(true.size(0)*true.size(1))
         pred_ = pred.contiguous().view(pred.size(0)*pred.size(2), pred.size(1))
         return self.cross_entropy.forward(pred_, true_)
-
-
