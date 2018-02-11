@@ -81,8 +81,8 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT, h_
             x_test = variable(np.matrix(word_markers), requires_grad = False, cuda = cuda) 
             trained_model.zero_grad()
             trained_model.hidden =             tuple((
-                    variable(np.zeros((1, 1, h_dim)), cuda=self.cuda_flag, requires_grad=False),
-                    variable(np.zeros((1, 1, h_dim)), cuda=self.cuda_flag, requires_grad=False)
+                    variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False),
+                    variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False)
                    ))     
             output = trained_model(x_test.long(), test = True)
             #Batch * NO of words * vocab
