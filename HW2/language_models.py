@@ -37,7 +37,7 @@ class LSTM(t.nn.Module):
         self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad = self.train_embedding)
 
         # Initialize network modules.
-        self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
+        self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
         self.hidden     = self.init_hidden()
         self.dropout_1  = nn.Dropout(self.dropout)
@@ -67,21 +67,21 @@ class GRU(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'GRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
 
 
 class BiGRU(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiGRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers, bidirectional=True)
 
 
 class BiLSTM(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiLSTM'
-        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True)
+        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True, num_layers = self.num_layers)
 
 
 class NNLM(t.nn.Module):
