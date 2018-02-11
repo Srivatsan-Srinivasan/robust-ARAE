@@ -38,7 +38,7 @@ parser.add_argument('--clip_g_n', default = 0.25, type = float)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
-parser.add_argument('--lr', default=0.1, type = float)
+parser.add_argument('--lr', default=0.1, type=float)
 
 #TRAIN PARAMS
 parser.add_argument('--n_ep', default = 30, type=int)

@@ -100,10 +100,12 @@ class NNLM(t.nn.Module):
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad = self.train_embedding )
 
+        self.dropout = t.nn.Dropout()
         self.conv = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
+        xx = self.dropout(xx)
         xx = self.conv(xx)
         return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
 

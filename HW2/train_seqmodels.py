@@ -44,7 +44,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
         # monitoring variables
         total_loss = 0
         count = 0
-        
+
 #        model.zero_grad()
 #        model.hidden = model.init_hidden() 
               
@@ -62,7 +62,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
                 x_train = x_train.cuda()
                 y_train = y_train.cuda()               
             
-            output = model(x_train)         
+            output = model(x_train)        
                      
             #Dimension matching to cut it right for loss function.
             batch_size, sent_length = y_train.size()[0], y_train.size()[1]            
