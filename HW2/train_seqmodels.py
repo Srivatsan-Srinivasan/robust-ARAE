@@ -112,7 +112,15 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
     for epoch in range(valid_epochs):
         total_loss = 0
         count = 0
-        for x_test, y_test in data_generator(test_iter, model.model_str, context_size=context_size, cuda=cuda):
+
+        if model.model_str == 'NNLM2':
+            # in that case `train_iter` is a list of numpy arrays
+            Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
+            test_iter_ = Iterator(dataset=test_iter, batch_size=100)
+        else:
+            test_iter_ = test_iter
+
+        for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
             if cuda:
                 x_test = x_test.cuda()
                 y_test = y_test.cuda()
