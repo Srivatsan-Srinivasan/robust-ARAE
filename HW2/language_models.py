@@ -142,7 +142,7 @@ class NNLM2(t.nn.Module):
     def forward(self, x):
         xx = self.w(x)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx = F.tanh(self.fc1(xx))
+        xx = F.leaky_relu(self.fc1(xx))
         # xx = self.dropout(xx)
         xx = self.fc2(xx)
         return xx
