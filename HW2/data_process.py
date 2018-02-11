@@ -6,7 +6,8 @@ Created on Fri Feb  9 22:31:49 2018
 """
 import torchtext
 from torchtext.vocab import Vectors, GloVe
-
+from utils import variable
+from const import *
 
 def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None):
     TEXT = torchtext.data.Field()
@@ -66,3 +67,22 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
         TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
 
     return train_iter, val_iter, test_iter, TEXT, len(TEXT.vocab), TEXT.vocab.vectors
+
+def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
+    with open(expt_name + ".txt", "w") as fout: 
+        print("id,word", file=fout)
+        for i, l in enumerate(open("input.txt"), 1):
+            import pdb; pdb.set_trace()
+            word_markers = [TEXT.vocab.stoi[s] for s in l.split()][:-1]
+            #Input format to the model. Batch_size * bptt.
+            # for now, batch_size = 1.
+            x_test = variable(word_markers, requires_grad = False, cuda = cuda)
+            x_test = x_test.view(1,len(word_markers))
+            output = trained_model(x_test)
+            #Batch * NO of words * vocab
+            output = output.view(1,len(word_markers),-1).numpy()
+            output = output[0]
+            #top 20 predicitons for Last word
+            n_predictions = (-output[-1]).argsort()[:20]    
+            print("%d,%s"%(i, " ".join(n_predictions)), file=fout)
+        print("Completed writing the output file")
