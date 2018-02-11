@@ -49,7 +49,7 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(debug=args.debug)
+train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(debug=args.debug, batch_size = args.batch_size)
 
 # Call for different models code should be here.
 # Train Model
