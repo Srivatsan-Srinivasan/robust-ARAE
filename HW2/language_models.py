@@ -53,7 +53,9 @@ class LSTM(t.nn.Module):
                     variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
                    ))           
 
-    def forward(self, x_batch):
+    def forward(self, x_batch, test = False):
+        if test:
+            import pdb; pdb.set_trace()
         embeds               = self.word_embeddings(x_batch)
         dim1, dim2           = x_batch.size()[1], x_batch.size()[0]
         rnn_out, self.hidden = self.model_rnn(embeds.view(dim1,dim2,-1), self.hidden)    

@@ -8,7 +8,7 @@ import torchtext
 from torchtext.vocab import Vectors, GloVe
 from utils import variable
 from const import *
-
+import numpy as np
 
 def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None):
     TEXT = torchtext.data.Field()
@@ -78,9 +78,8 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
             word_markers = [TEXT.vocab.stoi[s] for s in l.split()][:-1]
             #Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
-            x_test = variable(word_markers, requires_grad = False, cuda = cuda)
-            x_test = x_test.view(1,len(word_markers))
-            output = trained_model(x_test)
+            x_test = variable(np.matrix(word_markers), requires_grad = False, cuda = cuda)           
+            output = trained_model(x_test, test = True)
             #Batch * NO of words * vocab
             output = output.view(1,len(word_markers),-1).numpy()
             output = output[0]
