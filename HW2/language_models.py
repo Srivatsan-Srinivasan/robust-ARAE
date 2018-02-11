@@ -131,19 +131,19 @@ class NNLM2(t.nn.Module):
         self.embed_dim = embeddings.size(1)
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
+        print('train_embedding ? ', self.train_embedding)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
-        # self.dropout = t.nn.Dropout()
+        self.dropout = t.nn.Dropout(.15)
         self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, 100)
         self.fc2 = t.nn.Linear(100, self.vocab_size)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
         xx = self.w(x)
-        # xx = self.dropout(xx)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
         xx = F.tanh(self.fc1(xx))
-        # xx = self.dropout(xx)
+        xx = self.dropout(xx)
         xx = self.fc2(xx)
         return xx
 
