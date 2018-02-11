@@ -58,7 +58,8 @@ trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid
                       train_params=train_params, opt_params=opt_params)
 
 # Predict Model
-predict(trained_model, args.model, test_iter, context_size=args.context_size, save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
+predict(trained_model, args.model, test_iter, context_size= int(args.con_size), 
+        save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
 
 # Dummy code.
 print("The model is ", args.model)
