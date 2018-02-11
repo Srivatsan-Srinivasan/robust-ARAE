@@ -19,7 +19,7 @@ from const import *
 class LSTM(t.nn.Module):
     def __init__(self, params, embeddings, cuda=CUDA_DEFAULT):
         super(LSTM, self).__init__()
-        self.cuda = cuda
+        self.cuda_flag = cuda
         self.model_str = 'LSTM'
 
         # Initialize hyperparams.
@@ -46,11 +46,11 @@ class LSTM(t.nn.Module):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         if self.model_str in ['GRU', 'BiGRU']:
-            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True)
+            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
         else:
             return tuple((
-                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True),
-                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True)
+                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True),
+                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
                    ))           
 
     def forward(self, x_batch):
