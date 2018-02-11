@@ -45,18 +45,20 @@ class LSTM(t.nn.Module):
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
-        return (variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True))
+        if self.model_str in ['GRU', 'BiGRU']:
+            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True)
+        else:
+            return tuple((
+                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True),
+                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda, requires_grad=True)
+                   ))           
 
     def forward(self, x_batch):
-        embeds = self.word_embeddings(x_batch)
-        import pdb; pdb.set_trace()
-        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)       
-
-        # Need to train it once and check the output to match dimensions.
-        # Won't work in the present state.
-        out_linear = self.hidden2out(rnn_out.view())
-
-        # Use cross entropy loss on it directly.
+        embeds     = self.word_embeddings(x_batch)
+        dim1, dim2 = x_batch.size()[1], x_batch.size()[0]
+        
+        rnn_out, self.hidden = self.model_rnn(embeds.view(dim1,dim2,-1), self.hidden)       
+        out_linear           = self.hidden2out(rnn_out.view(dim1,dim2,-1))
         return out_linear
 
 

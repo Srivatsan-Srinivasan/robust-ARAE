@@ -32,10 +32,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
     optimizer = init_optimizer(opt_params, model)
-    if model_str != 'NNLM':
-        criterion = t.nn.CrossEntropyLoss()
-    else:
-        criterion = TemporalCrossEntropyLoss()
+    criterion = TemporalCrossEntropyLoss()
     
     if cuda:
         model.cuda()
@@ -59,7 +56,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
                
             optimizer.zero_grad()
             output = model(x_train)
-            loss = criterion(output, y_train)
+            batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            loss = criterion(output.view(batch_size,-1,sent_length), y_train)
             loss.backward()
             optimizer.step()
 

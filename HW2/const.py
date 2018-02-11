@@ -5,9 +5,9 @@ Created on Fri Feb  9 15:28:37 2018
 @author: SrivatsanPC
 """
 
-models = ['NNLM', 'LSTM', 'BiLSTM', 'GRU', 'Trigram']
+models = ['NNLM', 'LSTM', 'BiLSTM', 'BiGRU', 'GRU', 'Trigram']
 optimizers = ['SGD', 'Adam', 'AdaMax']
-recur_models = ['LSTM', 'GRU', 'BiLSTM']
+recur_models = ['LSTM', 'GRU', 'BiLSTM', 'BiGRU']
 embeddings = ['GloVe', 'fasttext']
 
 CUDA_DEFAULT = False
