@@ -4,11 +4,12 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from language_models import LSTM, GRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
+from language_models import LSTM, GRU, BiGRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
 from const import *
-import torch.nn as nn
+import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.nn.utils import clip_grad_norm
 from utils import *
 
 
@@ -32,10 +33,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
     optimizer = init_optimizer(opt_params, model)
-    if model_str != 'NNLM':
-        criterion = t.nn.CrossEntropyLoss()
-    else:
-        criterion = TemporalCrossEntropyLoss()
+    criterion = TemporalCrossEntropyLoss()
     
     if cuda:
         model.cuda()
@@ -59,10 +57,23 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
 
             optimizer.zero_grad()
             output = model(x_train)
-            loss = criterion(output, y_train)
+            
+            #Dimension matching to cut it right for loss function.
+            batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            
+            #import pdb; pdb.set_trace()
+            if model_str in recur_models:
+                loss = criterion(output.view(batch_size,-1,sent_length), y_train)
+            else:
+                loss = criterion(output,y_train)
+                
             loss.backward()
             optimizer.step()
-
+            
+            #Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
+            if model_str in recur_models:
+                clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 0.25))
+               
             # monitoring
             count += x_train.size(0)
             total_loss += t.sum(loss)

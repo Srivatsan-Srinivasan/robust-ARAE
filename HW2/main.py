@@ -33,12 +33,16 @@ parser.add_argument('--lstm_h_dim', default=100, type=int)
 parser.add_argument('--emb_size', default=300, type=int)
 parser.add_argument('--batch_size', default=10, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
-parser.add_argument('--con_size', default=None, type=int)
+parser.add_argument('--con_size', default=-1, type=int)
 parser.add_argument('--emb_train', default=False, type=bool)
+parser.add_argument('--clip_g_n', default = 0.25, type = float)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
 parser.add_argument('--lr', default=0.1, type=float)
+
+#TRAIN PARAMS
+parser.add_argument('--n_ep', default = 30, type=int)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
