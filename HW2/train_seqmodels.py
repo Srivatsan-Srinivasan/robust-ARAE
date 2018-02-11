@@ -36,7 +36,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
     criterion = TemporalCrossEntropyLoss()
     
     if cuda:
-        model.cuda()
+        model = model.cuda()
         criterion = criterion.cuda()
         
     print("All set. Actual Training begins")
