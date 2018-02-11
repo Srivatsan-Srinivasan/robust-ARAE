@@ -39,6 +39,9 @@ parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--optimizer', default='SGD')
 parser.add_argument('--lr', default=0.1, type = float)
 
+#TRAIN PARAMS
+parser.add_argument('--n_ep', default = 30, type=int)
+
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
 check_args(args)

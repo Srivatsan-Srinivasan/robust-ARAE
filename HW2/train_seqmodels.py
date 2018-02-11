@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from language_models import LSTM, GRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
+from language_models import LSTM, GRU, BiGRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
 from const import *
 import torch.nn as nn, torch as t
 import torch.nn.functional as F
@@ -57,6 +57,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
             optimizer.zero_grad()
             output = model(x_train)
             batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            #Dimension matching to cut it right for loss function.
             loss = criterion(output.view(batch_size,-1,sent_length), y_train)
             loss.backward()
             optimizer.step()
