@@ -24,7 +24,6 @@ parser.add_argument('--emb', default='GloVe')
 parser.add_argument('--cuda', default=CUDA_DEFAULT, type = bool)
 parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
 parser.add_argument('--save', default=False, help='States if you need to pickle validation loss', type=bool)
-parser.add_argument('--n_ep', default=30, help='#epochs', type=int)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='NNLM', help='state which model to use')
