@@ -70,7 +70,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
     return train_iter, val_iter, test_iter, TEXT, len(TEXT.vocab), TEXT.vocab.vectors
 
 
-def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
+def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT, h_dim =100):
     with open(expt_name + ".txt", "w") as fout: 
         print("id,word", file=fout)
         for i, l in enumerate(open("input.txt"), 1):
@@ -78,7 +78,12 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
             word_markers = [TEXT.vocab.stoi[s] for s in l.split()][:-1]
             #Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
-            x_test = variable(np.matrix(word_markers), requires_grad = False, cuda = cuda)           
+            x_test = variable(np.matrix(word_markers), requires_grad = False, cuda = cuda) 
+            trained_model.zero_grad()
+            trained_model.hidden =             tuple((
+                    variable(np.zeros((1, 1, h_dim)), cuda=self.cuda_flag, requires_grad=False),
+                    variable(np.zeros((1, 1, h_dim)), cuda=self.cuda_flag, requires_grad=False)
+                   ))     
             output = trained_model(x_test.long(), test = True)
             #Batch * NO of words * vocab
             output = output.view(1,len(word_markers),-1).numpy()
