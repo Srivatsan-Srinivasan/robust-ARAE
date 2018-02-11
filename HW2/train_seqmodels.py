@@ -68,8 +68,10 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         total_loss = 0
         count = 0
 
-        if reshuffle_train:
-            train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
+        # if using NNLM, reshuffle sentences
+        if model_str == 'NNLM':
+            if reshuffle_train:
+                train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
         # Actual training loop
         for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
