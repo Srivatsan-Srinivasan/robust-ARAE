@@ -72,6 +72,7 @@ def generate_text(trained_model, expt_name, TEXT, n =20, cuda = CUDA_DEFAULT):
     with open(expt_name + ".txt", "w") as fout: 
         print("id,word", file=fout)
         for i, l in enumerate(open("input.txt"), 1):
+            import pdb; pdb.set_trace()
             word_markers = [TEXT.vocab.stoi[s] for s in l.split()][:-1]
             #Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
