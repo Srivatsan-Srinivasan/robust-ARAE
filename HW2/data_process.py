@@ -23,6 +23,8 @@ def generate_iterators(debug=False, batch_size=10, emb='GloVe'):
 
     train_iter, val_iter, test_iter = torchtext.data.BPTTIterator.splits(
         (train, val, test), batch_size=batch_size, device=-1, bptt_len=32, repeat=False, shuffle=False)
+    train_iter.shuffle = False
+    val_iter.shuffle = False
 
     # Load pre-trained word embddings if any
     if emb == 'GloVe':
