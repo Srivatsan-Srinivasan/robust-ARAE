@@ -12,7 +12,6 @@ from process_params import check_args, get_params
 from const import *
 from train_seqmodels import train, predict
 from data_process import generate_iterators
-from utils import generate_dataset_for_nnlm2_aux
 
 t.manual_seed(1)
 # Create Parser.
