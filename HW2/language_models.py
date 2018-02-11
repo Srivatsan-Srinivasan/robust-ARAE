@@ -54,9 +54,8 @@ class LSTM(t.nn.Module):
                    ))           
 
     def forward(self, x_batch):
-        embeds     = self.word_embeddings(x_batch)
-        dim1, dim2 = x_batch.size()[1], x_batch.size()[0]
-        
+        embeds               = self.word_embeddings(x_batch)
+        dim1, dim2           = x_batch.size()[1], x_batch.size()[0]
         rnn_out, self.hidden = self.model_rnn(embeds.view(dim1,dim2,-1), self.hidden)       
         out_linear           = self.hidden2out(rnn_out.view(dim1,dim2,-1))
         return out_linear

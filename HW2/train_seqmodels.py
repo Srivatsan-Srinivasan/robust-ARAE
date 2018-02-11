@@ -9,6 +9,7 @@ from const import *
 import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
+from torch.nn.utils import clip_grad_norm
 from utils import *
 
 
@@ -56,12 +57,23 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
                
             optimizer.zero_grad()
             output = model(x_train)
-            batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            
             #Dimension matching to cut it right for loss function.
-            loss = criterion(output.view(batch_size,-1,sent_length), y_train)
+            batch_size, sent_length = y_train.size()[0], y_train.size()[1]
+            
+            #import pdb; pdb.set_trace()
+            if model_str in recur_models:
+                loss = criterion(output.view(batch_size,-1,sent_length), y_train)
+            else:
+                loss = criterion(output,y_train)
+                
             loss.backward()
             optimizer.step()
-
+            
+            #Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
+            if model_str in recur_models:
+                clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 0.25))
+               
             # monitoring
             count += x_train.size(0)
             total_loss += t.sum(loss)
