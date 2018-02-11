@@ -62,7 +62,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
 
     # Load pre-trained word embddings if any
     if emb == 'GloVe':
-        TEXT.vocab.load_vectors(vectors=GloVe())
+        TEXT.vocab.load_vectors(vectors=GloVe(name='6B', dim=50))
     elif emb == 'fasttext':
         url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
         TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
