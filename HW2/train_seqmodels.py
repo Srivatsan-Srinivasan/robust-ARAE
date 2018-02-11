@@ -17,12 +17,13 @@ from utils import *
 def init_optimizer(opt_params, model):
     optimizer = opt_params.get('optimizer', 'SGD')
     lr = opt_params.get('lr', 0.1)
+    l2_penalty = opt_params.get('l2_penalty', 0)
     if optimizer == 'SGD':
-        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     if optimizer == 'Adam':
-        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     if optimizer == 'Adamax':
-        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
+        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
 
     return optimizer
 

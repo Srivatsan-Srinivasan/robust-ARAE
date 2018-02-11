@@ -25,6 +25,7 @@ model_params_args_map = {'num_layers'    : 'lstm_nl',
 
 opt_params_args_map = { 'optimizer' : 'optimizer',
                         'lr'        : 'lr',
+                        'l2_penalty': 'l2_penalty'
                       }
 
 train_params_args_map = { 'n_ep'     : 'n_ep',
