@@ -28,8 +28,7 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
-          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
+def _train_initialize_variables(model_str, model_params, train_iter, opt_params, cuda):
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
@@ -46,26 +45,32 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
+    return train_iter_, model, criterion, optimizer
 
+
+def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, early_stopping=False, save=False, save_path=None,
+          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
+
+    # Initialize model and other variables
+    train_iter_, model, criterion, optimizer = _train_initialize_variables(model_str, model_params, train_iter, opt_params, cuda)
+
+    # First validation round before any training
     if val_iter is not None:
         model.eval()
-        predict(model, val_iter, valid_epochs=1, context_size=context_size,
-                save_loss=False, expt_name="dummy_expt", cuda=cuda)
+        valid_loss = predict(model, val_iter, valid_epochs=1, context_size=context_size,
+                             save_loss=False, expt_name="dummy_expt", cuda=cuda)
         model.train()
-        
+
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
-        # monitoring variables
+        # Monitoring loss
         total_loss = 0
         count = 0
-
-        # model.zero_grad()
-        # if model_str in recur_models:
-        #     model.hidden = model.init_hidden()
 
         if reshuffle_train:
             train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
+        # Actual training loop
         for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
             # Treating each batch as separate instance otherwise Torch accumulates gradients.
             # That could be computationally expensive.
@@ -107,8 +112,16 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss.data.numpy()[0]))
         if val_iter is not None:
             model.eval()
-            predict(model, val_iter, valid_epochs=1, context_size=context_size,
-                    save_loss=False, expt_name="dummy_expt", cuda=cuda)
+            former_valid_loss = valid_loss * 1.
+            valid_loss = predict(model, val_iter, valid_epochs=1, context_size=context_size,
+                                 save_loss=False, expt_name="dummy_expt", cuda=cuda)
+            if valid_loss > former_valid_loss:
+                if early_stopping:
+                    break
+            else:
+                if save:
+                    assert save_path is not None
+                    save_model(model, save_path)
             model.train()
 
     return model
@@ -150,4 +163,5 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
             pickle_entry(losses, "val_loss " + expt_name)
         else:
             print("Validation loss: %4f" % avg_loss)
-    return losses
+            losses[epoch] = avg_loss
+    return losses[0]
