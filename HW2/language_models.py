@@ -103,12 +103,15 @@ class NNLM(t.nn.Module):
         self.w.weight = t.nn.Parameter(embeddings, requires_grad = self.train_embedding )
 
         # self.dropout = t.nn.Dropout()
-        self.conv = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
+        self.conv1 = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
+        self.conv2 = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
         # xx = self.dropout(xx)
-        xx = self.conv(xx)
+        xx1 = F.tanh(self.conv1(xx))
+        xx2 = self.conv2(xx)
+        xx = xx1 + xx2
         return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
 
 
@@ -129,13 +132,16 @@ class NNLM2(t.nn.Module):
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
         # self.dropout = t.nn.Dropout()
-        self.fc = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
+        self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
+        self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
         # xx = self.dropout(xx)
-        xx = self.fc(xx.contiguous().view(xx.size(0), -1))
-        return xx  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
+        xx1 = F.tanh(self.fc1(xx.contiguous().view(xx.size(0), -1)))
+        xx2 = self.fc2(xx.contiguous().view(xx.size(0), -1))
+        xx = xx1 + xx2
+        return xx
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
