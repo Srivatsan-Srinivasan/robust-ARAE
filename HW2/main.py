@@ -57,7 +57,8 @@ train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings 
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid_iter, cuda=args.cuda,
+trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid_iter, cuda=args.cuda, save=args.save,
+                      save_path=args.output_filename,
                       context_size=int(args.con_size), model_params=model_params, early_stopping=args.early_stopping,
                       train_params=train_params, opt_params=opt_params, TEXT=TEXT, reshuffle_train=(args.model == 'NNLM'))
 
