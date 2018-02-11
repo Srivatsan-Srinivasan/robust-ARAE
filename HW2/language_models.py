@@ -169,12 +169,18 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
         """Average over the batch_size"""
         super(TemporalCrossEntropyLoss, self).__init__(weight, size_average)
         self.ignore_index = ignore_index
+        self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, pred, true):
         t.nn.modules.loss._assert_no_grad(true)
-        l = 0
-        for k in range(pred.size(2)):  # one cross entropy per column
-            pred_ = pred[:, :, k:k + 1].squeeze()
-            true_ = true[:, k:k + 1].squeeze()
-            l += F.cross_entropy(pred_, true_, self.weight, self.size_average, self.ignore_index)
-        return l / pred.size(2)
+        # l = 0
+        # for k in range(pred.size(2)):  # one cross entropy per column
+        #     pred_ = pred[:, :, k:k + 1].squeeze()
+        #     true_ = true[:, k:k + 1].squeeze()
+        #     l += F.cross_entropy(pred_, true_, self.weight, self.size_average, self.ignore_index)
+        # return l / pred.size(2)
+        true_ = true.view(true.size(0)*true.size(1))
+        pred_ = pred.view(pred.view(0)*pred.view(2), pred.view(1))
+        return self.cross_entropy.forward(pred_, true_)
+
+
