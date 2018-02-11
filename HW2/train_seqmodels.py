@@ -14,7 +14,7 @@ from utils import *
 
 
 def init_optimizer(opt_params, model):
-    optimizer = opt_params.get('optimizer','SGD')
+    optimizer = opt_params.get('optimizer', 'SGD')
     lr = opt_params.get('lr', 0.1)
     if optimizer == 'SGD':
         optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr)
@@ -26,19 +26,18 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def train(model_str, embeddings, train_iter, val_iter=None, context_size = None, 
-          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
-
+def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
+          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss()
-    
+
     if cuda:
         model.cuda()
         criterion = criterion.cuda()
-        
+
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
         # monitoring variables
@@ -49,7 +48,10 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
         if model_str in recur_models:
             model.hidden = model.init_hidden()
 
-        for x_train, y_train in data_generator(train_iter, model_str, context_size = context_size, cuda=cuda):
+        if reshuffle_train:
+            train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
+
+        for x_train, y_train in data_generator(train_iter, model_str, context_size=context_size, cuda=cuda):
             # backprop
             if cuda:
                 x_train = x_train.cuda()
@@ -57,23 +59,22 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
 
             optimizer.zero_grad()
             output = model(x_train)
-            
-            #Dimension matching to cut it right for loss function.
+
+            # Dimension matching to cut it right for loss function.
             batch_size, sent_length = y_train.size()[0], y_train.size()[1]
-            
-            #import pdb; pdb.set_trace()
+
             if model_str in recur_models:
-                loss = criterion(output.view(batch_size,-1,sent_length), y_train)
+                loss = criterion(output.view(batch_size, -1, sent_length), y_train)
             else:
-                loss = criterion(output,y_train)
-                
+                loss = criterion(output, y_train)
+
             loss.backward()
             optimizer.step()
-            
-            #Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
+
+            # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
             if model_str in recur_models:
                 clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 0.25))
-               
+
             # monitoring
             count += x_train.size(0)
             total_loss += t.sum(loss)
@@ -92,13 +93,13 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size = None,
     return model
 
 
-def predict(model, test_iter, valid_epochs=1, context_size = None,
-            save_loss = False, expt_name = "dummy_expt", cuda = CUDA_DEFAULT):
+def predict(model, test_iter, valid_epochs=1, context_size=None,
+            save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
     losses = {}
     for epoch in range(valid_epochs):
         total_loss = 0
         count = 0
-        for x_test, y_test in data_generator(test_iter, model.model_str, context_size = context_size, cuda=cuda):
+        for x_test, y_test in data_generator(test_iter, model.model_str, context_size=context_size, cuda=cuda):
             if cuda:
                 x_test = x_test.cuda()
                 y_test = y_test.cuda()

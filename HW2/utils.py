@@ -3,6 +3,8 @@ import torch as t
 from torchtext.vocab import Vectors, GloVe
 import pickle
 import os
+from sklearn.utils import shuffle
+import torchtext
 
 os.chdir('../HW2')  # so that there is not an import bug if the working directory isn't already HW2
 from const import *
@@ -105,6 +107,31 @@ def generate_inp_out(model_str, i, next_batch, last_batch, current_batch,
         current_batch = next_batch
 
         return x, target, last_batch, current_batch
+
+
+def shuffle_train_txt_file(input_filename, output_filename):
+    with open(input_filename, 'r') as ifile:
+        text = shuffle(ifile.read().split('\n'))
+    with open(output_filename, 'w') as ofile:
+        ofile.write('\n'.join(text))
+
+
+def rebuild_iterators(TEXT, batch_size=10):
+    """
+    Shuffle the train.txt file and recreate the iterators
+    :param TEXT:
+    :return:
+    """
+    if 'shuffled_train.txt' not in os.listdir():
+        shuffle_train_txt_file('shuffled_train.txt', 'shuffled_train.txt')
+    else:
+        shuffle_train_txt_file('train.txt', 'shuffled_train.txt')
+    train, val, test = torchtext.datasets.LanguageModelingDataset.splits(
+        path='../HW2/',
+        train="shuffled_train.txt", validation="valid.txt", test="valid.txt", text_field=TEXT)
+    train_iter, val_iter, test_iter = torchtext.data.BPTTIterator.splits(
+        (train, val, test), batch_size=batch_size, device=-1, bptt_len=32, repeat=False, shuffle=False)
+    return train_iter, val_iter, test_iter
 
 
 def pickle_entry(entry, name):

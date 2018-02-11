@@ -55,7 +55,7 @@ train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings 
 # Train Model
 trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid_iter, cuda=args.cuda,
                       context_size=int(args.con_size), model_params=model_params,
-                      train_params=train_params, opt_params=opt_params)
+                      train_params=train_params, opt_params=opt_params, TEXT=TEXT, reshuffle_train=(args.model == 'NNLM'))
 
 # Predict Model
 predict(trained_model, args.model, test_iter, context_size=args.context_size, save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
