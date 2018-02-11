@@ -132,13 +132,14 @@ class NNLM2(t.nn.Module):
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
         # self.dropout = t.nn.Dropout()
-        self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
+        self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, 100)
+        self.fc11 = t.nn.Linear(100, self.vocab_size, bias=False)
         self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
         xx = self.w(x).transpose(2, 1)
         # xx = self.dropout(xx)
-        xx1 = F.tanh(self.fc1(xx.contiguous().view(xx.size(0), -1)))
+        xx1 = self.fc11(F.tanh(self.fc1(xx.contiguous().view(xx.size(0), -1))))
         xx2 = self.fc2(xx.contiguous().view(xx.size(0), -1))
         xx = xx1 + xx2
         return xx
