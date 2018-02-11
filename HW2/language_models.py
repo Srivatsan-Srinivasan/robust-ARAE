@@ -172,6 +172,14 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
         self.cross_entropy = nn.CrossEntropyLoss()
 
     def forward(self, pred, true):
+        """
+        Let `C` be the number of classes and `|V|` the vocab size
+        What this class does is just reshaping the inputs so that you can use classical cross entropy on top of that
+
+        :param pred: FloatTensor of shape (batch_size, |V|, C)
+        :param true: LongTensor of shape (batch_size, C)
+        :return:
+        """
         t.nn.modules.loss._assert_no_grad(true)
         # l = 0
         # for k in range(pred.size(2)):  # one cross entropy per column
@@ -179,8 +187,8 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
         #     true_ = true[:, k:k + 1].squeeze()
         #     l += F.cross_entropy(pred_, true_, self.weight, self.size_average, self.ignore_index)
         # return l / pred.size(2)
-        true_ = true.view(true.size(0)*true.size(1))
-        pred_ = pred.view(pred.view(0)*pred.view(2), pred.view(1))
+        true_ = true.contiguous().view(true.size(0)*true.size(1))
+        pred_ = pred.contiguous().view(pred.size(0)*pred.size(2), pred.size(1))
         return self.cross_entropy.forward(pred_, true_)
 
 
