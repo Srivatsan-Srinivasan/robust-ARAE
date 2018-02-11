@@ -24,6 +24,7 @@ parser.add_argument('--emb', default='GloVe')
 parser.add_argument('--cuda', default=CUDA_DEFAULT, type = bool)
 parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
 parser.add_argument('--save', default=False, help='States if you need to pickle validation loss', type=bool)
+parser.add_argument('--n_ep', default=30, help='#epochs', type=int)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='NNLM', help='state which model to use')
@@ -37,7 +38,7 @@ parser.add_argument('--emb_train', default=False, type=bool)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
-parser.add_argument('--lr', default=0.1, type = float)
+parser.add_argument('--lr', default=0.1, type=float)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
