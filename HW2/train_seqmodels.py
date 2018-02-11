@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from language_models import LSTM, GRU, BiGRU, BiLSTM, TemporalCrossEntropyLoss, NNLM
+from language_models import LSTM, GRU, BiGRU, BiLSTM, TemporalCrossEntropyLoss, NNLM, NNLM2
 from const import *
 import torch.nn as nn, torch as t
 import torch.nn.functional as F
