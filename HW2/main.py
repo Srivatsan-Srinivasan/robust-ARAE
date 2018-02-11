@@ -11,7 +11,7 @@ import torch as t
 from process_params import check_args, get_params
 from const import *
 from train_seqmodels import train, predict
-from data_process import generate_iterators
+from data_process import generate_iterators, generate_text
 
 t.manual_seed(1)
 # Create Parser.
@@ -59,8 +59,10 @@ trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid
 
 # Predict Model
 # @todo: make it work for nnlm2
-predict(trained_model, args.model, test_iter, context_size=int(args.con_size),
-        save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
+#predict(trained_model, args.model, test_iter, context_size=int(args.con_size),
+#        save_loss=args.save, cuda=args.cuda, expt_name=args.exp_n)
+
+generate_text(trained_model, args.expt_name, TEXT, n=20, cuda = args.cuda)
 
 # Dummy code.
 print("The model is ", args.model)
