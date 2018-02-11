@@ -20,6 +20,7 @@ model_params_args_map = {'num_layers'    : 'lstm_nl',
                          'context_size'  : 'con_size',
                          'train_embedding' : 'emb_train', 
                          'clip_grad_norm'      : 'clip_g_n',
+                         'cuda'          : 'cuda'
                         }
 
 opt_params_args_map = { 'optimizer' : 'optimizer',

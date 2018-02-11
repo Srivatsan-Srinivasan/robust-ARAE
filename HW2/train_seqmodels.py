@@ -33,47 +33,53 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None,
     model.train()  # important!
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss()
-
+    
     if cuda:
-        model.cuda()
+        model = model.cuda()
         criterion = criterion.cuda()
-
+        
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
         # monitoring variables
         total_loss = 0
         count = 0
 
-        model.zero_grad()
-        if model_str in recur_models:
-            model.hidden = model.init_hidden()
+        # model.zero_grad()
+        # if model_str in recur_models:
+        #     model.hidden = model.init_hidden()
 
         if reshuffle_train:
             train_iter, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
         for x_train, y_train in data_generator(train_iter, model_str, context_size=context_size, cuda=cuda):
-            # backprop
+            # Treating each batch as separate instance otherwise Torch accumulates gradients.
+            # That could be computationally expensive.
+            # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
+            if model_str in recur_models:
+                model.zero_grad()
+                model.hidden = model.init_hidden()
+            else:
+                optimizer.zero_grad()
+
             if cuda:
                 x_train = x_train.cuda()
                 y_train = y_train.cuda()
 
-            optimizer.zero_grad()
             output = model(x_train)
 
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = y_train.size()[0], y_train.size()[1]
-
             if model_str in recur_models:
                 loss = criterion(output.view(batch_size, -1, sent_length), y_train)
             else:
                 loss = criterion(output, y_train)
 
+            # backprop
             loss.backward()
-            optimizer.step()
-
             # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
             if model_str in recur_models:
                 clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 0.25))
+            optimizer.step()
 
             # monitoring
             count += x_train.size(0)
@@ -105,9 +111,9 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
                 y_test = y_test.cuda()
             output = model(x_test)
             if model.model_str != 'NNLM':
-                loss = F.cross_entropy(output, y_test)
-            else:
-                loss = TemporalCrossEntropyLoss().forward(output, y_test)
+                output = output.view(y_test.size()[0],-1,y_test.size()[1])
+
+            loss = TemporalCrossEntropyLoss().forward(output, y_test)
             # monitoring
             total_loss += loss
             count += x_test.size(0)
