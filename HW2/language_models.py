@@ -62,7 +62,7 @@ class LSTM(t.nn.Module):
         #Based on Yoon's advice - dropout before projecting on linear layer.
         rnn_out              = self.dropout_1(rnn_out)        
         out_linear           = self.hidden2out(rnn_out.view(dim1,dim2,-1))
-        return out_linear
+        return out_linear, self.hidden
 
 
 class GRU(LSTM):
