@@ -73,7 +73,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if reshuffle_train:
                 train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
-        # Actual training loop
+        # Actual training loop. Converting to variable later.
         if model_str in recur_models:
             hidden = (model.init_hidden()).data
             
@@ -93,8 +93,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                 y_train = y_train.cuda()
 
             if model_str in recur_models:
-                output,hidden = model(x_train)
-                hidden        = hidden.data
+                output,hidden = model(x_train)                
             else:
                 output = model(x_train)
 
@@ -105,15 +104,17 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             else:
                 loss = criterion(output, y_train)
 
-            # backprop
-            if model in recur_models:
-                loss.backward(retain_graph = True)
-            else:
-                loss.backward()
+#            # backprop
+#            if model in recur_models:
+#                loss.backward()
+#            else:
+            loss.backward()
             # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
             if model_str in recur_models:
                 clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 0.25))
             optimizer.step()
+            if model_str in recur_models:
+                hidden = hidden.data
 
             # monitoring
             count += x_train.size(0)
