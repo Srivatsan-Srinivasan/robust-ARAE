@@ -137,17 +137,20 @@ class NNLM2(t.nn.Module):
         self.fc1a = t.nn.Linear(self.embed_dim*self.context_size, 100)
         self.fc1b = t.nn.Linear(self.embed_dim*self.context_size, 100)
         self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
-        self.fc2 = t.nn.Linear(100, self.vocab_size)
+        self.fc11 = t.nn.Linear(100, self.vocab_size)
+        self.bn11 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.9)
+        self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size, bias=False)
         self.bn2 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.9)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
         xx = self.w(x)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx = self.bn1(F.tanh(self.fc1a(xx)) * F.sigmoid(self.fc1b(xx)))
+        xx1 = self.bn1(F.tanh(self.fc1a(xx)) * F.sigmoid(self.fc1b(xx)))
+        xx1 = self.bn11(self.fc11(xx1))
         # xx = self.dropout(xx)
-        xx = self.bn2(self.fc2(xx))
-        return xx
+        xx2 = self.bn2(self.fc2(xx))
+        return xx1 + xx2
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
