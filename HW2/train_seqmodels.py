@@ -172,7 +172,8 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
             test_iter_ = Iterator(dataset=test_iter, batch_size=100)
         else:
             test_iter_ = test_iter
-
+            model.init_hidden()           
+                    
         for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
             if cuda:
                 x_test = x_test.long().cuda()

@@ -56,15 +56,16 @@ class LSTM(t.nn.Module):
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
 
-    def forward(self, x_batch, test=False):
-        if test:
+    def forward(self, x_batch, debug=False):
+        if debug:
             import pdb
             pdb.set_trace()
         embeds = self.word_embeddings(x_batch)
         dim1, dim2 = x_batch.size()[1], x_batch.size()[0]
         rnn_out, self.hidden = self.model_rnn(embeds.view(dim1, dim2, -1), self.hidden)
         # Based on Yoon's advice - dropout before projecting on linear layer.
-        rnn_out = self.dropout_1(rnn_out)
+        #import pdb; pdb.set_trace()
+        rnn_out = self.dropout_1(rnn_out)        
         out_linear = self.hidden2out(rnn_out.view(dim1, dim2, -1))
         return out_linear, self.hidden
 
