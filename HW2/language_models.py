@@ -40,7 +40,7 @@ class LSTM(t.nn.Module):
         self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
         self.hidden     = self.init_hidden()
-        self.dropout_1  = nn.Dropout(self.dropout, inplace = True)
+        self.dropout_1  = nn.Dropout(self.dropout)
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
@@ -60,7 +60,7 @@ class LSTM(t.nn.Module):
         dim1, dim2           = x_batch.size()[1], x_batch.size()[0]
         rnn_out, self.hidden = self.model_rnn(embeds.view(dim1,dim2,-1), self.hidden)    
         #Based on Yoon's advice - dropout before projecting on linear layer.
-        self.dropout_1(rnn_out)        
+        rnn_out              = self.dropout_1(rnn_out)        
         out_linear           = self.hidden2out(rnn_out.view(dim1,dim2,-1))
         return out_linear
 
