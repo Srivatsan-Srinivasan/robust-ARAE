@@ -28,7 +28,7 @@ class LSTM(t.nn.Module):
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
         self.embedding_dim = params.get('embedding_dim', 300)
-        self.vocab_size = params.get('vocab_size', 1000)
+        self.vocab_size = params.get('vocab_size', 10001)
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
