@@ -73,6 +73,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if reshuffle_train:
                 train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
+        import pdb; pdb.set_trace()
         # Actual training loop. Converting to variable later.
         if model_str in recur_models:
             hidden = (model.init_hidden()).data
@@ -81,7 +82,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             # Treating each batch as separate instance otherwise Torch accumulates gradients.
             # That could be computationally expensive.
             # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
-            import pdb; pdb.set_trace()
+
             if model_str in recur_models:
                 model.zero_grad()
                 model.hidden = variable(hidden)
