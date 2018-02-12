@@ -25,7 +25,7 @@ def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
         v = array
     else:
         raise ValueError("type(array): %s" % type(array))
-    if cuda:
+    if cuda and not v.is_cuda:
         v = v.cuda()
     if to_float:
         return v.float()
