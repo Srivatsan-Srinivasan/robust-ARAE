@@ -40,7 +40,7 @@ parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
 parser.add_argument('--BN', default=False, type=bool, help='Whether to include batch normalization or not')
 parser.add_argument('--nnlm_hdim', default=50, type=int)
-parser.add_argument('--nnlm_acti', default='gated', type='str')
+parser.add_argument('--nnlm_acti', default='gated', type=str)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
