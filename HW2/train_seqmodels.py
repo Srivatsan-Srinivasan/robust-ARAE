@@ -87,13 +87,14 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             # Treating each batch as separate instance otherwise Torch accumulates gradients.
             # That could be computationally expensive.
             # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
+            
             if model_str in recur_models:
                 model.zero_grad()
                 # Retain hidden/memory from last batch.
                 if model_str == 'LSTM':
-                    model.hidden = (Variable(hidden_init, requires_grad=True), Variable(memory_init, requires_grad=True))
+                    model.hidden = (Variable(hidden_init), Variable(memory_init))
                 else:
-                    model.hidden = Variable(hidden_init, requires_grad=True)
+                    model.hidden = Variable(hidden_init)
             else:
                 optimizer.zero_grad()
 
@@ -127,7 +128,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                     hidden_init = model_hidden.data
 
                     # monitoring
-            count += x_train.size(0) if model.model_str == 'NNLM2' else x_train.size(0) * x_train(2)  # in that case there are batch_size x bbp_length classifications per batch
+            count += x_train.size(0) if model.model_str == 'NNLM2' else x_train.size(0) * x_train.size(1)  # in that case there are batch_size x bbp_length classifications per batch
             total_loss += t.sum(loss)
 
         # monitoring
@@ -180,7 +181,7 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
             loss = TemporalCrossEntropyLoss(size_average=False).forward(output, y_test) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False).forward(output, y_test)
             # monitoring
             total_loss += loss
-            count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test(2)  # in that case there are batch_size x bbp_length classifications per batch
+            count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
 
         avg_loss = total_loss / count
         if cuda:

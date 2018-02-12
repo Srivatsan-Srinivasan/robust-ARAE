@@ -30,6 +30,7 @@ parser.add_argument('--early_stopping', default=False, help='Whether to stop tra
 
 # MODEL PARAMS
 parser.add_argument('--model', default='NNLM', help='state which model to use')
+parser.add_argument('--vocab_size', default= 10001, type = int, help='state which model to use')
 parser.add_argument('--lstm_nl', default=1, type=int)
 parser.add_argument('--lstm_h_dim', default=100, type=int)
 parser.add_argument('--emb_size', default=50, type=int)

@@ -28,7 +28,7 @@ class LSTM(t.nn.Module):
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
         self.embedding_dim = params.get('embedding_dim', 300)
-        self.vocab_size = params.get('vocab_size', 1000)
+        self.vocab_size = params.get('vocab_size', 10001)
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
@@ -49,11 +49,11 @@ class LSTM(t.nn.Module):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         if self.model_str in ['GRU', 'BiGRU']:
-            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
+            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
         else:
             return tuple((
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True),
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
 
     def forward(self, x_batch, test=False):
