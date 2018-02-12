@@ -144,7 +144,7 @@ class NNLM2(t.nn.Module):
     def forward(self, x):
         xx = self.w(x)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx1 = self.bn1(F.tanh(self.fc1a(xx)) * F.sigmoid(self.fc1b(xx)))
+        xx1 = self.bn1(self.fc1a(xx) * F.sigmoid(self.fc1b(xx)))
         xx1 = self.bn11(self.fc11(xx1))
         # xx = self.dropout(xx)
         return xx1
