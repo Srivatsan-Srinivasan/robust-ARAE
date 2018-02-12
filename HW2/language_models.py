@@ -126,7 +126,7 @@ class NNLM2(t.nn.Module):
         super(NNLM2, self).__init__()
         self.model_str = 'NNLM2'
         self.context_size = int(params.get('context_size'))
-        self.train_embedding = True  #params.get('train_embedding', True)
+        self.train_embedding = True  # params.get('train_embedding', True)
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
 
@@ -136,15 +136,17 @@ class NNLM2(t.nn.Module):
 
         # self.dropout = t.nn.Dropout(.15)
         self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, 100)
+        self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
         self.fc2 = t.nn.Linear(100, self.vocab_size)
+        self.bn2 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
         xx = self.w(x)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx = F.leaky_relu(self.fc1(xx))
+        xx = F.leaky_relu(self.bn1(self.fc1(xx)))
         # xx = self.dropout(xx)
-        xx = self.fc2(xx)
+        xx = self.bn2(self.fc2(xx))
         return xx
 
 
