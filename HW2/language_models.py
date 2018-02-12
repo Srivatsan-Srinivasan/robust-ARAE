@@ -126,7 +126,7 @@ class NNLM2(t.nn.Module):
         super(NNLM2, self).__init__()
         self.model_str = 'NNLM2'
         self.context_size = int(params.get('context_size'))
-        self.train_embedding = params.get('train_embedding', True)
+        self.train_embedding = True  #params.get('train_embedding', True)
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
 
