@@ -134,9 +134,10 @@ class NNLM2(t.nn.Module):
         print('train_embedding ? ', self.train_embedding)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
-        # self.dropout = t.nn.Dropout(.15)
-        self.fc1 = t.nn.Linear(self.embed_dim*self.context_size, 100)
-        self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
+        self.fc1a = t.nn.Linear(self.embed_dim*self.context_size, 100)
+        self.fc1b = t.nn.Linear(self.embed_dim*self.context_size, 100)
+        self.bn1a = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
+        self.bn1b = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
         self.fc2 = t.nn.Linear(100, self.vocab_size)
         self.bn2 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.9)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
@@ -144,7 +145,7 @@ class NNLM2(t.nn.Module):
     def forward(self, x):
         xx = self.w(x)
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx = F.leaky_relu(self.bn1(self.fc1(xx)))
+        xx = F.tanh(self.bn1a(self.fc1a(xx))) * F.sigmoid(self.bn1b(self.fc1b(xx)))
         # xx = self.dropout(xx)
         xx = self.bn2(self.fc2(xx))
         return xx
