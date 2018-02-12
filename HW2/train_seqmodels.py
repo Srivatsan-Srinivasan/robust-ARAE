@@ -70,9 +70,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         count = 0
 
         # if using NNLM, reshuffle sentences
-        if model_str == 'NNLM':
-            if reshuffle_train:
-                train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
+        if model_str == 'NNLM' and reshuffle_train:
+            train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
         # Initialize hidden layer and memory(for LSTM). Converting to variable later.
         if model_str in recur_models:
@@ -92,17 +91,12 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if model_str in recur_models:
                 model.zero_grad()
                 # Retain hidden/memory from last batch.
-                # import pdb; pdb.set_trace()
                 if model_str == 'LSTM':
-                    model.hidden = (Variable(hidden_init), Variable(memory_init))
+                    model.hidden = (variable(hidden_init), variable(memory_init))
                 else:
-                    model.hidden = Variable(hidden_init)
+                    model.hidden = variable(hidden_init)
             else:
                 optimizer.zero_grad()
-
-            if cuda:
-                x_train = x_train.cuda()
-                y_train = y_train.cuda()
 
             if model_str in recur_models:
                 output, model_hidden = model(x_train)
