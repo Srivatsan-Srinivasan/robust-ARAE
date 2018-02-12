@@ -108,6 +108,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
 #            if model in recur_models:
 #                loss.backward()
 #            else:
+            import pdb;pdb.set_trace()
             loss.backward()
             # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
             if model_str in recur_models:
