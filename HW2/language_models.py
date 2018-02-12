@@ -27,8 +27,8 @@ class LSTM(t.nn.Module):
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
-        self.embedding_dim = params.get('embedding_dim', 300)
-        self.vocab_size = params.get('vocab_size', 10001)
+        self.embedding_dim = embeddings.size(1)
+        self.vocab_size = embeddings.size(0)
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
@@ -60,13 +60,12 @@ class LSTM(t.nn.Module):
         if debug:
             import pdb
             pdb.set_trace()
-        embeds = self.word_embeddings(x_batch)
-        dim1, dim2 = x_batch.size()[1], x_batch.size()[0]
-        rnn_out, self.hidden = self.model_rnn(embeds.view(dim1, dim2, -1), self.hidden)
+        embeds = self.word_embeddings(x_batch).permute(1,0,2)
+        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
         # Based on Yoon's advice - dropout before projecting on linear layer.
-        #import pdb; pdb.set_trace()
-        rnn_out = self.dropout_1(rnn_out)        
-        out_linear = self.hidden2out(rnn_out.view(dim1, dim2, -1))
+        rnn_out = rnn_out.permute(1, 0, 2)
+        rnn_out = self.dropout_1(rnn_out)
+        out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
 
