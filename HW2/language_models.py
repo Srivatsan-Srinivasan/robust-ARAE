@@ -157,7 +157,7 @@ class NNLM2(t.nn.Module):
         self.fc2 = t.nn.Linear(self.hdim, self.vocab_size)
 
         if self.batch_norm:
-            self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.99)  # default keras parameters
+            self.bn1 = t.nn.BatchNorm1d(self.hdim, eps=1e-3, momentum=.99)  # default keras parameters
             self.bn2 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)  # default keras parameters
 
     def forward(self, x):
@@ -176,7 +176,7 @@ class NNLM2(t.nn.Module):
             xx = F.tanh(self.fc1a(xx))
         elif self.activation == 'lrelu':
             xx = F.leaky_relu(self.fc1a(xx))
-        else:
+        else:  # relu by default
             xx = F.relu(self.fc1a(xx))
         if self.batch_norm:
             xx = self.bn1(xx)

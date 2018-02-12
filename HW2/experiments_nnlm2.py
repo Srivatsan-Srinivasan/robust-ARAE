@@ -45,6 +45,7 @@ activation = ['gated', 'lrelu']
 hdim = [50, 100]
 
 for k, (c,b,d,a,h) in enumerate(product(con_size, BN, dropout, activation, hdim)):
+    print('EXPERIMENT %s / 32 STARTING' % str(k))
     experiments[k] = experiments[k] + ' --con_size %s --dropout %s --BN %s --nnlm_hdim %s --nnlm_acti %s' % (c, str(d), str(b), str(h), a)
 
 if 'nnlm2' not in os.listdir():
