@@ -92,7 +92,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if model_str in recur_models:
                 model.zero_grad()
                 #Retain hidden/memory from last batch.
-                import pdb; pdb.set_trace()
+                #import pdb; pdb.set_trace()
                 if model_str == 'LSTM':
                     model.hidden = (Variable(hidden_init, requires_grad = True), Variable(memory_init, requires_grad = True))
                 else:
