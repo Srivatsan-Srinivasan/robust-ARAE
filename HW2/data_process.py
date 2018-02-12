@@ -22,7 +22,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
         TEXT.build_vocab(train, max_size=1000)
         print('len(TEXT.vocab)', len(TEXT.vocab))
 
-    TEXT.build_vocab(train, max_size=20000)
+    TEXT.build_vocab(train)
     print('len(TEXT.vocab)', len(TEXT.vocab))
 
     if model_str != 'NNLM2':
