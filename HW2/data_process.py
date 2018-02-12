@@ -10,7 +10,7 @@ from utils import variable
 from const import *
 import numpy as np
 
-def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None):
+def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None, emb_size = 50):
     TEXT = torchtext.data.Field()
     # Data distributed with the assignment
 
@@ -62,7 +62,8 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
 
     # Load pre-trained word embddings if any
     if emb == 'GloVe':
-        TEXT.vocab.load_vectors(vectors=GloVe(name='6B', dim=50))
+        TEXT.vocab.load_vectors(vectors=GloVe(name='6B', dim=emb_size))
+        print("Embedding GloVe on to dimensions = " + str(emb_size))
     elif emb == 'fasttext':
         url = 'https://s3-us-west-1.amazonaws.com/fasttext-vectors/wiki.simple.vec'
         TEXT.vocab.load_vectors(vectors=Vectors('wiki.simple.vec', url=url))
