@@ -23,7 +23,8 @@ model_params_args_map = {'num_layers': 'lstm_nl',
                          'cuda': 'cuda',
                          'batchnorm': 'BN',
                          'nnlm_hdim': 'nnlm_hdim',
-                         'activation': 'nnlm_acti'
+                         'activation': 'nnlm_acti',
+                         'vocab_size' : 'vocab_size'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',
