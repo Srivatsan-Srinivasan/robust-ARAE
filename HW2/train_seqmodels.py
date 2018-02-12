@@ -154,7 +154,10 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
             if cuda:
                 x_test = x_test.long().cuda()
                 y_test = y_test.long().cuda()
-            output = model(x_test)
+            if model.model_str in recur_models:
+                output, hidden = model(x_test)
+            else:
+                output = model(x_test)
             if model.model_str in recur_models:
                 output = output.permute(0, 2, 1)
 
