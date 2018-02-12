@@ -19,6 +19,7 @@ from const import *
 class LSTM(t.nn.Module):
     def __init__(self, params, embeddings):
         super(LSTM, self).__init__()
+        print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
         self.model_str = 'LSTM'
 
@@ -39,6 +40,7 @@ class LSTM(t.nn.Module):
         # Initialize network modules.
         self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+        import pdb; pdb.set_trace()
         self.hidden     = self.init_hidden()
         self.dropout_1  = nn.Dropout(self.dropout)
 
