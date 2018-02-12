@@ -32,7 +32,7 @@ parser.add_argument('--early_stopping', default=False, help='Whether to stop tra
 parser.add_argument('--model', default='NNLM', help='state which model to use')
 parser.add_argument('--lstm_nl', default=1, type=int)
 parser.add_argument('--lstm_h_dim', default=100, type=int)
-parser.add_argument('--emb_size', default=300, type=int)
+parser.add_argument('--emb_size', default=50, type=int)
 parser.add_argument('--batch_size', default=10, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
 parser.add_argument('--con_size', default=-1, type=int)
@@ -53,7 +53,8 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'], emb=args.emb)
+train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'], 
+                                                     emb_size = args.emb_size, emb=args.emb)
 
 # Call for different models code should be here.
 # Train Model
