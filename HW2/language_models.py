@@ -96,6 +96,8 @@ class NNLM(t.nn.Module):
     It is implemented using convolutions instead of linear layers because of the format of the data. This way it doesn't involve more pre-processing
 
     However it makes shuffling impossible, which is a problem for SGD (breaks the iid assumption)
+
+    We abandoned this implementation
     """
 
     def __init__(self, params, embeddings):
@@ -125,35 +127,67 @@ class NNLM(t.nn.Module):
 class NNLM2(t.nn.Module):
     """
     Model defined in 'A Neural Probabilistic Language Model'
-    It is implemented using a linear
+    It is implemented using a linear layer
+    It is the one used in our experiments
     """
 
     def __init__(self, params, embeddings):
         super(NNLM2, self).__init__()
         self.model_str = 'NNLM2'
         self.context_size = int(params.get('context_size'))
-        self.train_embedding = True  # params.get('train_embedding', True)
+        self.train_embedding = params.get('train_embedding', False)
+        self.batch_norm = params.get('batch_norm', True)
+        self.activation = params.get('activation', 'gated')
+        self.hdim = params.get('nnlm_hdim', 50)
+        self.dropout = params.get('dropout', 0)
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
+        if self.dropout > 0:
+            self.dropout1 = t.nn.Dropout(self.dropout)
+            self.dropout2 = t.nn.Dropout(self.dropout)
+
         print('train_embedding ? ', self.train_embedding)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
-        self.fc1a = t.nn.Linear(self.embed_dim * self.context_size, 100)
-        self.fc1b = t.nn.Linear(self.embed_dim * self.context_size, 100)
-        self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.99)
-        self.fc11 = t.nn.Linear(100, self.vocab_size)
-        self.bn11 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)
-        # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
+        self.fc1a = t.nn.Linear(self.embed_dim * self.context_size, self.hdim)
+        if self.activation == 'gated':
+            self.fc1b = t.nn.Linear(self.embed_dim * self.context_size, self.hdim)
+        self.fc2 = t.nn.Linear(self.hdim, self.vocab_size)
+
+        if self.batch_norm:
+            self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.99)  # default keras parameters
+            self.bn2 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)  # default keras parameters
 
     def forward(self, x):
+        # embed and dropout
         xx = self.w(x)
+        if self.dropout > 0:
+            xx = self.dropout1(xx)
+
+        # reshape
         xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-        xx1 = self.bn1(self.fc1a(xx) * F.sigmoid(self.fc1b(xx)))
-        xx1 = self.bn11(self.fc11(xx1))
-        # xx = self.dropout(xx)
-        return xx1
+
+        # hidden
+        if self.activation == 'gated':
+            xx = self.fc1a(xx) * F.sigmoid(self.fc1b(xx))
+        elif self.activation == 'tanh':
+            xx = F.tanh(self.fc1a(xx))
+        elif self.activation == 'lrelu':
+            xx = F.leaky_relu(self.fc1a(xx))
+        else:
+            xx = F.relu(self.fc1a(xx))
+        if self.batch_norm:
+            xx = self.bn1(xx)
+        if self.dropout > 0:
+            xx = self.dropout2(xx)
+
+        # output
+        xx = self.fc2(xx)
+        if self.batch_norm:
+            xx = self.bn2(xx)
+        return xx
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
