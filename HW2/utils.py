@@ -12,6 +12,7 @@ from const import *
 
 def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
     """Wrapper for t.autograd.Variable"""
+    import pdb; pdb.set_trace()
     if isinstance(array, np.ndarray):
         v = t.autograd.Variable(t.from_numpy(array), requires_grad=requires_grad)
     elif isinstance(array, list) or isinstance(array, tuple):
