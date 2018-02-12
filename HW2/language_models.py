@@ -16,6 +16,7 @@ os.chdir('../HW2')  # so that there is not any import bug in case HW2 is not alr
 from utils import *
 from const import *
 
+
 class LSTM(t.nn.Module):
     def __init__(self, params, embeddings):
         super(LSTM, self).__init__()
@@ -28,21 +29,21 @@ class LSTM(t.nn.Module):
         self.batch_size = params.get('batch_size', 32)
         self.embedding_dim = params.get('embedding_dim', 300)
         self.vocab_size = params.get('vocab_size', 1000)
-        self.output_size = params.get('output_size',self.vocab_size)
+        self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
-        self.train_embedding = params.get('train_embedding',False)
+        self.train_embedding = params.get('train_embedding', False)
 
         # Initialize embeddings. Static embeddings for now.
         self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad = self.train_embedding)
+        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
+        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        #import pdb; pdb.set_trace()
-        self.hidden     = self.init_hidden()
-        self.dropout_1  = nn.Dropout(self.dropout)
+        # import pdb; pdb.set_trace()
+        self.hidden = self.init_hidden()
+        self.dropout_1 = nn.Dropout(self.dropout)
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
@@ -51,19 +52,20 @@ class LSTM(t.nn.Module):
             return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
         else:
             return tuple((
-                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True),
-                    variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
-                   ))           
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True),
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag, requires_grad=True)
+            ))
 
-    def forward(self, x_batch, test = False):
+    def forward(self, x_batch, test=False):
         if test:
-            import pdb; pdb.set_trace()
-        embeds               = self.word_embeddings(x_batch)
-        dim1, dim2           = x_batch.size()[1], x_batch.size()[0]
-        rnn_out, self.hidden = self.model_rnn(embeds.view(dim1,dim2,-1), self.hidden)    
-        #Based on Yoon's advice - dropout before projecting on linear layer.
-        rnn_out              = self.dropout_1(rnn_out)        
-        out_linear           = self.hidden2out(rnn_out.view(dim1,dim2,-1))
+            import pdb
+            pdb.set_trace()
+        embeds = self.word_embeddings(x_batch)
+        dim1, dim2 = x_batch.size()[1], x_batch.size()[0]
+        rnn_out, self.hidden = self.model_rnn(embeds.view(dim1, dim2, -1), self.hidden)
+        # Based on Yoon's advice - dropout before projecting on linear layer.
+        rnn_out = self.dropout_1(rnn_out)
+        out_linear = self.hidden2out(rnn_out.view(dim1, dim2, -1))
         return out_linear, self.hidden
 
 
@@ -71,21 +73,21 @@ class GRU(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'GRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
 
 
 class BiGRU(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiGRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers, bidirectional=True)
+        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True)
 
 
 class BiLSTM(LSTM):
     def __init__(self, params, embeddings):
         LSTM.__init__(self, params, embeddings)
         self.model_str = 'BiLSTM'
-        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True, num_layers = self.num_layers)
+        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True, num_layers=self.num_layers)
 
 
 class NNLM(t.nn.Module):
@@ -95,6 +97,7 @@ class NNLM(t.nn.Module):
 
     However it makes shuffling impossible, which is a problem for SGD (breaks the iid assumption)
     """
+
     def __init__(self, params, embeddings):
         super(NNLM, self).__init__()
         self.model_str = 'NNLM'
@@ -104,7 +107,7 @@ class NNLM(t.nn.Module):
         self.embed_dim = embeddings.size(1)
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
-        self.w.weight = t.nn.Parameter(embeddings, requires_grad = self.train_embedding )
+        self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
         # self.dropout = t.nn.Dropout()
         self.conv1 = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
@@ -124,6 +127,7 @@ class NNLM2(t.nn.Module):
     Model defined in 'A Neural Probabilistic Language Model'
     It is implemented using a linear
     """
+
     def __init__(self, params, embeddings):
         super(NNLM2, self).__init__()
         self.model_str = 'NNLM2'
@@ -136,8 +140,8 @@ class NNLM2(t.nn.Module):
         print('train_embedding ? ', self.train_embedding)
         self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
 
-        self.fc1a = t.nn.Linear(self.embed_dim*self.context_size, 100)
-        self.fc1b = t.nn.Linear(self.embed_dim*self.context_size, 100)
+        self.fc1a = t.nn.Linear(self.embed_dim * self.context_size, 100)
+        self.fc1b = t.nn.Linear(self.embed_dim * self.context_size, 100)
         self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.99)
         self.fc11 = t.nn.Linear(100, self.vocab_size)
         self.bn11 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)
@@ -224,6 +228,6 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
 
         # doing it this way allows to use parallelism. Better than looping on last dim !
         # note that this version of pytorch seems outdated
-        true_ = true.contiguous().view(true.size(0)*true.size(1))
-        pred_ = pred.contiguous().view(pred.size(0)*pred.size(2), pred.size(1))
+        true_ = true.contiguous().view(true.size(0) * true.size(1))  # true.size() = (batch_size, bptt_length)
+        pred_ = pred.contiguous().view(pred.size(0) * pred.size(2), pred.size(1))  # pred.size() = (batch_size, vocab_size, bptt_length)
         return self.cross_entropy.forward(pred_, true_)
