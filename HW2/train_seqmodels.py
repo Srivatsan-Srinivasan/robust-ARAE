@@ -12,6 +12,7 @@ import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
 from collections import namedtuple
 from utils import *
+from torch.autograd import Variable
 
 
 def init_optimizer(opt_params, model):
@@ -93,9 +94,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                 #Retain hidden/memory from last batch.
                 import pdb; pdb.set_trace()
                 if model_str == 'LSTM':
-                    model.hidden = (variable(hidden_init, cuda = cuda, requires_grad = True),variable(memory_init, cuda = cuda, requires_grad = True))
+                    model.hidden = (Variable(hidden_init, cuda = cuda, requires_grad = True), Variable(memory_init, cuda = cuda, requires_grad = True))
                 else:
-                    model.hidden = variable(hidden_init, cuda = cuda, requires_grad = True)
+                    model.hidden = Variable(hidden_init, cuda = cuda, requires_grad = True)
             else:
                 optimizer.zero_grad()
 
