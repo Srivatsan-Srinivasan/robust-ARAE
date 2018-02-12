@@ -186,7 +186,7 @@ def predict(model, test_iter, valid_epochs=1, context_size=None,
             loss = TemporalCrossEntropyLoss(size_average=False).forward(output, y_test) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False).forward(output, y_test)
             # monitoring
             total_loss += loss
-            count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test(2)  # in that case there are batch_size x bbp_length classifications per batch
+            count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(2)  # in that case there are batch_size x bbp_length classifications per batch
 
         avg_loss = total_loss / count
         if cuda:
