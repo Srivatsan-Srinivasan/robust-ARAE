@@ -136,9 +136,9 @@ class NNLM2(t.nn.Module):
 
         self.fc1a = t.nn.Linear(self.embed_dim*self.context_size, 100)
         self.fc1b = t.nn.Linear(self.embed_dim*self.context_size, 100)
-        self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.9)
+        self.bn1 = t.nn.BatchNorm1d(100, eps=1e-3, momentum=.99)
         self.fc11 = t.nn.Linear(100, self.vocab_size)
-        self.bn11 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.9)
+        self.bn11 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)
         # self.fc2 = t.nn.Linear(self.embed_dim*self.context_size, self.vocab_size)
 
     def forward(self, x):
