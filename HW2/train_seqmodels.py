@@ -79,9 +79,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if model_str == "LSTM" :
                 h = model.init_hidden()
                 hidden_init = h[0].data
-                memory_init = h[1].data
+                memory_init = h[1].data              
             else:
-                hidden_init = model.init_hidden().data            
+                hidden_init = model.init_hidden().data
         
         # Actual training loop.     
         for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
@@ -91,6 +91,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             if model_str in recur_models:
                 model.zero_grad()
                 #Retain hidden/memory from last batch.
+                import pdb; pdb.set_trace()
                 if model_str == 'LSTM':
                     model.hidden = (variable(hidden_init, cuda = cuda, requires_grad = True),variable(memory_init, cuda = cuda, requires_grad = True))
                 else:
