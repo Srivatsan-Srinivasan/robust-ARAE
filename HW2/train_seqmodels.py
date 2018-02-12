@@ -92,9 +92,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                 model.zero_grad()
                 # Retain hidden/memory from last batch.
                 if model_str == 'LSTM':
-                    model.hidden = (variable(hidden_init), variable(memory_init))
+                    model.hidden = (Variable(hidden_init), Variable(memory_init))
                 else:
-                    model.hidden = variable(hidden_init)
+                    model.hidden = Variable(hidden_init)
             else:
                 optimizer.zero_grad()
 
