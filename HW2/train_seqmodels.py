@@ -82,8 +82,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
             if model_str in recur_models:
                 model.zero_grad()
-                #model.hidden = model.init_hidden()
-                model.hidden = hidden
+                model.hidden = model.init_hidden()
+                #model.hidden = hidden
             else:
                 optimizer.zero_grad()
 
