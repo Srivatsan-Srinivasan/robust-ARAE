@@ -40,7 +40,7 @@ class LSTM(t.nn.Module):
         # Initialize network modules.
         self.model_rnn  = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers = self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         self.hidden     = self.init_hidden()
         self.dropout_1  = nn.Dropout(self.dropout)
 
