@@ -58,6 +58,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
     # First validation round before any training
     if val_iter is not None:
         model.eval()
+        print("Model initialized")
         valid_loss = predict(model, val_iter, valid_epochs=1, context_size=context_size,
                              save_loss=False, expt_name="dummy_expt", cuda=cuda)
         model.train()
@@ -91,9 +92,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                 model.zero_grad()
                 #Retain hidden/memory from last batch.
                 if model_str == 'LSTM':
-                    model.hidden = (variable(hidden_init, cuda = cuda),variable(memory_init, cuda = cuda))
+                    model.hidden = (variable(hidden_init, cuda = cuda, requires_grad = True),variable(memory_init, cuda = cuda, requires_grad = True))
                 else:
-                    model.hidden = variable(hidden_init, cuda = cuda)
+                    model.hidden = variable(hidden_init, cuda = cuda, requires_grad = True)
             else:
                 optimizer.zero_grad()
 
