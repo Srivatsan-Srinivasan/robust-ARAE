@@ -209,7 +209,8 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
         model.hidden = model.hidden[0].detach(), model.hidden[1].detach()
         total_loss += criterion.forward(pred, y).data
         count += x.size(0)*x.size(1)
-
+    if cuda:
+        total_loss = total_loss.cpu()
     avg_loss = (total_loss / count).numpy()[0]
     print("Validation loss is : %.4f" % avg_loss)
     return avg_loss
