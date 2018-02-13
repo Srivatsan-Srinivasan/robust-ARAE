@@ -81,40 +81,28 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
 
         # Initialize hidden layer and memory(for LSTM). Converting to variable later.
         if model_str in recur_models:
-            if model_str == "LSTM":
-                h = model.init_hidden()
-                hidden_init = h[0].data
-                memory_init = h[1].data
-            else:
-                hidden_init = model.init_hidden().data
+            model.hidden = model.init_hidden()
 
         # Actual training loop.     
         for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
-            # Treating each batch as separate instance otherwise Torch accumulates gradients.
-            # That could be computationally expensive.
-            # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
 
-            if model_str in recur_models:
-                model.zero_grad()
-                # Retain hidden/memory from last batch.
-                if model_str == 'LSTM':
-                    model.hidden = (variable(hidden_init, cuda=cuda), variable(memory_init, cuda=cuda))
-                else:
-                    model.hidden = variable(hidden_init, cuda=cuda)
-            else:
-                optimizer.zero_grad()
+            optimizer.zero_grad()
 
             if model_str in recur_models:
                 output, model_hidden = model(x_train)
+                if model.model_str == 'LSTM':
+                    model.hidden = model.hidden[0].detach(), model.hidden[1].detach()  # to break the computational graph epxlictly (backprop through `bptt_steps` steps only)
+                else:
+                    model.hidden = model.hidden.detach()  # to break the computational graph epxlictly (backprop through `bptt_steps` steps only)
             else:
                 output = model(x_train)
 
             # Dimension matching to cut it right for loss function.
             if model_str in recur_models:
                 batch_size, sent_length = y_train.size(0), y_train.size(1)
-                loss = criterion(output.view(batch_size, -1, sent_length), y_train)
+                loss = criterion(output.view(batch_size, -1, sent_length), y_train).data  # .data so that you dont keep graph references
             else:
-                loss = criterion(output, y_train)
+                loss = criterion(output, y_train).data  # .data to break so that you dont keep references
 
             # backprop
             loss.backward()
@@ -124,16 +112,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                 clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 5))
             optimizer.step()
 
-            # Remember hidden and memory for next batch. Converting to tensor to break the
-            # computation graph. Converting it to variable in the next loop.
-            if model_str in recur_models:
-                if model_str == 'LSTM':
-                    hidden_init = model_hidden[0].data
-                    memory_init = model_hidden[1].data
-                else:
-                    hidden_init = model_hidden.data
-
-                    # monitoring
+            # monitoring
             count += x_train.size(0) if model.model_str == 'NNLM2' else x_train.size(0) * x_train.size(1)  # in that case there are batch_size x bbp_length classifications per batch
             total_loss += t.sum(loss)
 
