@@ -118,9 +118,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
 
         # monitoring
         avg_loss = total_loss / count
-        if cuda:
-            avg_loss = avg_loss.cpu()
-        print("Average loss after %d epochs is %.4f" % (epoch, avg_loss.data.numpy()[0]))
+        print("Average loss after %d epochs is %.4f" % (epoch, avg_loss))
         if val_iter_ is not None:
             model.eval()
             former_val_loss = val_loss * 1.
