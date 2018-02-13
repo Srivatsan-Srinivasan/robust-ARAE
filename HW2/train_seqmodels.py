@@ -51,7 +51,12 @@ def _train_initialize_variables(model_str, embeddings, model_params, train_iter,
     criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
 
     if opt_params['lr_scheduler'] is not None and opt_params['optimizer'] == 'SGD':
-        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1)
+        if opt_params['lr_scheduler'] == 'plateau':
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1)
+        elif opt_params['lr_scheduler'] == 'delayedexpo':
+            scheduler = LambdaLR(optimizer, lr_lambda=[lambda epoch: float(epoch<=4) + float(epoch>4)*1.2**(-epoch)])
+        else:
+            raise NotImplementedError('only plateau scheduler has been implemented so far')
     else:
         scheduler = None
 

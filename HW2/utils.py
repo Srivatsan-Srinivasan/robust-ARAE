@@ -279,3 +279,71 @@ class ReduceLROnPlateau(object):
             self.is_better = lambda a, best: a > best + threshold
 
             self.mode_worse = -float('Inf')
+
+
+class _LRScheduler(object):
+    def __init__(self, optimizer, last_epoch=-1):
+        if not isinstance(optimizer, t.optim.Optimizer):
+            raise TypeError('{} is not an Optimizer'.format(
+                type(optimizer).__name__))
+        self.optimizer = optimizer
+        if last_epoch == -1:
+            for group in optimizer.param_groups:
+                group.setdefault('initial_lr', group['lr'])
+        else:
+            for i, group in enumerate(optimizer.param_groups):
+                if 'initial_lr' not in group:
+                    raise KeyError("param 'initial_lr' is not specified "
+                                   "in param_groups[{}] when resuming an optimizer".format(i))
+        self.base_lrs = list(map(lambda group: group['initial_lr'], optimizer.param_groups))
+        self.step(last_epoch + 1)
+        self.last_epoch = last_epoch
+
+    def get_lr(self):
+        raise NotImplementedError
+
+    def step(self, epoch=None):
+        if epoch is None:
+            epoch = self.last_epoch + 1
+        self.last_epoch = epoch
+        for param_group, lr in zip(self.optimizer.param_groups, self.get_lr()):
+            param_group['lr'] = lr
+
+
+class LambdaLR(_LRScheduler):
+    """Sets the learning rate of each parameter group to the initial lr
+    times a given function. When last_epoch=-1, sets initial lr as lr.
+
+    Args:
+        optimizer (Optimizer): Wrapped optimizer.
+        lr_lambda (function or list): A function which computes a multiplicative
+            factor given an integer parameter epoch, or a list of such
+            functions, one for each group in optimizer.param_groups.
+        last_epoch (int): The index of last epoch. Default: -1.
+
+    Example:
+        >>> # Assuming optimizer has two groups.
+        >>> lambda1 = lambda epoch: epoch // 30
+        >>> lambda2 = lambda epoch: 0.95 ** epoch
+        >>> scheduler = LambdaLR(optimizer, lr_lambda=[lambda1, lambda2])
+        >>> for epoch in range(100):
+        >>>     scheduler.step()
+        >>>     train(...)
+        >>>     validate(...)
+    """
+    def __init__(self, optimizer, lr_lambda, last_epoch=-1):
+        self.optimizer = optimizer
+        if not isinstance(lr_lambda, list) and not isinstance(lr_lambda, tuple):
+            self.lr_lambdas = [lr_lambda] * len(optimizer.param_groups)
+        else:
+            if len(lr_lambda) != len(optimizer.param_groups):
+                raise ValueError("Expected {} lr_lambdas, but got {}".format(
+                    len(optimizer.param_groups), len(lr_lambda)))
+            self.lr_lambdas = list(lr_lambda)
+        self.last_epoch = last_epoch
+        super(LambdaLR, self).__init__(optimizer, last_epoch)
+
+    def get_lr(self):
+        return [base_lr * lmbda(self.last_epoch)
+
+                for lmbda, base_lr in zip(self.lr_lambdas, self.base_lrs)]
