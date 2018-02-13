@@ -19,7 +19,7 @@ def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
         v = t.autograd.Variable(t.from_numpy(np.array(array)), requires_grad=requires_grad)
     elif isinstance(array, float) or isinstance(array, int):
         v = t.autograd.Variable(t.from_numpy(np.array([array])), requires_grad=requires_grad)
-    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.Tensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
+    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
         v = t.autograd.Variable(array, requires_grad=requires_grad)            
     elif isinstance(array, t.autograd.Variable):
         v = array
