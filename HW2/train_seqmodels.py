@@ -30,7 +30,7 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_str, embeddings, model_params, train_iter, opt_params, cuda):
+def _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings)
@@ -40,27 +40,32 @@ def _train_initialize_variables(model_str, embeddings, model_params, train_iter,
         # in that case `train_iter` is a list of numpy arrays
         Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
         train_iter_ = Iterator(dataset=train_iter, batch_size=model_params['batch_size'])
+        if val_iter is not None:
+            val_iter_ = Iterator(dataset=val_iter, batch_size=model_params['batch_size'])
+        else:
+            val_iter_ = None
     else:
         train_iter_ = train_iter
+        val_iter_ = val_iter
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
 
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
-    return train_iter_, model, criterion, optimizer
+    return train_iter_, val_iter_, model, criterion, optimizer
 
 
 def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, early_stopping=False, save=False, save_path=None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
     # Initialize model and other variables
-    train_iter_, model, criterion, optimizer = _train_initialize_variables(model_str, embeddings, model_params, train_iter, opt_params, cuda)
+    train_iter_, val_iter_, model, criterion, optimizer = _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda)
 
     # First validation round before any training
-    if val_iter is not None:
+    if val_iter_ is not None:
         model.eval()
         print("Model initialized")
-        val_loss = predict(model, val_iter, context_size=context_size,
+        val_loss = predict(model, val_iter_, context_size=context_size,
                            save_loss=False, expt_name="dummy_expt", cuda=cuda)
         model.train()
 
@@ -137,10 +142,10 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         if cuda:
             avg_loss = avg_loss.cpu()
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss.data.numpy()[0]))
-        if val_iter is not None:
+        if val_iter_ is not None:
             model.eval()
             former_val_loss = val_loss * 1.
-            val_loss = predict(model, val_iter, context_size=context_size,
+            val_loss = predict(model, val_iter_, context_size=context_size,
                                save_loss=False, expt_name="dummy_expt", cuda=cuda)
             if val_loss > former_val_loss:
                 if early_stopping:
