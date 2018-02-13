@@ -120,5 +120,5 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             else:
                 predictions = predictions[:20]
                 
-            print("%d,%s\n" % (i, " ".join(predictions)), file=fout)
+            print("%d,%s" % (i, " ".join(predictions)), file=fout)
         print("Completed writing the output file successfully")
