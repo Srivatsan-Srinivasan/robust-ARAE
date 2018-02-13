@@ -181,9 +181,9 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
         # Dimension matching to cut it right for loss function.
         if model.model_str in recur_models:
             batch_size, sent_length = y_test.size(0), y_test.size(1)
-            loss = criterion(output.view(batch_size, -1, sent_length), y_test).data
+            loss = criterion(output.view(batch_size, -1, sent_length), y_test)
         else:
-            loss = criterion(output, y_test).data
+            loss = criterion(output, y_test)
 
         # Remember hidden and memory for next batch. Converting to tensor to break the
         # computation graph. Converting it to variable in the next loop.
@@ -196,7 +196,7 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
 
         # monitoring
         count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
-        total_loss += t.sum(loss)
+        total_loss += t.sum(loss.data)
 
     # monitoring
     avg_loss = total_loss / count
