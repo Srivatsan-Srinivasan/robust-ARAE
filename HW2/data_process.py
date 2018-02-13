@@ -74,6 +74,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
 
 
 def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=CUDA_DEFAULT, h_dim=100):
+    hidden = trained_model.init_hidden()
     with open(expt_name + ".txt", "w") as fout:
         print("id,word", file=fout)
         for i, l in enumerate(open("input.txt"), 1):
@@ -87,10 +88,14 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             # Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
             x_test = variable(np.matrix(word_markers), requires_grad=False, cuda=cuda)
-            hidden = trained_model.init_hidden()
+            
+            if cuda:
+                hidden_init = hidden[0].detach()
+                memory_init = hidden[1].detach()
+            
             if trained_model.model_str in recur_models:
                 trained_model.zero_grad()
-                trained_model.hidden = (Variable(hidden[0].detach()), Variable(hidden[1].detach()))
+                trained_model.hidden = (Variable(hidden_init), Variable(memory_init))
             output, hidden = trained_model(x_test.long())            
 
             # Batch * NO of words * vocab
