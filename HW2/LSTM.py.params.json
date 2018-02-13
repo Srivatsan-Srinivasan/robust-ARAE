@@ -1,1 +1,1 @@
-{"cuda": true, "vocab_size": 10001, "train_embedding": false, "context_size": -1, "num_layers": 1, "batch_norm": false, "clip_grad_norm": 5.0, "embedding_dim": 50, "nnlm_h_dim": 50, "hidden_dim": 200, "dropout": 0.5, "batch_size": 5, "activation": "gated"}
+{"context_size": -1, "cuda": true, "hidden_dim": 200, "clip_grad_norm": 5.0, "dropout": 0.5, "batch_size": 5, "vocab_size": 10001, "embedding_dim": 50, "num_layers": 1, "train_embedding": false, "batch_norm": false, "activation": "gated", "nnlm_h_dim": 50}
