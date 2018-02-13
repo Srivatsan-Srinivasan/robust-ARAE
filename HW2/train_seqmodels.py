@@ -100,9 +100,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             # Dimension matching to cut it right for loss function.
             if model_str in recur_models:
                 batch_size, sent_length = y_train.size(0), y_train.size(1)
-                loss = criterion(output.view(batch_size, -1, sent_length), y_train).data  # .data so that you dont keep graph references
+                loss = criterion(output.view(batch_size, -1, sent_length), y_train)  # .data so that you dont keep graph references
             else:
-                loss = criterion(output, y_train).data  # .data to break so that you dont keep references
+                loss = criterion(output, y_train)  # .data to break so that you dont keep references
 
             # backprop
             loss.backward()
@@ -114,7 +114,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
 
             # monitoring
             count += x_train.size(0) if model.model_str == 'NNLM2' else x_train.size(0) * x_train.size(1)  # in that case there are batch_size x bbp_length classifications per batch
-            total_loss += t.sum(loss)
+            total_loss += t.sum(loss.data)
 
         # monitoring
         avg_loss = total_loss / count
