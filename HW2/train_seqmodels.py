@@ -211,3 +211,4 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
 
     avg_loss = (total_loss / count).numpy()[0]
     print("Validation loss is : %.4f" % avg_loss)
+    return avg_loss
