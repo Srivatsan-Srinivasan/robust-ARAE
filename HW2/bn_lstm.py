@@ -145,7 +145,7 @@ class BNLSTMCell(nn.Module):
 
     """A BN-LSTM cell."""
 
-    def __init__(self, input_size, hidden_size, max_length, use_bias=True):
+    def __init__(self, input_size, hidden_size, max_length=82, use_bias=True):
 
         super(BNLSTMCell, self).__init__()
         self.input_size = input_size
