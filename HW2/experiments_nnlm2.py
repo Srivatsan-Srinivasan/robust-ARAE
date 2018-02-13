@@ -47,8 +47,8 @@ hdim = [50, 100]
 
 for k, (c,b,d,a,h) in enumerate(product(con_size, BN, dropout, activation, hdim)):
     if not b:
-        print('EXPERIMENT %s / 32 STARTING' % str(k))
         experiments[k] = experiments[k] + ' --context_size %s --dropout %s --batch_norm %s --nnlm_h_dim %s --activation %s' % (c, str(d), str(b), str(h), a)
+        print(experiments[k])
     else:
         experiments.pop(k)
 
