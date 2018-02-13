@@ -33,6 +33,7 @@ class LSTM(t.nn.Module):
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
+        self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
 
         # Initialize embeddings. Static embeddings for now.
@@ -44,7 +45,9 @@ class LSTM(t.nn.Module):
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
         # import pdb; pdb.set_trace()
         self.hidden = self.init_hidden()
-        self.dropout_1 = nn.Dropout(self.dropout)
+        if self.embed_dropout:
+            self.dropout_1 = nn.Dropout(self.dropout)
+        self.dropout_2 = nn.Dropout(self.dropout)
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
@@ -64,10 +67,17 @@ class LSTM(t.nn.Module):
 
         # EMBEDDING
         embeds = self.word_embeddings(x_batch)
-        embeds = embeds.permute(1, 0, 2)  # going from `` to ``
+        # going from ` batch_size x bptt_length x embed_dim` to `bptt_length x batch_size x embed_dim`
+        embeds = embeds.permute(1, 0, 2)
+        if self.embed_dropout:
+            embeds = self.dropout_1(embeds)
+
+        # RECURRENT
         rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
         rnn_out = rnn_out.permute(1, 0, 2)
-        rnn_out = self.dropout_1(rnn_out)
+        rnn_out = self.dropout_2(rnn_out)
+
+        # OUTPUT
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
