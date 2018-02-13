@@ -15,6 +15,7 @@ import os
 os.chdir('../HW2')  # so that there is not any import bug in case HW2 is not already the working directory
 from utils import *
 from const import *
+from bn_lstm import BNLSTMCell, LSTM as _LSTM
 
 
 class LSTM(t.nn.Module):
@@ -42,6 +43,71 @@ class LSTM(t.nn.Module):
 
         # Initialize network modules.
         self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+        # import pdb; pdb.set_trace()
+        self.hidden = self.init_hidden()
+        if self.embed_dropout:
+            self.dropout_1 = nn.Dropout(self.dropout)
+        self.dropout_2 = nn.Dropout(self.dropout)
+
+    def init_hidden(self):
+        # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
+        # will return torch variable.
+        if self.model_str in ['GRU', 'BiGRU']:
+            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+        else:
+            return tuple((
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+            ))
+
+    def forward(self, x_batch, debug=False):
+        if debug:
+            import pdb
+            pdb.set_trace()
+
+        # EMBEDDING
+        embeds = self.word_embeddings(x_batch)
+        # going from ` batch_size x bptt_length x embed_dim` to `bptt_length x batch_size x embed_dim`
+        embeds = embeds.permute(1, 0, 2)
+        if self.embed_dropout:
+            embeds = self.dropout_1(embeds)
+
+        # RECURRENT
+        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
+        rnn_out = rnn_out.permute(1, 0, 2)
+        rnn_out = self.dropout_2(rnn_out)
+
+        # OUTPUT
+        out_linear = self.hidden2out(rnn_out)
+        return out_linear, self.hidden
+
+
+class BNLSTM(t.nn.Module):
+    def __init__(self, params, embeddings):
+        super(BNLSTM, self).__init__()
+        print("Initializing LSTM")
+        self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
+        self.model_str = 'LSTM'
+        self.params = params
+
+        # Initialize hyperparams.
+        self.hidden_dim = params.get('hidden_dim', 100)
+        self.batch_size = params.get('batch_size', 32)
+        self.embedding_dim = embeddings.size(1)
+        self.vocab_size = embeddings.size(0)
+        self.output_size = params.get('output_size', self.vocab_size)
+        self.num_layers = params.get('num_layers', 1)
+        self.dropout = params.get('dropout', 0.5)
+        self.embed_dropout = params.get('embed_dropout')
+        self.train_embedding = params.get('train_embedding', False)
+
+        # Initialize embeddings. Static embeddings for now.
+        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+
+        # Initialize network modules.
+        self.model_rnn = _LSTM(BNLSTMCell, self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
         # import pdb; pdb.set_trace()
         self.hidden = self.init_hidden()
