@@ -205,7 +205,7 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
 
     for x, y in data_generator(test_iter, model.model_str, cuda=cuda):
         pred, hidden = model(x)
-        print(pred.size())
+        pred = pred.permute(0, 2, 1)
         model.hidden = model.hidden[0].detach(), model.hidden[1].detach()
         total_loss += criterion.forward(pred, y).data
         count += x.size(0)*x.size(1)
