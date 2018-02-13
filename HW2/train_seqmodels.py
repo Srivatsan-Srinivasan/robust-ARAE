@@ -139,7 +139,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         if val_iter is not None:
             model.eval()
             former_valid_loss = valid_loss * 1.
-            valid_loss = predict(model, train_iter_, context_size=context_size,
+            valid_loss = predict(model, val_iter, context_size=context_size,
                                  save_loss=False, expt_name="dummy_expt", cuda=cuda)
             if valid_loss > former_valid_loss:
                 if early_stopping:
