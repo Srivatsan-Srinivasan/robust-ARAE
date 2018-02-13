@@ -75,6 +75,7 @@ def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', conte
 
 def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=CUDA_DEFAULT, h_dim=100):
     #Sentences processed one at a time.
+    trained_model.eval()
     hidden = tuple((
                 variable(np.zeros((trained_model.num_layers, 1, trained_model.hidden_dim)), cuda=cuda),
                 variable(np.zeros((trained_model.num_layers, 1, trained_model.hidden_dim)), cuda=cuda)
