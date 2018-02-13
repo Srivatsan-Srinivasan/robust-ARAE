@@ -60,6 +60,9 @@ model_params, opt_params, train_params = get_params(args)
 train_iter, val_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'],
                                                                                                    emb_size=args.emb_size, emb=args.emb)
 
+if args.model in recur_models:
+    t.backends.cudnn.enabled = False
+
 # Call for different models code should be here.
 # Train Model
 trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=val_iter, cuda=args.cuda, save=args.save,
