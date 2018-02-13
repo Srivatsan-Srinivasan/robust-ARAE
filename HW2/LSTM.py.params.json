@@ -1,0 +1,1 @@
+{"embedding_dim": 50, "batch_norm": false, "context_size": -1, "nnlm_h_dim": 50, "activation": "gated", "dropout": 0.5, "vocab_size": 10001, "clip_grad_norm": 5.0, "num_layers": 1, "batch_size": 5, "cuda": true, "hidden_dim": 200, "train_embedding": false}
