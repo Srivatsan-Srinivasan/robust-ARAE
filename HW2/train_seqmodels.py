@@ -270,6 +270,6 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
         count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
         total_loss += t.sum(loss)
 
-        # monitoring
-        avg_loss = total_loss / count
-        print("Validation loss is %.4f" % avg_loss)
+    # monitoring
+    avg_loss = total_loss / count
+    print("Validation loss is %.4f" % avg_loss)
