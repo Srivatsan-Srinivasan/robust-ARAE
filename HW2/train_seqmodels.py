@@ -166,15 +166,13 @@ def predict(model, test_iter, context_size=None,
         test_iter_ = Iterator(dataset=test_iter, batch_size=100)
     else:
         test_iter_ = test_iter
-        hidden = model.init_hidden()
-        hidden_init = hidden[0].data
-        memory_init = hidden[1].data
+        model.hidden = model.init_hidden()
         #"Adding arbit statement"
 
     for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
 
         if model.model_str in recur_models:
-            model.hidden = (variable(hidden_init, cuda=cuda), variable(memory_init, cuda=cuda))
+            model.hidden = (variable(model.hidden[0].data, cuda=cuda), variable(model.hidden[1].data, cuda=cuda))
             output, hidden = model(x_test)
             output = output.permute(0, 2, 1)
         else:
@@ -182,22 +180,13 @@ def predict(model, test_iter, context_size=None,
 
         loss = TemporalCrossEntropyLoss(size_average=False).forward(output, y_test) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False).forward(output, y_test)
         # monitoring
-        total_loss += loss
+        total_loss += loss.data
         count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
-
-        # Remember hidden and memory for next batch. Converting to tensor to break the
-        # computation graph. Converting it to variable in the next loop.
-        if model.model_str in recur_models:
-            if model.model_str == 'LSTM':
-                hidden_init = hidden[0].data
-                memory_init = hidden[1].data
-            else:
-                hidden_init = hidden.data
 
     avg_loss = total_loss / count
     if cuda:
         avg_loss = avg_loss.cpu()
-    avg_loss = avg_loss.data.numpy()[0]
+    avg_loss = avg_loss.numpy()[0]
     if save_loss:
         losses[0] = avg_loss
         pickle_entry(losses, "val_loss " + expt_name)
