@@ -139,7 +139,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         if val_iter is not None:
             model.eval()
             former_valid_loss = valid_loss * 1.
-            valid_loss = predict(model, train_iter_, context_size=context_size,
+            valid_loss = predict(model, val_iter, context_size=context_size,
                                  save_loss=False, expt_name="dummy_expt", cuda=cuda)
             if valid_loss > former_valid_loss:
                 if early_stopping:
@@ -151,69 +151,6 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             model.train()
 
     return model
-
-
-# def predict(model, test_iter, context_size=None,
-#             save_loss=False, expt_name="dummy_expt", cuda=CUDA_DEFAULT):
-#     model.eval()
-#     losses = {}
-#     total_loss = 0
-#     count = 0
-#
-#     if model.model_str == 'NNLM2':
-#         # in that case `train_iter` is a list of numpy arrays
-#         Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
-#         test_iter_ = Iterator(dataset=test_iter, batch_size=100)
-#     else:
-#         test_iter_ = test_iter
-#         model.hidden = model.init_hidden()
-#         #"Adding arbit statement"
-#
-#     for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
-#
-#         if model.model_str in recur_models:
-#             model.hidden = (variable(model.hidden[0].data, cuda=cuda), variable(model.hidden[1].data, cuda=cuda))
-#             output, hidden = model(x_test)
-#             output = output.permute(0, 2, 1)
-#         else:
-#             output = model(x_test)
-#
-#         loss = TemporalCrossEntropyLoss(size_average=False).forward(output, y_test) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False).forward(output, y_test)
-#         # monitoring
-#         total_loss += loss.data
-#         count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
-#
-#     avg_loss = total_loss / count
-#     if cuda:
-#         avg_loss = avg_loss.cpu()
-#     avg_loss = avg_loss.numpy()[0]
-#     if save_loss:
-#         losses[0] = avg_loss
-#         pickle_entry(losses, "val_loss " + expt_name)
-#     else:
-#         print("Validation loss: %4f" % avg_loss)
-#         losses[0] = avg_loss
-#     return losses[0]
-
-
-# def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
-#     model.eval()
-#     total_loss = 0
-#     count = 0
-#     criterion = TemporalCrossEntropyLoss(size_average=False)
-#     model.hidden = model.init_hidden()
-#
-#     for x, y in data_generator(test_iter, model.model_str, cuda=cuda):
-#         pred, hidden = model(x)
-#         pred = pred.permute(0, 2, 1)  # from `batch_size x bptt_length x |V|` to `batch_size x |V| x bptt_length`
-#         model.hidden = model.hidden[0].detach(), model.hidden[1].detach()  # avoid memory overflows
-#         total_loss += criterion.forward(pred, y).data  # .data to avoid memory overflows
-#         count += x.size(0)*x.size(1)
-#     if cuda:
-#         total_loss = total_loss.cpu()
-#     avg_loss = (total_loss / count).numpy()[0]
-#     print("Validation loss is : %.4f" % avg_loss)
-#     return avg_loss
 
 
 def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
@@ -274,3 +211,23 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
     avg_loss = total_loss / count
     print("Validation loss is %.4f" % avg_loss)
     return avg_loss
+
+
+# def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
+#     model.eval()
+#     total_loss = 0
+#     count = 0
+#     criterion = TemporalCrossEntropyLoss(size_average=False)
+#     model.hidden = model.init_hidden()
+#
+#     for x, y in data_generator(test_iter, model.model_str, cuda=cuda):
+#         pred, hidden = model(x)
+#         pred = pred.permute(0, 2, 1)  # from `batch_size x bptt_length x |V|` to `batch_size x |V| x bptt_length`
+#         model.hidden = model.hidden[0].detach(), model.hidden[1].detach()  # avoid memory overflows
+#         total_loss += criterion.forward(pred, y).data  # .data to avoid memory overflows
+#         count += x.size(0)*x.size(1)
+#     if cuda:
+#         total_loss = total_loss.cpu()
+#     avg_loss = (total_loss / count).numpy()[0]
+#     print("Validation loss is : %.4f" % avg_loss)
+#     return avg_loss
