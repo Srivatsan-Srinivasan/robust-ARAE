@@ -81,7 +81,7 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
                 variable(np.zeros((trained_model.num_layers, 1, trained_model.hidden_dim)), cuda=cuda)
             ))
     with open(expt_name + ".txt", "w") as fout:
-        print("id,word", file=fout)
+        print("id,word\n", file=fout)
         for i, l in enumerate(open("input.txt"), 1):
             if trained_model.model_str == 'NNLM2':
                 assert context_size is not None, '`context_size` should be an integer'
@@ -115,5 +115,5 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             # top 20 predicitons for Last word
             n_predictions = (-output[-1]).argsort()[:20]
             predictions = [TEXT.vocab.itos[i] for i in n_predictions]
-            print("%d,%s" % (i, " ".join(predictions)), file=fout)
+            print("%d,%s\n" % (i, " ".join(predictions)), file=fout)
         print("Completed writing the output file successfully")
