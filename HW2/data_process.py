@@ -113,7 +113,12 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             output = output[0]
 
             # top 20 predicitons for Last word
-            n_predictions = (-output[-1]).argsort()[:20]
+            n_predictions = (-output[-1]).argsort()[:21]            
             predictions = [TEXT.vocab.itos[i] for i in n_predictions]
+            if '<eos>' in predictions:
+                predictions.remove('<eos>')
+            else:
+                predictions = predictions[:20]
+                
             print("%d,%s\n" % (i, " ".join(predictions)), file=fout)
         print("Completed writing the output file successfully")
