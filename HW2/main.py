@@ -45,7 +45,8 @@ parser.add_argument('--nnlm_h_dim', default=50, type=int)
 parser.add_argument('--activation', default='gated', type=str)
 
 # OPTIMIZER PARAMS
-parser.add_argument('--optimizer', default='SGD')
+parser.add_argument('--optimizer', default='SGD', type=str)
+parser.add_argument('--lr_scheduler', default=None, type=str)
 parser.add_argument('--lr', default=0.1, type=float)
 parser.add_argument('--l2_penalty', default=0, type=float)
 

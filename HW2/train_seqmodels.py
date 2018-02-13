@@ -50,16 +50,21 @@ def _train_initialize_variables(model_str, embeddings, model_params, train_iter,
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
 
+    if opt_params['lr_scheduler'] is not None and opt_params['optimizer'] == 'SGD':
+        scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1)
+    else:
+        scheduler = None
+
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
-    return train_iter_, val_iter_, model, criterion, optimizer
+    return train_iter_, val_iter_, model, criterion, optimizer, scheduler
 
 
 def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, early_stopping=False, save=False, save_path=None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
     # Initialize model and other variables
-    train_iter_, val_iter_, model, criterion, optimizer = _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda)
+    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda)
 
     # First validation round before any training
     if val_iter_ is not None:
@@ -68,6 +73,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         val_loss = predict(model, val_iter_, context_size=context_size,
                            save_loss=False, expt_name="dummy_expt", cuda=cuda)
         model.train()
+
+    if scheduler is not None:
+        scheduler.step(val_loss)
 
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
@@ -124,6 +132,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             former_val_loss = val_loss * 1.
             val_loss = predict(model, val_iter_, context_size=context_size,
                                save_loss=False, expt_name="dummy_expt", cuda=cuda)
+            if scheduler is not None:
+                scheduler.step(val_loss)
             if val_loss > former_val_loss:
                 if early_stopping:
                     break
