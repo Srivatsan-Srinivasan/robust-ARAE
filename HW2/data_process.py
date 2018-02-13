@@ -9,6 +9,7 @@ from torchtext.vocab import Vectors, GloVe
 from utils import variable
 from const import *
 import numpy as np
+from torch.autograd import Variable
 
 
 def generate_iterators(model_str, debug=False, batch_size=10, emb='GloVe', context_size=None, emb_size = 50):
@@ -86,17 +87,20 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             # Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
             x_test = variable(np.matrix(word_markers), requires_grad=False, cuda=cuda)
-
+            hidden = trained_model.init_hidden()
             if trained_model.model_str in recur_models:
                 trained_model.zero_grad()
-                trained_model.hidden = tuple((
-                    variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False),
-                    variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False)
-                ))
-            output = trained_model(x_test.long())
+                trained_model.hidden = (Variable(hidden[0].detach), Variable(hidden[1].detach()))
+            output, hidden = trained_model(x_test.long())            
 
             # Batch * NO of words * vocab
-            output = output.view(1, len(word_markers), -1).numpy()
+
+            output = output.view(1, len(word_markers), -1)
+            if cuda:
+                output = output.data.cpu().numpy()
+            else:
+                output = output.data.numpy()
+                
             output = output[0]
 
             # top 20 predicitons for Last word
