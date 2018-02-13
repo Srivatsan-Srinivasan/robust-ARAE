@@ -88,10 +88,9 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             # Input format to the model. Batch_size * bptt.
             # for now, batch_size = 1.
             x_test = variable(np.matrix(word_markers), requires_grad=False, cuda=cuda)
-            
-            if cuda:
-                hidden_init = hidden[0].detach()
-                memory_init = hidden[1].detach()
+                       
+            hidden_init = hidden[0].data
+            memory_init = hidden[1].data
             
             if trained_model.model_str in recur_models:
                 trained_model.zero_grad()
