@@ -142,12 +142,18 @@ class NNLM2(t.nn.Module):
         self.vocab_size = embeddings.size(0)
         self.embed_dim = embeddings.size(1)
 
+        assert 'batch_norm' in params
+        assert 'dropout' in params
+        assert 'activation' in params
+        assert 'nnlm_h_dim' in params
+        assert 'context_size' in params
+        assert 'train_embedding' in params
         self.context_size = int(params.get('context_size'))
-        self.train_embedding = params.get('train_embedding', False)
-        self.batch_norm = params.get('batch_norm', True)
-        self.activation = params.get('activation', 'gated')
-        self.hdim = params.get('nnlm_h_dim', 50)
-        self.dropout = params.get('dropout', 0)
+        self.train_embedding = params.get('train_embedding')
+        self.batch_norm = params.get('batch_norm')
+        self.activation = params.get('activation')
+        self.hdim = params.get('nnlm_h_dim')
+        self.dropout = params.get('dropout')
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
         if self.dropout > 0:
