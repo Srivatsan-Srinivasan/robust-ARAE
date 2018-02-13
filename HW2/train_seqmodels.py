@@ -138,7 +138,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
                     # loss
                     with open(save_path + '.losses.txt', 'w') as fp:
                         fp.write('val: ' + str(val_loss))
-                        fp.write('train: ' + str(avg_loss.data.numpy()[0]))
+                        fp.write('train: ' + str(avg_loss))
             model.train()
 
     return model
