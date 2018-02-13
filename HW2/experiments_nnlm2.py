@@ -40,17 +40,13 @@ experiments = {k:v for k,v in enumerate(experiments)}
 
 
 con_size = [5, 8]
-BN = [False, True]
 dropout = [0, 0.5]
 activation = ['gated', 'lrelu']
 hdim = [50, 100]
 
-for k, (c,b,d,a,h) in enumerate(product(con_size, BN, dropout, activation, hdim)):
-    if not b:
-        experiments[k] = experiments[k] + ' --context_size %s --dropout %s --batch_norm %s --nnlm_h_dim %s --activation %s' % (c, str(d), str(b), str(h), a)
-        print(experiments[k])
-    else:
-        experiments.pop(k)
+for k, (c,d,a,h) in enumerate(product(con_size, dropout, activation, hdim)):
+    experiments[k] = experiments[k] + ' --context_size %s --dropout %s --nnlm_h_dim %s --activation %s' % (c, str(d), str(h), a)
+    print(experiments[k])
 
 if 'nnlm2' not in os.listdir():
     os.system('mkdir nnlm2')
