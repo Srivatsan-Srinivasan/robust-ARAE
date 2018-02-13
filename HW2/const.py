@@ -17,14 +17,14 @@ model_params_args_map = {'num_layers': 'lstm_nl',
                          'embedding_dim': 'emb_size',
                          'batch_size': 'batch_size',
                          'dropout': 'dropout',
-                         'context_size': 'con_size',
+                         'context_size': 'context_size',
                          'train_embedding': 'emb_train',
                          'clip_grad_norm': 'clip_g_n',
                          'cuda': 'cuda',
-                         'batchnorm': 'BN',
-                         'nnlm_hdim': 'nnlm_hdim',
-                         'activation': 'nnlm_acti',
-                         'vocab_size' : 'vocab_size'
+                         'batch_norm': 'batch_norm',
+                         'nnlm_h_dim': 'nnlm_h_dim',
+                         'activation': 'activation',
+                         'vocab_size': 'vocab_size'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',

@@ -23,6 +23,7 @@ class LSTM(t.nn.Module):
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
         self.model_str = 'LSTM'
+        self.params = params
 
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', 100)
@@ -136,14 +137,17 @@ class NNLM2(t.nn.Module):
     def __init__(self, params, embeddings):
         super(NNLM2, self).__init__()
         self.model_str = 'NNLM2'
+        self.params = params
+
+        self.vocab_size = embeddings.size(0)
+        self.embed_dim = embeddings.size(1)
+
         self.context_size = int(params.get('context_size'))
         self.train_embedding = params.get('train_embedding', False)
         self.batch_norm = params.get('batch_norm', True)
         self.activation = params.get('activation', 'gated')
-        self.hdim = params.get('nnlm_hdim', 50)
+        self.hdim = params.get('nnlm_h_dim', 50)
         self.dropout = params.get('dropout', 0)
-        self.vocab_size = embeddings.size(0)
-        self.embed_dim = embeddings.size(1)
 
         self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
         if self.dropout > 0:

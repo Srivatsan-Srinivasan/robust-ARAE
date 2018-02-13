@@ -36,12 +36,12 @@ parser.add_argument('--lstm_h_dim', default=100, type=int)
 parser.add_argument('--emb_size', default=50, type=int)
 parser.add_argument('--batch_size', default=10, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
-parser.add_argument('--con_size', default=-1, type=int)
+parser.add_argument('--context_size', default=-1, type=int)
 parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
-parser.add_argument('--BN', default=False, type=bool, help='Whether to include batch normalization or not')
-parser.add_argument('--nnlm_hdim', default=50, type=int)
-parser.add_argument('--nnlm_acti', default='gated', type=str)
+parser.add_argument('--batch_norm', default=False, type=bool, help='Whether to include batch normalization or not')
+parser.add_argument('--nnlm_h_dim', default=50, type=int)
+parser.add_argument('--activation', default='gated', type=str)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD')
@@ -57,14 +57,14 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, valid_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'],
-                                                                                                     emb_size=args.emb_size, emb=args.emb)
+train_iter, val_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'],
+                                                                                                   emb_size=args.emb_size, emb=args.emb)
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=valid_iter, cuda=args.cuda, save=args.save,
+trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=val_iter, cuda=args.cuda, save=args.save,
                       save_path=args.output_filename,
-                      context_size=int(args.con_size), model_params=model_params, early_stopping=args.early_stopping,
+                      context_size=int(args.context_size), model_params=model_params, early_stopping=args.early_stopping,
                       train_params=train_params, opt_params=opt_params, TEXT=TEXT, reshuffle_train=(args.model == 'NNLM'))
 
 # Predict Model

@@ -13,6 +13,7 @@ from torch.nn.utils import clip_grad_norm
 from collections import namedtuple
 from utils import *
 from torch.autograd import Variable
+import json
 
 
 def init_optimizer(opt_params, model):
@@ -59,8 +60,8 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
     if val_iter is not None:
         model.eval()
         print("Model initialized")
-        valid_loss = predict(model, val_iter, context_size=context_size,
-                             save_loss=False, expt_name="dummy_expt", cuda=cuda)
+        val_loss = predict(model, val_iter, context_size=context_size,
+                           save_loss=False, expt_name="dummy_expt", cuda=cuda)
         model.train()
 
     print("All set. Actual Training begins")
@@ -87,7 +88,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             # Treating each batch as separate instance otherwise Torch accumulates gradients.
             # That could be computationally expensive.
             # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
-            
+
             if model_str in recur_models:
                 model.zero_grad()
                 # Retain hidden/memory from last batch.
@@ -138,16 +139,24 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss.data.numpy()[0]))
         if val_iter is not None:
             model.eval()
-            former_valid_loss = valid_loss * 1.
-            valid_loss = predict(model, val_iter, context_size=context_size,
-                                 save_loss=False, expt_name="dummy_expt", cuda=cuda)
-            if valid_loss > former_valid_loss:
+            former_val_loss = val_loss * 1.
+            val_loss = predict(model, val_iter, context_size=context_size,
+                               save_loss=False, expt_name="dummy_expt", cuda=cuda)
+            if val_loss > former_val_loss:
                 if early_stopping:
                     break
             else:
                 if save:
                     assert save_path is not None
-                    save_model(model, save_path)
+                    # weights
+                    save_model(model, save_path + '.pytorch')
+                    # params
+                    with open(save_path + '.params.json', 'w') as fp:
+                        json.dump(model.params, fp)
+                    # loss
+                    with open(save_path + '.losses.txt', 'w') as fp:
+                        fp.write('val: ' + str(val_loss))
+                        fp.write('train: ' + str(avg_loss.data.numpy()[0]))
             model.train()
 
     return model
@@ -211,7 +220,6 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
     avg_loss = total_loss / count
     print("Validation loss is %.4f" % avg_loss)
     return avg_loss
-
 
 # def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
 #     model.eval()
