@@ -196,21 +196,82 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
 #     return losses[0]
 
 
+# def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
+#     model.eval()
+#     total_loss = 0
+#     count = 0
+#     criterion = TemporalCrossEntropyLoss(size_average=False)
+#     model.hidden = model.init_hidden()
+#
+#     for x, y in data_generator(test_iter, model.model_str, cuda=cuda):
+#         pred, hidden = model(x)
+#         pred = pred.permute(0, 2, 1)  # from `batch_size x bptt_length x |V|` to `batch_size x |V| x bptt_length`
+#         model.hidden = model.hidden[0].detach(), model.hidden[1].detach()  # avoid memory overflows
+#         total_loss += criterion.forward(pred, y).data  # .data to avoid memory overflows
+#         count += x.size(0)*x.size(1)
+#     if cuda:
+#         total_loss = total_loss.cpu()
+#     avg_loss = (total_loss / count).numpy()[0]
+#     print("Validation loss is : %.4f" % avg_loss)
+#     return avg_loss
+
+
 def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
-    model.eval()
+    # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = TemporalCrossEntropyLoss(size_average=False)
-    model.hidden = model.init_hidden()
-
-    for x, y in data_generator(test_iter, model.model_str, cuda=cuda):
-        pred, hidden = model(x)
-        pred = pred.permute(0, 2, 1)
-        model.hidden = model.hidden[0].detach(), model.hidden[1].detach()
-        total_loss += criterion.forward(pred, y).data
-        count += x.size(0)*x.size(1)
+    criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
     if cuda:
-        total_loss = total_loss.cpu()
-    avg_loss = (total_loss / count).numpy()[0]
-    print("Validation loss is : %.4f" % avg_loss)
-    return avg_loss
+        criterion = criterion.cuda()
+
+    # Initialize hidden layer and memory(for LSTM). Converting to variable later.
+    if model.model_str in recur_models:
+        if model.model_str == "LSTM":
+            h = model.init_hidden()
+            hidden_init = h[0].data
+            memory_init = h[1].data
+        else:
+            hidden_init = model.init_hidden().data
+
+    # Actual training loop.
+    for x_test, y_test in data_generator(test_iter, model.model_str, context_size=context_size, cuda=cuda):
+        # Treating each batch as separate instance otherwise Torch accumulates gradients.
+        # That could be computationally expensive.
+        # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
+        if model.model_str in recur_models:
+            # Retain hidden/memory from last batch.
+            if model.model_str == 'LSTM':
+                model.hidden = (variable(hidden_init, cuda=cuda), variable(memory_init, cuda=cuda))
+            else:
+                model.hidden = variable(hidden_init, cuda=cuda)
+
+        if model.model_str in recur_models:
+            output, model_hidden = model(x_test)
+        else:
+            output = model(x_test)
+
+        # Dimension matching to cut it right for loss function.
+        if model.model_str in recur_models:
+            batch_size, sent_length = y_test.size(0), y_test.size(1)
+            loss = criterion(output.view(batch_size, -1, sent_length), y_test).data
+        else:
+            loss = criterion(output, y_test).data
+
+        # Remember hidden and memory for next batch. Converting to tensor to break the
+        # computation graph. Converting it to variable in the next loop.
+        if model.model_str in recur_models:
+            if model.model_str == 'LSTM':
+                hidden_init = model_hidden[0].data
+                memory_init = model_hidden[1].data
+            else:
+                hidden_init = model_hidden.data
+
+        # monitoring
+        count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+        total_loss += t.sum(loss)
+
+        # monitoring
+        avg_loss = total_loss / count
+        if cuda:
+            avg_loss = avg_loss.cpu()
+        print("Validation loss is %.4f" % avg_loss.data.numpy()[0])
