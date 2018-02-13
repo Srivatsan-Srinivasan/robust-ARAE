@@ -69,8 +69,8 @@ trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=val_i
 
 # Predict Model
 # @todo: make it work for nnlm2
-predict(trained_model, test_iter, context_size=int(args.con_size),
-        save_loss=args.monitor, cuda=args.cuda, expt_name=args.exp_n)
+#predict(trained_model, test_iter, context_size=int(args.con_size),
+#        save_loss=args.monitor, cuda=args.cuda, expt_name=args.exp_n)
 
 generate_text(trained_model, args.exp_n, TEXT, n=20, cuda=args.cuda)
 

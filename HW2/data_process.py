@@ -90,7 +90,7 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             hidden = trained_model.init_hidden()
             if trained_model.model_str in recur_models:
                 trained_model.zero_grad()
-                trained_model.hidden = (Variable(hidden[0].detach), Variable(hidden[1].detach()))
+                trained_model.hidden = (Variable(hidden[0].detach()), Variable(hidden[1].detach()))
             output, hidden = trained_model(x_test.long())            
 
             # Batch * NO of words * vocab
