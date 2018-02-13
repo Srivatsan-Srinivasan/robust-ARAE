@@ -36,6 +36,7 @@ experiments = [
     "python3 main.py --model NNLM2 --cuda True --l2_penalty 0.0001 --batch_size 320 --optimizer Adam --lr 0.001 --emb_train True --early_stopping True --save True --output_filename nnlm2/30",
     "python3 main.py --model NNLM2 --cuda True --l2_penalty 0.0001 --batch_size 320 --optimizer Adam --lr 0.001 --emb_train True --early_stopping True --save True --output_filename nnlm2/31",
 ]
+experiments = {k:v for k,v in enumerate(experiments)}
 
 
 con_size = [5, 8]
@@ -45,10 +46,13 @@ activation = ['gated', 'lrelu']
 hdim = [50, 100]
 
 for k, (c,b,d,a,h) in enumerate(product(con_size, BN, dropout, activation, hdim)):
-    print('EXPERIMENT %s / 32 STARTING' % str(k))
-    experiments[k] = experiments[k] + ' --context_size %s --dropout %s --batch_norm %s --nnlm_h_dim %s --activation %s' % (c, str(d), str(b), str(h), a)
+    if not b:
+        print('EXPERIMENT %s / 32 STARTING' % str(k))
+        experiments[k] = experiments[k] + ' --context_size %s --dropout %s --batch_norm %s --nnlm_h_dim %s --activation %s' % (c, str(d), str(b), str(h), a)
+    else:
+        experiments.pop(k)
 
 if 'nnlm2' not in os.listdir():
     os.system('mkdir nnlm2')
-for experiment in experiments:
+for k,experiment in experiments.items():
     os.system(experiment)
