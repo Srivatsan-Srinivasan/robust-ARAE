@@ -161,6 +161,7 @@ class NNLM2(t.nn.Module):
         self.context_size = int(params.get('context_size'))
         self.train_embedding = params.get('train_embedding')
         self.batch_norm = params.get('batch_norm')
+        print('batch norm ?', self.batch_norm)
         self.activation = params.get('activation')
         self.hdim = params.get('nnlm_h_dim')
         self.dropout = params.get('dropout')
