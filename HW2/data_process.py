@@ -113,5 +113,6 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
 
             # top 20 predicitons for Last word
             n_predictions = (-output[-1]).argsort()[:20]
-            print("%d,%s" % (i, " ".join(n_predictions)), file=fout)
+            predictions = [TEXT.vocab.itos[i] for i in n_predictions]
+            print("%d,%s" % (i, " ".join(predictions)), file=fout)
         print("Completed writing the output file successfully")
