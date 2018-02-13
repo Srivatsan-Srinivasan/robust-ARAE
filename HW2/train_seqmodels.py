@@ -139,7 +139,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         if val_iter is not None:
             model.eval()
             former_valid_loss = valid_loss * 1.
-            valid_loss = predict(model, val_iter, context_size=context_size,
+            valid_loss = predict(model, train_iter_, context_size=context_size,
                                  save_loss=False, expt_name="dummy_expt", cuda=cuda)
             if valid_loss > former_valid_loss:
                 if early_stopping:
@@ -166,11 +166,15 @@ def predict(model, test_iter, context_size=None,
         test_iter_ = Iterator(dataset=test_iter, batch_size=100)
     else:
         test_iter_ = test_iter
-        model.init_hidden()
+        hidden = model.init_hidden()
+        hidden_init = hidden[0].data
+        memory_init = hidden[1].data
         #"Adding arbit statement"
 
     for x_test, y_test in data_generator(test_iter_, model.model_str, context_size=context_size, cuda=cuda):
+
         if model.model_str in recur_models:
+            model.hidden = (variable(hidden_init, cuda=cuda), variable(memory_init, cuda=cuda))
             output, hidden = model(x_test)
             output = output.permute(0, 2, 1)
         else:
@@ -180,6 +184,15 @@ def predict(model, test_iter, context_size=None,
         # monitoring
         total_loss += loss
         count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+
+        # Remember hidden and memory for next batch. Converting to tensor to break the
+        # computation graph. Converting it to variable in the next loop.
+        if model.model_str in recur_models:
+            if model.model_str == 'LSTM':
+                hidden_init = hidden[0].data
+                memory_init = hidden[1].data
+            else:
+                hidden_init = hidden.data
 
     avg_loss = total_loss / count
     if cuda:

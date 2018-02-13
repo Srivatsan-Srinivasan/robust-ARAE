@@ -60,9 +60,11 @@ class LSTM(t.nn.Module):
         if debug:
             import pdb
             pdb.set_trace()
-        embeds = self.word_embeddings(x_batch).permute(1,0,2)
+
+        # EMBEDDING
+        embeds = self.word_embeddings(x_batch)
+        embeds = embeds.permute(1, 0, 2)  # going from `` to ``
         rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
-        # Based on Yoon's advice - dropout before projecting on linear layer.
         rnn_out = rnn_out.permute(1, 0, 2)
         rnn_out = self.dropout_1(rnn_out)
         out_linear = self.hidden2out(rnn_out)
