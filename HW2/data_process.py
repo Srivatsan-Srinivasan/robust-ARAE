@@ -93,7 +93,7 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
                     variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False),
                     variable(np.zeros((1, 1, h_dim)), cuda=cuda, requires_grad=False)
                 ))
-            output = trained_model(x_test.long(), test=True)
+            output = trained_model(x_test.long())
 
             # Batch * NO of words * vocab
             output = output.view(1, len(word_markers), -1).numpy()
@@ -102,4 +102,4 @@ def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=
             # top 20 predicitons for Last word
             n_predictions = (-output[-1]).argsort()[:20]
             print("%d,%s" % (i, " ".join(n_predictions)), file=fout)
-        print("Completed writing the output file")
+        print("Completed writing the output file successfully")
