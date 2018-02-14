@@ -1,5 +1,4 @@
 id,word
-
 1,the to in a as on out any for into or this it but and by back from that <unk>
 2,to the in by for a on and <unk> that of up have but it as from with at after
 3,and in at on to for of the brokers traders up <unk> after as 's into out by down off
