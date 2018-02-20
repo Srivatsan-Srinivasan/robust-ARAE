@@ -64,6 +64,7 @@ class LSTM(t.nn.Module):
         """
         If you tie weights, the embedding and hidden dims should match.
         If they don't, you can add dimensions to the embedding and make only the good part match
+        :returns: the additional dim to the embedding
         """
         if self.tie_weights and self.embedding_dim == self.hidden_dim:
             self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
