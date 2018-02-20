@@ -43,6 +43,7 @@ parser.add_argument('--clip_g_n', default=0.25, type=float)
 parser.add_argument('--batch_norm', default=False, type=bool, help='Whether to include batch normalization or not')
 parser.add_argument('--nnlm_h_dim', default=50, type=int)
 parser.add_argument('--activation', default='gated', type=str)
+parser.add_argument('--tie_weights', default=False, type=bool, help='For LSTM model whether to make output and embedding weights match')
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)

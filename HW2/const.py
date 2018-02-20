@@ -25,7 +25,8 @@ model_params_args_map = {'num_layers': 'lstm_nl',
                          'nnlm_h_dim': 'nnlm_h_dim',
                          'activation': 'activation',
                          'vocab_size': 'vocab_size',
-                         'embed_dropout': 'embed_dropout'
+                         'embed_dropout': 'embed_dropout',
+                         'tie_weights': 'tie_weights'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',

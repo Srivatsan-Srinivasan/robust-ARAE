@@ -36,15 +36,14 @@ class LSTM(t.nn.Module):
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
+        self.tie_weights = params.get('tie_weights')
 
-        # Initialize embeddings. Static embeddings for now.
-        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+        # Initialize embeddings.
+        self.init_embedding_and_output()
 
         # Initialize network modules.
         self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
-        self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        # import pdb; pdb.set_trace()
+
         self.hidden = self.init_hidden()
         if self.embed_dropout:
             self.dropout_1 = nn.Dropout(self.dropout)
@@ -60,6 +59,32 @@ class LSTM(t.nn.Module):
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
+
+    def init_embedding_and_output(self):
+        """
+        If you tie weights, the embedding and hidden dims should match.
+        If they don't, you can add dimensions to the embedding and make only the good part match
+        """
+        if self.tie_weights and self.embedding_dim == self.hidden_dim:
+            self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+            self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+            self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+            self.hidden2out.weight = nn.Parameter(embeddings, requires_grad=True)
+        elif self.tie_weights and self.embedding_dim > self.hidden_dim:
+            raise ValueError("self.embedding_dim should be bigger than self.hidden_dim")
+        elif self.tie_weights and self.embedding_dim < self.hidden_dim:
+            additional_dim = self.hidden_dim - self.embedding_dim
+            self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim + additional_dim)
+            self.word_embeddings.weight[:, :self.embedding_dim] = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+            self.word_embeddings.weight[:, self.embedding_dim:] = nn.Parameter(t.zeros(self.vocab_size, additional_dim), requires_grad=self.train_embedding)
+            self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+            self.hidden2out.weight[:, :self.embedding_dim] = nn.Parameter(embeddings, requires_grad=True)
+        elif not self.tie_weights:
+            self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+            self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+            self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+        else:
+            raise ValueError("One of the conditions before should have been True. Problem in the code.")
 
     def forward(self, x_batch, debug=False):
         if debug:
