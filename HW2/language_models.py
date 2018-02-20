@@ -75,6 +75,9 @@ class LSTM(t.nn.Module):
         elif self.tie_weights and self.embedding_dim < self.hidden_dim:
             additional_dim = self.hidden_dim - self.embedding_dim
             self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim + additional_dim)
+            print('embeddings')
+            print(embeddings)
+
             embedding_weights = t.cat([embeddings,
                                        variable(t.zeros(self.vocab_size, additional_dim), requires_grad=self.train_embedding)],
                                       1)
