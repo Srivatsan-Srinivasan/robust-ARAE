@@ -39,7 +39,7 @@ class LSTM(t.nn.Module):
         self.tie_weights = params.get('tie_weights')
 
         # Initialize embeddings.
-        self.init_embedding_and_output()
+        self.init_embedding_and_output(embeddings)
 
         # Initialize network modules.
         self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
@@ -60,7 +60,7 @@ class LSTM(t.nn.Module):
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
 
-    def init_embedding_and_output(self):
+    def init_embedding_and_output(self, embeddings):
         """
         If you tie weights, the embedding and hidden dims should match.
         If they don't, you can add dimensions to the embedding and make only the good part match
