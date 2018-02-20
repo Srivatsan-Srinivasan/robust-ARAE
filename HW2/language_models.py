@@ -77,9 +77,10 @@ class LSTM(t.nn.Module):
             self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim + additional_dim)
             print('embeddings')
             print(embeddings)
-
+            print('t.zeros(self.vocab_size, additional_dim)')
+            print(t.zeros(self.vocab_size, additional_dim))
             embedding_weights = t.cat([embeddings,
-                                       variable(t.zeros(self.vocab_size, additional_dim), requires_grad=self.train_embedding)],
+                                       t.zeros(self.vocab_size, additional_dim)],
                                       1)
             self.word_embeddings.weight = nn.Parameter(embedding_weights, requires_grad=self.train_embedding)
             self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
