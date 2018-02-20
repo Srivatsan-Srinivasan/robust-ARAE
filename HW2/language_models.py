@@ -39,10 +39,10 @@ class LSTM(t.nn.Module):
         self.tie_weights = params.get('tie_weights')
 
         # Initialize embeddings.
-        self.init_embedding_and_output(embeddings)
+        additional_dim = self.init_embedding_and_output(embeddings)
 
         # Initialize network modules.
-        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        self.model_rnn = nn.LSTM(self.embedding_dim + additional_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
 
         self.hidden = self.init_hidden()
         if self.embed_dropout:
@@ -70,6 +70,7 @@ class LSTM(t.nn.Module):
             self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
             self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
             self.hidden2out.weight = nn.Parameter(embeddings, requires_grad=True)
+            return 0
         elif self.tie_weights and self.embedding_dim > self.hidden_dim:
             raise ValueError("self.embedding_dim should be bigger than self.hidden_dim")
         elif self.tie_weights and self.embedding_dim < self.hidden_dim:
@@ -84,10 +85,12 @@ class LSTM(t.nn.Module):
                                     self.hidden2out.weight.data[:, self.embedding_dim:]],
                                    1)
             self.hidden2out.weight = nn.Parameter(hidden_weights, requires_grad=self.train_embedding)
+            return additional_dim
         elif not self.tie_weights:
             self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
             self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
             self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+            return 0
         else:
             raise ValueError("One of the conditions before should have been True. Problem in the code.")
 
