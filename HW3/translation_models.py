@@ -15,11 +15,14 @@ import os
 os.chdir('../HW2')  # so that there is not any import bug in case HW2 is not already the working directory
 from utils import *
 from const import *
-from bn_lstm import BNLSTMCell, LSTM as _LSTM
 
 
 class LSTM(t.nn.Module):
-    def __init__(self, params, embeddings):
+    """
+    Implementation of `Sequence to Sequence Learning with Neural Networks`
+    https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf
+    """
+    def __init__(self, params, source_embeddings, target_embeddings):
         super(LSTM, self).__init__()
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
@@ -29,8 +32,16 @@ class LSTM(t.nn.Module):
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
-        self.embedding_dim = embeddings.size(1)
-        self.vocab_size = embeddings.size(0)
+        try:
+            # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
+            assert source_embeddings.size(1) == target_embeddings.size(1)
+            self.embedding_dim = source_embeddings.size(1)
+            self.vocab_size = target_embeddings.size(0)
+        except:
+            # if you dont provide a pre-trained embedding, you have to provide these
+            self.embedding_dim = params.get('embedding_dim')  # @todo: add this to the argparse
+            self.vocab_size = params.get('vocab_size')  # @todo: add this to the argparse
+            assert self.embedding_dim is not None and self.vocab_size is not None
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
@@ -38,16 +49,22 @@ class LSTM(t.nn.Module):
         self.train_embedding = params.get('train_embedding', False)
 
         # Initialize embeddings. Static embeddings for now.
-        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+        self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        if source_embeddings is not None:
+            self.source_embeddings.weight = nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+        if target_embeddings is not None:
+            self.target_embeddings.weight = nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        self.encoder_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        self.decoder_rnn = nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        # import pdb; pdb.set_trace()
-        self.hidden = self.init_hidden()
+        self.hidden_enc = self.init_hidden()
+        self.hidden_dec = self.init_hidden()
         if self.embed_dropout:
-            self.dropout_1 = nn.Dropout(self.dropout)
+            self.dropout_1s = nn.Dropout(self.dropout)
+            self.dropout_1t = nn.Dropout(self.dropout)
         self.dropout_2 = nn.Dropout(self.dropout)
 
     def init_hidden(self):
@@ -61,224 +78,169 @@ class LSTM(t.nn.Module):
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
 
-    def forward(self, x_batch, debug=False):
+    def forward(self, x_source, x_target, debug=False):
+        """
+        :param x_source: the source sentence
+        :param x_target: the target (translated) sentence
+        :param debug:
+        :return:
+        """
         if debug:
             import pdb
             pdb.set_trace()
 
         # EMBEDDING
-        embeds = self.word_embeddings(x_batch)
-        # going from ` batch_size x bptt_length x embed_dim` to `bptt_length x batch_size x embed_dim`
-        embeds = embeds.permute(1, 0, 2)
+        xx_source = self.reverse_source(x_source)
+        embedded_x_source = self.source_embeddings(xx_source)
+        embedded_x_target = self.source_embeddings(x_target)
         if self.embed_dropout:
-            embeds = self.dropout_1(embeds)
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+            embedded_x_target = self.dropout_1t(embedded_x_target)
 
-        # RECURRENT
-        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
-        rnn_out = rnn_out.permute(1, 0, 2)
+        # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
+        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+
+        # DECODING
+        embedded_x_target = self.append_hidden_to_target(embedded_x_target)
+        rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
         rnn_out = self.dropout_2(rnn_out)
-
+        
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
+    # @todo: implement this
+    def reverse_source(self, x):
+        """Reverse the source sentence x. Empirically it was observed to work better in terms of final valid PPL, and especially for long sentences"""
+        pass
 
-class BNLSTM(t.nn.Module):
-    def __init__(self, params, embeddings):
-        super(BNLSTM, self).__init__()
-        print("Initializing LSTM")
+    # @todo: implement this
+    def append_hidden_to_target(self, x):
+        """Append self.hidden_enc to all timesteps of x"""
+        pass
+
+
+class LSTMA(t.nn.Module):
+    """
+    Implementation of `Neural Machine Translation by Jointly Learning to Align and Translate`
+    https://arxiv.org/abs/1409.0473
+    """
+    def __init__(self, params, source_embeddings, target_embeddings):
+        super(LSTMA, self).__init__()
+        print("Initializing LSTMA")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
-        self.model_str = 'LSTM'
+        self.model_str = 'LSTMA'
         self.params = params
 
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
-        self.embedding_dim = embeddings.size(1)
-        self.vocab_size = embeddings.size(0)
+        try:
+            # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
+            assert source_embeddings.size(1) == target_embeddings.size(1)
+            self.embedding_dim = source_embeddings.size(1)
+            self.vocab_size = target_embeddings.size(0)
+        except:
+            # if you dont provide a pre-trained embedding, you have to provide these
+            self.embedding_dim = params.get('embedding_dim')  # @todo: add this to the argparse
+            self.vocab_size = params.get('vocab_size')  # @todo: add this to the argparse
+            assert self.embedding_dim is not None and self.vocab_size is not None
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
+        self.attention_type = params.get('attention')
 
         # Initialize embeddings. Static embeddings for now.
-        self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
+        # Initialize embeddings. Static embeddings for now.
+        self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        if source_embeddings is not None:
+            self.source_embeddings.weight = nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+        if target_embeddings is not None:
+            self.target_embeddings.weight = nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.model_rnn = _LSTM(BNLSTMCell, self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        # note that the encoder is a BiLSTM. The output is modified by the fact that the hidden dim is doubled, and if you set
+        # the number of layers to L, there will actually be 2L layers (the forward ones and the backward ones). Consequently the first
+        # dimension of the hidden outputs of the forward pass (the 2nd output in the tuple) will be a tuple of
+        # 2 tensors having as first dim twice the hidden dim you set
+        self.encoder_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim//2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
+        self.decoder_rnn = nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.attention_network = AttentionNetwork(self.attention_type)
+        self.hidden_dec_initializer = nn.Linear(self.hidden_dim // 2, self.hidden_dim)
         self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
-        # import pdb; pdb.set_trace()
-        self.hidden = self.init_hidden()
         if self.embed_dropout:
-            self.dropout_1 = nn.Dropout(self.dropout)
+            self.dropout_1s = nn.Dropout(self.dropout)
+            self.dropout_1t = nn.Dropout(self.dropout)
         self.dropout_2 = nn.Dropout(self.dropout)
 
-    def init_hidden(self):
-        # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
-        # will return torch variable.
-        if self.model_str in ['GRU', 'BiGRU']:
-            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
-        else:
+    def init_hidden(self, data, type):
+        """
+        Initialize the hidden state, either for the encoder or the decoder
+
+        For type=`enc`, it should just be initialized with 0s
+        For type=`dec`, it should be initialized with tanh(W h1_backward) (see page 13 of the paper, last paragraph)
+        """
+        if type == 'dec':
+            # in that case is the output of the encoder
+            return (
+                F.tanh(self.hidden_dec_initializer(data[:, 0, self.hidden_dim // 2:])),  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+            )
+        elif type == 'enc':
+            # in that case data is None
             return tuple((
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             ))
+        else:
+            raise ValueError('the type should be either `dec` or `enc`')
 
-    def forward(self, x_batch, debug=False):
+    def forward(self, x_source, x_target, debug=False):
         if debug:
             import pdb
             pdb.set_trace()
 
         # EMBEDDING
-        embeds = self.word_embeddings(x_batch)
-        # going from ` batch_size x bptt_length x embed_dim` to `bptt_length x batch_size x embed_dim`
-        embeds = embeds.permute(1, 0, 2)
+        embedded_x_source = self.source_embeddings(x_source)
+        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't make a prediction for the word following the last one
         if self.embed_dropout:
-            embeds = self.dropout_1(embeds)
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+            embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # RECURRENT
-        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
-        rnn_out = rnn_out.permute(1, 0, 2)
-        rnn_out = self.dropout_2(rnn_out)
+        hidden = self.init_hidden(None, 'enc')
+        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
+        hidden = self.init_hidden(enc_out, 'dec')
+        dec_out, _ = self.decoder_rnn(embedded_x_target, hidden)
+
+        # ATTENTION
+
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
 
-class GRU(LSTM):
-    def __init__(self, params, embeddings):
-        LSTM.__init__(self, params, embeddings)
-        self.model_str = 'GRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
-
-
-class BiGRU(LSTM):
-    def __init__(self, params, embeddings):
-        LSTM.__init__(self, params, embeddings)
-        self.model_str = 'BiGRU'
-        self.model_rnn = nn.GRU(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True)
-
-
-class BiLSTM(LSTM):
-    def __init__(self, params, embeddings):
-        LSTM.__init__(self, params, embeddings)
-        self.model_str = 'BiLSTM'
-        self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, bidirectional=True, num_layers=self.num_layers)
-
-
-class NNLM(t.nn.Module):
+# @todo: implement this
+class AttentionNetwork(t.nn.Module):
     """
-    Model defined in 'A Neural Probabilistic Language Model'
-    It is implemented using convolutions instead of linear layers because of the format of the data. This way it doesn't involve more pre-processing
-
-    However it makes shuffling impossible, which is a problem for SGD (breaks the iid assumption)
-
-    We abandoned this implementation
+    Attention network from `Neural Machine Translation by Jointly Learning to Align and Translate`
+    https://arxiv.org/abs/1409.0473
     """
+    def __init__(self, attention_type):
+        super(AttentionNetwork, self).__init__()
+        assert attention_type in ['soft', 'hard']
+        self.attention_type = attention_type
+        pass
 
-    def __init__(self, params, embeddings):
-        super(NNLM, self).__init__()
-        self.model_str = 'NNLM'
-        self.context_size = int(params.get('context_size'))
-        self.train_embedding = params.get('train_embedding', False)
-        self.vocab_size = embeddings.size(0)
-        self.embed_dim = embeddings.size(1)
-
-        self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
-        self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
-
-        # self.dropout = t.nn.Dropout()
-        self.conv1 = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
-        self.conv2 = t.nn.Conv1d(self.embed_dim, self.vocab_size, self.context_size)
-
-    def forward(self, x):
-        xx = self.w(x).transpose(2, 1)
-        # xx = self.dropout(xx)
-        xx1 = F.tanh(self.conv1(xx))
-        xx2 = self.conv2(xx)
-        xx = xx1 + xx2
-        return xx[:, :, :-1]  # you don't take into account the last predictions that is actually the prediction of the first word of the next batch
+    def forward(self, hidden_source, hidden_target):
+        pass
 
 
-class NNLM2(t.nn.Module):
-    """
-    Model defined in 'A Neural Probabilistic Language Model'
-    It is implemented using a linear layer
-    It is the one used in our experiments
-    """
-
-    def __init__(self, params, embeddings):
-        super(NNLM2, self).__init__()
-        self.model_str = 'NNLM2'
-        self.params = params
-
-        self.vocab_size = embeddings.size(0)
-        self.embed_dim = embeddings.size(1)
-
-        assert 'batch_norm' in params
-        assert 'dropout' in params
-        assert 'activation' in params
-        assert 'nnlm_h_dim' in params
-        assert 'context_size' in params
-        assert 'train_embedding' in params
-        self.context_size = int(params.get('context_size'))
-        self.train_embedding = params.get('train_embedding')
-        self.batch_norm = params.get('batch_norm')
-        print('batch norm ?', self.batch_norm)
-        self.activation = params.get('activation')
-        self.hdim = params.get('nnlm_h_dim')
-        self.dropout = params.get('dropout')
-
-        self.w = t.nn.Embedding(self.vocab_size, self.embed_dim)
-        if self.dropout > 0:
-            self.dropout1 = t.nn.Dropout(self.dropout)
-            self.dropout2 = t.nn.Dropout(self.dropout)
-
-        print('train_embedding ? ', self.train_embedding)
-        self.w.weight = t.nn.Parameter(embeddings, requires_grad=self.train_embedding)
-
-        self.fc1a = t.nn.Linear(self.embed_dim * self.context_size, self.hdim)
-        if self.activation == 'gated':
-            self.fc1b = t.nn.Linear(self.embed_dim * self.context_size, self.hdim)
-        self.fc2 = t.nn.Linear(self.hdim, self.vocab_size)
-
-        if self.batch_norm:
-            self.bn1 = t.nn.BatchNorm1d(self.hdim, eps=1e-3, momentum=.99)  # default keras parameters
-            self.bn2 = t.nn.BatchNorm1d(self.vocab_size, eps=1e-3, momentum=.99)  # default keras parameters
-
-    def forward(self, x):
-        # embed and dropout
-        xx = self.w(x)
-        if self.dropout > 0:
-            xx = self.dropout1(xx)
-
-        # reshape
-        xx = xx.contiguous().view(xx.size(0), -1)  # .contiguous() because .view() requires the tensor to be stored in contiguous memory blocks
-
-        # hidden
-        if self.activation == 'gated':
-            xx = self.fc1a(xx) * F.sigmoid(self.fc1b(xx))
-        elif self.activation == 'tanh':
-            xx = F.tanh(self.fc1a(xx))
-        elif self.activation == 'lrelu':
-            xx = F.leaky_relu(self.fc1a(xx))
-        else:  # relu by default
-            xx = F.relu(self.fc1a(xx))
-        if self.batch_norm:
-            xx = self.bn1(xx)
-        if self.dropout > 0:
-            xx = self.dropout2(xx)
-
-        # output
-        xx = self.fc2(xx)
-        if self.batch_norm:
-            xx = self.bn2(xx)
-        return xx
-
-
+# @ todo: is it useful for this assignment ?
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
     r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
 
