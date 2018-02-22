@@ -33,29 +33,18 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda):
+def _train_initialize_variables(model_str, embeddings, model_params, opt_params, cuda):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
     model = eval(model_str)(model_params, embeddings)
     model.train()  # important!
 
-    if model_str == 'NNLM2':
-        # in that case `train_iter` is a list of numpy arrays
-        Iterator = namedtuple('Iterator', ['dataset', 'batch_size'])
-        train_iter_ = Iterator(dataset=train_iter, batch_size=model_params['batch_size'])
-        if val_iter is not None:
-            val_iter_ = Iterator(dataset=val_iter, batch_size=model_params['batch_size'])
-        else:
-            val_iter_ = None
-    else:
-        train_iter_ = train_iter
-        val_iter_ = val_iter
     optimizer = init_optimizer(opt_params, model)
-    criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
+    criterion = TemporalCrossEntropyLoss(size_average=False)
 
-    if opt_params['lr_scheduler'] is not None and opt_params['optimizer'] == 'SGD':
+    if opt_params['lr_scheduler'] is not None:
         if opt_params['lr_scheduler'] == 'plateau':
-            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1)
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1, threshold=1e-3)
         elif opt_params['lr_scheduler'] == 'delayedexpo':
             scheduler = LambdaLR(optimizer, lr_lambda=[lambda epoch: float(epoch<=4) + float(epoch>4)*1.2**(-epoch)])
         else:
@@ -66,23 +55,23 @@ def _train_initialize_variables(model_str, embeddings, model_params, train_iter,
     if cuda:
         model = model.cuda()
         criterion = criterion.cuda()
-    return train_iter_, val_iter_, model, criterion, optimizer, scheduler
+    return model, criterion, optimizer, scheduler
 
 
-def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, early_stopping=False, save=False, save_path=None,
-          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False, TEXT=None):
+def train(model_str, embeddings, train_iter, val_iter=None, early_stopping=False, save=False, save_path=None,
+          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
     # Initialize model and other variables
-    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, embeddings, model_params, train_iter, val_iter, opt_params, cuda)
+    model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, embeddings, model_params, opt_params, cuda)
 
     # First validation round before any training
-    if val_iter_ is not None:
+    if val_iter is not None:
         model.eval()
         print("Model initialized")
-        val_loss = predict(model, val_iter_, context_size=context_size,
-                           save_loss=False, expt_name="dummy_expt", cuda=cuda)
+        val_loss = predict(model, val_iter, cuda=cuda)
         model.train()
 
     if scheduler is not None:
+        assert val_iter is not None
         scheduler.step(val_loss)
 
     print("All set. Actual Training begins")
@@ -91,54 +80,46 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
         total_loss = 0
         count = 0
 
-        # if using NNLM, reshuffle sentences
-        if model_str == 'NNLM' and reshuffle_train:
-            train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
-
-        # Initialize hidden layer and memory(for LSTM). Converting to variable later.
+        # Initialize hidden layer and memory
         model.hidden = model.init_hidden()
 
         # Actual training loop.     
-        for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
+        for batch in train_iter:
+            # get data
+            source = batch.src
+            target = batch.trg
+            if cuda:
+                source = source.cuda()
+                target = target.cuda()
 
+            # zero gradients
             optimizer.zero_grad()
 
-            if model_str in recur_models:
-                output, model_hidden = model(x_train)
-                if model.model_str == 'LSTM':
-                    model.hidden = model.hidden[0].detach(), model.hidden[1].detach()  # to break the computational graph epxlictly (backprop through `bptt_steps` steps only)
-                else:
-                    model.hidden = model.hidden.detach()  # to break the computational graph epxlictly (backprop through `bptt_steps` steps only)
-            else:
-                output = model(x_train)
+            # predict
+            output = model(source, target)
 
             # Dimension matching to cut it right for loss function.
-            if model_str in recur_models:
-                batch_size, sent_length = y_train.size(0), y_train.size(1)
-                loss = criterion(output.view(batch_size, -1, sent_length), y_train)
-            else:
-                loss = criterion(output, y_train)
+            batch_size, sent_length = target.size(0), target.size(1)
+            loss = criterion(output.view(batch_size, -1, sent_length), target)
 
-            # backprop
+            # Compute gradients
             loss.backward()
 
-            # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
-            if model_str in recur_models:
-                clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 5))
+            # Clip gradients and backprop
+            clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 5))
             optimizer.step()
 
             # monitoring
-            count += x_train.size(0) if model.model_str == 'NNLM2' else x_train.size(0) * x_train.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+            count += batch_size * sent_length  # in that case there are batch_size x bbp_length classifications per batch
             total_loss += t.sum(loss.data)  # .data to break so that you dont keep references
 
         # monitoring
         avg_loss = total_loss / count
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss))
-        if val_iter_ is not None:
+        if val_iter is not None:
             model.eval()
             former_val_loss = val_loss * 1.
-            val_loss = predict(model, val_iter_, context_size=context_size,
-                               save_loss=False, expt_name="dummy_expt", cuda=cuda)
+            val_loss = predict(model, val_iter, cuda=cuda)
             if scheduler is not None:
                 scheduler.step(val_loss)
             if val_loss > former_val_loss:
@@ -161,58 +142,43 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
     return model
 
 
-def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
+def predict(model, test_iter, cuda=True):
     # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = TemporalCrossEntropyLoss(size_average=False) if model.model_str != 'NNLM2' else nn.CrossEntropyLoss(size_average=False)
+    criterion = TemporalCrossEntropyLoss(size_average=False)
     if cuda:
         criterion = criterion.cuda()
 
-    # Initialize hidden layer and memory(for LSTM). Converting to variable later.
-    if model.model_str in recur_models:
-        if model.model_str == "LSTM":
-            h = model.init_hidden()
-            hidden_init = h[0].data
-            memory_init = h[1].data
-        else:
-            hidden_init = model.init_hidden().data
+    # Initialize hidden layer and memory
+    if model.model_str == "LSTM":
+        model.hidden_enc = model.init_hidden()
+        model.hidden_dec = model.init_hidden()
 
     # Actual training loop.
-    for x_test, y_test in data_generator(test_iter, model.model_str, context_size=context_size, cuda=cuda):
-        # Treating each batch as separate instance otherwise Torch accumulates gradients.
-        # That could be computationally expensive.
-        # Refer http://pytorch.org/tutorials/beginner/nlp/sequence_models_tutorial.html#lstm-s-in-pytorch
-        if model.model_str in recur_models:
-            # Retain hidden/memory from last batch.
-            if model.model_str == 'LSTM':
-                model.hidden = (variable(hidden_init, cuda=cuda), variable(memory_init, cuda=cuda))
-            else:
-                model.hidden = variable(hidden_init, cuda=cuda)
+    for batch in test_iter:
+        # get data
+        source = batch.src
+        target = batch.trg
+        if cuda:
+            source = source.cuda()
+            target = target.cuda()
 
-        if model.model_str in recur_models:
-            output, model_hidden = model(x_test)
-        else:
-            output = model(x_test)
+        # predict
+        output = model.translate(source)
 
         # Dimension matching to cut it right for loss function.
-        if model.model_str in recur_models:
-            batch_size, sent_length = y_test.size(0), y_test.size(1)
-            loss = criterion(output.view(batch_size, -1, sent_length), y_test)
-        else:
-            loss = criterion(output, y_test)
+        batch_size, sent_length = target.size(0), target.size(1)
+        loss = criterion(output.view(batch_size, -1, sent_length), target)
 
         # Remember hidden and memory for next batch. Converting to tensor to break the
         # computation graph. Converting it to variable in the next loop.
-        if model.model_str in recur_models:
-            if model.model_str == 'LSTM':
-                hidden_init = model_hidden[0].data
-                memory_init = model_hidden[1].data
-            else:
-                hidden_init = model_hidden.data
+        if model.model_str == 'LSTM':
+            model.hidden_enc = model.init_hidden()
+            model.hidden_dec = model.init_hidden()
 
         # monitoring
-        count += x_test.size(0) if model.model_str == 'NNLM2' else x_test.size(0) * x_test.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+        count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
         total_loss += t.sum(loss.data)
 
     # monitoring
@@ -220,6 +186,8 @@ def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, exp
     print("Validation loss is %.4f" % avg_loss)
     return avg_loss
 
+
+# @todo: what's wrong with this code ? Can't tell
 # def predict(model, test_iter, cuda=True, context_size=None, save_loss=False, expt_name=''):
 #     model.eval()
 #     total_loss = 0

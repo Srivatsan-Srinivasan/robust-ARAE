@@ -104,6 +104,10 @@ class LSTM(t.nn.Module):
         out_linear = self.hidden2out(rnn_out)
         return out_linear
 
+    # @todo: implement this
+    def translate(self, x_source):
+        pass
+
     @staticmethod
     def reverse_source(x):
         """
@@ -178,12 +182,15 @@ class LSTMA(t.nn.Module):
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
 
+    # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
     def init_hidden(self, data, type):
         """
         Initialize the hidden state, either for the encoder or the decoder
 
         For type=`enc`, it should just be initialized with 0s
         For type=`dec`, it should be initialized with tanh(W h1_backward) (see page 13 of the paper, last paragraph)
+
+        `data` is either something you initialize the hidden state with, or None
         """
         if type == 'dec':
             # in that case, `data` is the output of the encoder
@@ -191,10 +198,10 @@ class LSTMA(t.nn.Module):
             # `:` for the whole batch
             # `:1` because you want the hidden state of the first time step (see paper, they use backward(h1))
             # but also `self.hidden_dim // 2:`, because you want the backward part only (the last coefficients)
-            c0 = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
-            c0 = c0.transpose(1, 0)
+            h = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+            h = h.transpose(1, 0)
             return (
-                c0,
+                h,
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             )
         elif type == 'enc':
@@ -231,6 +238,10 @@ class LSTMA(t.nn.Module):
         pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
         pred = self.hidden2out(pred)
         return pred
+
+    # @todo: implement this
+    def translate(self, x_source):
+        pass
 
 
 # @ todo: is it useful for this assignment ?
