@@ -21,8 +21,10 @@ class LSTM(t.nn.Module):
     """
     Implementation of `Sequence to Sequence Learning with Neural Networks`
     https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf
+
+    NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
     """
-    def __init__(self, params, source_embeddings, target_embeddings):
+    def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTM, self).__init__()
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
@@ -109,10 +111,14 @@ class LSTM(t.nn.Module):
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
-    # @todo: implement this
-    def reverse_source(self, x):
-        """Reverse the source sentence x. Empirically it was observed to work better in terms of final valid PPL, and especially for long sentences"""
-        pass
+    @staticmethod
+    def reverse_source(x):
+        """
+        Reverse the source sentence x. Empirically it was observed to work better in terms of final valid PPL, and especially for long sentences
+        `x` is the integer-encoded sentence. It is a batch x sentence_length LongTensor
+        """
+        # asssume that the batch_size is the first dim
+        return t.cat([x.data[:, -1:]] + [x.data[:, -(k+1):-k] for k in range(1, x.size(1))], 1)
 
     # @todo: implement this
     def append_hidden_to_target(self, x):
@@ -124,8 +130,10 @@ class LSTMA(t.nn.Module):
     """
     Implementation of `Neural Machine Translation by Jointly Learning to Align and Translate`
     https://arxiv.org/abs/1409.0473
+
+    NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
     """
-    def __init__(self, params, source_embeddings, target_embeddings):
+    def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTMA, self).__init__()
         print("Initializing LSTMA")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)

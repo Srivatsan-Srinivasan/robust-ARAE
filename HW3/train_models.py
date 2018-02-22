@@ -96,8 +96,7 @@ def train(model_str, embeddings, train_iter, val_iter=None, context_size=None, e
             train_iter_, _, _ = rebuild_iterators(TEXT, batch_size=int(model_params['batch_size']))
 
         # Initialize hidden layer and memory(for LSTM). Converting to variable later.
-        if model_str in recur_models:
-            model.hidden = model.init_hidden()
+        model.hidden = model.init_hidden()
 
         # Actual training loop.     
         for x_train, y_train in data_generator(train_iter_, model_str, context_size=context_size, cuda=cuda):
