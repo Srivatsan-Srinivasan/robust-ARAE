@@ -15,7 +15,7 @@ from data_process import generate_iterators, generate_text
 
 t.manual_seed(1)
 # Create Parser.
-parser = argparse.ArgumentParser(description="For CS287 HW2")
+parser = argparse.ArgumentParser(description="For CS287 HW3")
 
 # Add arguments to be parsed.
 # GENERAL PARAMS
@@ -41,8 +41,6 @@ parser.add_argument('--context_size', default=-1, type=int)
 parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
 parser.add_argument('--batch_norm', default=False, type=bool, help='Whether to include batch normalization or not')
-parser.add_argument('--nnlm_h_dim', default=50, type=int)
-parser.add_argument('--activation', default='gated', type=str)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
