@@ -150,9 +150,7 @@ class LSTMA(t.nn.Module):
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
-        self.attention_type = params.get('attention')
 
-        # Initialize embeddings. Static embeddings for now.
         # Initialize embeddings. Static embeddings for now.
         self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
@@ -168,9 +166,8 @@ class LSTMA(t.nn.Module):
         # 2 tensors having as first dim twice the hidden dim you set
         self.encoder_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim//2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
         self.decoder_rnn = nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.attention_network = AttentionNetwork(self.attention_type)
         self.hidden_dec_initializer = nn.Linear(self.hidden_dim // 2, self.hidden_dim)
-        self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+        self.hidden2out = nn.Linear(self.hidden_dim*2, self.output_size)
         if self.embed_dropout:
             self.dropout_1s = nn.Dropout(self.dropout)
             self.dropout_1t = nn.Dropout(self.dropout)
@@ -217,27 +214,16 @@ class LSTMA(t.nn.Module):
         dec_out, _ = self.decoder_rnn(embedded_x_target, hidden)
 
         # ATTENTION
-
+        scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
+        attn_dist = F.softmax(scores.permute(1,0,2)).permute(1,0,2)  # batch x source_len x target_len
+        context = t.bmm(attn_dist.permute(0,2,1), enc_out)  # batch x target_len x hidden_dim
 
         # OUTPUT
-        out_linear = self.hidden2out(rnn_out)
-        return out_linear, self.hidden
-
-
-# @todo: implement this
-class AttentionNetwork(t.nn.Module):
-    """
-    Attention network from `Neural Machine Translation by Jointly Learning to Align and Translate`
-    https://arxiv.org/abs/1409.0473
-    """
-    def __init__(self, attention_type):
-        super(AttentionNetwork, self).__init__()
-        assert attention_type in ['soft', 'hard']
-        self.attention_type = attention_type
-        pass
-
-    def forward(self, hidden_source, hidden_target):
-        pass
+        # concatenate the output of the decoder and the context and apply nonlinearity
+        pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+        pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
+        pred = self.hidden2out(pred)
+        return pred
 
 
 # @ todo: is it useful for this assignment ?
