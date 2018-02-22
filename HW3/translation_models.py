@@ -113,12 +113,11 @@ class LSTM(t.nn.Module):
         # asssume that the batch_size is the first dim
         return variable(t.cat([x.data[:, -1:]] + [x.data[:, -(k + 1):-k] for k in range(1, x.size(1))], 1), to_float=False)
 
-    # @todo: implement this
     def append_hidden_to_target(self, x):
         """Append self.hidden_enc to all timesteps of x"""
         # self.hidden_enc[0] this is h. Size num_layers x batch x hdim
         h = self.hidden_enc[0]
-        # self.hidden_enc[0][-1:, :, :].permute(1,0,2) this is h for the last layer. Size batch x 1 x hdim
+        # h[-1:, :, :].permute(1,0,2) this is h for the last layer. Size batch x 1 x hdim
         h_last = h[-1:, :, :].permute(1, 0, 2)
         hidden = t.cat(x.size(1) * [h_last], 1)
         return t.cat([x, hidden], 2)
@@ -161,23 +160,23 @@ class LSTMA(t.nn.Module):
         self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         if source_embeddings is not None:
-            self.source_embeddings.weight = nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+            self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
         if target_embeddings is not None:
-            self.target_embeddings.weight = nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
+            self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
         # note that the encoder is a BiLSTM. The output is modified by the fact that the hidden dim is doubled, and if you set
         # the number of layers to L, there will actually be 2L layers (the forward ones and the backward ones). Consequently the first
         # dimension of the hidden outputs of the forward pass (the 2nd output in the tuple) will be a tuple of
         # 2 tensors having as first dim twice the hidden dim you set
-        self.encoder_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim//2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
-        self.decoder_rnn = nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.hidden_dec_initializer = nn.Linear(self.hidden_dim // 2, self.hidden_dim)
-        self.hidden2out = nn.Linear(self.hidden_dim*2, self.output_size)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim//2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.hidden_dim)
+        self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
         if self.embed_dropout:
-            self.dropout_1s = nn.Dropout(self.dropout)
-            self.dropout_1t = nn.Dropout(self.dropout)
-        self.dropout_2 = nn.Dropout(self.dropout)
+            self.dropout_1s = t.nn.Dropout(self.dropout)
+            self.dropout_1t = t.nn.Dropout(self.dropout)
+        self.dropout_2 = t.nn.Dropout(self.dropout)
 
     def init_hidden(self, data, type):
         """
@@ -187,25 +186,27 @@ class LSTMA(t.nn.Module):
         For type=`dec`, it should be initialized with tanh(W h1_backward) (see page 13 of the paper, last paragraph)
         """
         if type == 'dec':
-            # in that case is the output of the encoder
+            # in that case, `data` is the output of the encoder
+            # data[:, :1, self.hidden_dim // 2:]
+            # `:` for the whole batch
+            # `:1` because you want the hidden state of the first time step (see paper, they use backward(h1))
+            # but also `self.hidden_dim // 2:`, because you want the backward part only (the last coefficients)
+            c0 = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+            c0 = c0.transpose(1, 0)
             return (
-                F.tanh(self.hidden_dec_initializer(data[:, 0, self.hidden_dim // 2:])),  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+                c0,
                 variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
             )
         elif type == 'enc':
             # in that case data is None
             return tuple((
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+                variable(np.zeros((self.num_layers*2, self.batch_size, self.hidden_dim//2)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers*2, self.batch_size, self.hidden_dim//2)), cuda=self.cuda_flag)
             ))
         else:
             raise ValueError('the type should be either `dec` or `enc`')
 
-    def forward(self, x_source, x_target, debug=False):
-        if debug:
-            import pdb
-            pdb.set_trace()
-
+    def forward(self, x_source, x_target):
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
         embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't make a prediction for the word following the last one
@@ -221,7 +222,7 @@ class LSTMA(t.nn.Module):
 
         # ATTENTION
         scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
-        attn_dist = F.softmax(scores.permute(1,0,2)).permute(1,0,2)  # batch x source_len x target_len
+        attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
         context = t.bmm(attn_dist.permute(0,2,1), enc_out)  # batch x target_len x hidden_dim
 
         # OUTPUT
