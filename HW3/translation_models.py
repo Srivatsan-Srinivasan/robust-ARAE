@@ -24,6 +24,7 @@ class LSTM(t.nn.Module):
 
     NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
     """
+
     def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTM, self).__init__()
         print("Initializing LSTM")
@@ -54,43 +55,35 @@ class LSTM(t.nn.Module):
         self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
         if source_embeddings is not None:
-            self.source_embeddings.weight = nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+            self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
         if target_embeddings is not None:
-            self.target_embeddings.weight = nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
+            self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.encoder_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
-        self.decoder_rnn = nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
-        self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden2out = t.nn.Linear(self.hidden_dim, self.output_size)
         self.hidden_enc = self.init_hidden()
         self.hidden_dec = self.init_hidden()
         if self.embed_dropout:
-            self.dropout_1s = nn.Dropout(self.dropout)
-            self.dropout_1t = nn.Dropout(self.dropout)
-        self.dropout_2 = nn.Dropout(self.dropout)
+            self.dropout_1s = t.nn.Dropout(self.dropout)
+            self.dropout_1t = t.nn.Dropout(self.dropout)
+        self.dropout_2 = t.nn.Dropout(self.dropout)
 
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
-        if self.model_str in ['GRU', 'BiGRU']:
-            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
-        else:
-            return tuple((
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
-            ))
+        return tuple((
+            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+        ))
 
-    def forward(self, x_source, x_target, debug=False):
+    def forward(self, x_source, x_target):
         """
         :param x_source: the source sentence
         :param x_target: the target (translated) sentence
-        :param debug:
         :return:
         """
-        if debug:
-            import pdb
-            pdb.set_trace()
-
         # EMBEDDING
         xx_source = self.reverse_source(x_source)
         embedded_x_source = self.source_embeddings(xx_source)
@@ -106,10 +99,10 @@ class LSTM(t.nn.Module):
         embedded_x_target = self.append_hidden_to_target(embedded_x_target)
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
         rnn_out = self.dropout_2(rnn_out)
-        
+
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
-        return out_linear, self.hidden
+        return out_linear
 
     @staticmethod
     def reverse_source(x):
@@ -118,12 +111,17 @@ class LSTM(t.nn.Module):
         `x` is the integer-encoded sentence. It is a batch x sentence_length LongTensor
         """
         # asssume that the batch_size is the first dim
-        return t.cat([x.data[:, -1:]] + [x.data[:, -(k+1):-k] for k in range(1, x.size(1))], 1)
+        return variable(t.cat([x.data[:, -1:]] + [x.data[:, -(k + 1):-k] for k in range(1, x.size(1))], 1), to_float=False)
 
     # @todo: implement this
     def append_hidden_to_target(self, x):
         """Append self.hidden_enc to all timesteps of x"""
-        pass
+        # self.hidden_enc[0] this is h. Size num_layers x batch x hdim
+        h = self.hidden_enc[0]
+        # self.hidden_enc[0][-1:, :, :].permute(1,0,2) this is h for the last layer. Size batch x 1 x hdim
+        h_last = h[-1:, :, :].permute(1, 0, 2)
+        hidden = t.cat(x.size(1) * [h_last], 1)
+        return t.cat([x, hidden], 2)
 
 
 class LSTMA(t.nn.Module):
