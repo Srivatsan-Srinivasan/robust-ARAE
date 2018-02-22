@@ -239,7 +239,8 @@ class LSTMA(t.nn.Module):
         pred = self.hidden2out(pred)
         return pred
 
-    # @todo: implement this
+    # @todo: implement this. THIS SHOULD BE PART OF THE TRAIN FUNCTION. AS PER SASHA's advise,
+    # model should be agnostic of train procedure.
     def translate(self, x_source):
         pass
 
