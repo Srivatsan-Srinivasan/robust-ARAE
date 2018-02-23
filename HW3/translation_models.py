@@ -104,9 +104,46 @@ class LSTM(t.nn.Module):
         out_linear = self.hidden2out(rnn_out)
         return out_linear
 
-    # @todo: implement this
     def translate(self, x_source):
-        pass
+        # INITIALIZE
+        self.eval()
+
+        self.hidden_enc = self.init_hidden()
+        self.hidden_dec = self.init_hidden()
+        hidden = self.hidden_dec
+
+        count_eos = 0
+        time = 0
+
+        x_target = (2 * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
+
+        # EMBEDDING
+        xx_source = self.reverse_source(x_source)
+        embedded_x_source = self.source_embeddings(xx_source)
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+
+        # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
+        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+
+        while count_eos < x_source.size(0):
+            embedded_x_target = self.target_embeddings(x_target)
+            embedded_x_target = self.append_hidden_to_target(embedded_x_target)
+            dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
+            hidden = hidden[0].detach(), hidden[1].detach()
+            dec_out = dec_out[:, time:time + 1, :].detach()
+            dec_out = self.dropout_2(dec_out)
+
+            # OUTPUT
+            pred = self.hidden2out(dec_out).detach()
+            # concatenate the output of the decoder and the context and apply nonlinearity
+            x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
+
+            # should you stop ?
+            count_eos += t.sum((pred.max(2)[1] == 3).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            time += 1
+        return x_target
 
     @staticmethod
     def reverse_source(x):
@@ -134,6 +171,7 @@ class LSTMA(t.nn.Module):
 
     NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
     """
+
     def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTMA, self).__init__()
         print("Initializing LSTMA")
@@ -173,14 +211,17 @@ class LSTMA(t.nn.Module):
         # the number of layers to L, there will actually be 2L layers (the forward ones and the backward ones). Consequently the first
         # dimension of the hidden outputs of the forward pass (the 2nd output in the tuple) will be a tuple of
         # 2 tensors having as first dim twice the hidden dim you set
-        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim//2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.hidden_dim)
-        self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
+        self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:
             self.dropout_1s = t.nn.Dropout(self.dropout)
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
+
+        if self.cuda_flag:
+            self = self.cuda()
 
     # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
     def init_hidden(self, data, type):
@@ -207,8 +248,8 @@ class LSTMA(t.nn.Module):
         elif type == 'enc':
             # in that case data is None
             return tuple((
-                variable(np.zeros((self.num_layers*2, self.batch_size, self.hidden_dim//2)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers*2, self.batch_size, self.hidden_dim//2)), cuda=self.cuda_flag)
+                variable(np.zeros((self.num_layers * 2, self.batch_size, self.hidden_dim // 2)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers * 2, self.batch_size, self.hidden_dim // 2)), cuda=self.cuda_flag)
             ))
         else:
             raise ValueError('the type should be either `dec` or `enc`')
@@ -230,7 +271,7 @@ class LSTMA(t.nn.Module):
         # ATTENTION
         scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
         attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
-        context = t.bmm(attn_dist.permute(0,2,1), enc_out)  # batch x target_len x hidden_dim
+        context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
 
         # OUTPUT
         # concatenate the output of the decoder and the context and apply nonlinearity
@@ -239,10 +280,47 @@ class LSTMA(t.nn.Module):
         pred = self.hidden2out(pred)
         return pred
 
-    # @todo: implement this. THIS SHOULD BE PART OF THE TRAIN FUNCTION. AS PER SASHA's advise,
-    # model should be agnostic of train procedure.
     def translate(self, x_source):
-        pass
+        self.eval()
+
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+
+        # RECURRENT
+        hidden = self.init_hidden(None, 'enc')
+        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
+        hidden = self.init_hidden(enc_out, 'dec')
+        x_target = (2 * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
+        count_eos = 0
+        time = 0
+        while count_eos < x_source.size(0):
+            embedded_x_target = self.target_embeddings(x_target)
+            dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
+            hidden = hidden[0].detach(), hidden[1].detach()
+            dec_out = dec_out[:, time:time + 1, :].detach()
+
+            # ATTENTION
+            scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
+            try:
+                attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
+            except:
+                attn_dist = F.softmax(scores.permute(1, 0, 2)).permute(1, 0, 2)
+            context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
+
+            # OUTPUT
+            # concatenate the output of the decoder and the context and apply nonlinearity
+            pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+            pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
+            pred = self.hidden2out(pred).detach()
+            x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
+
+            # should you stop ?
+            count_eos += t.sum((pred.max(2)[1] == 3).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            time += 1
+        return x_target
 
 
 # @ todo: is it useful for this assignment ?
