@@ -163,14 +163,15 @@ def predict(model, test_iter, cuda=True):
     # Actual training loop.
     for batch in test_iter:
         # get data
-        source = batch.src
-        target = batch.trg
+        source = batch.src.transpose(0,1)
+        target = batch.trg.transpose(0,1)
         if cuda:
             source = source.cuda()
             target = target.cuda()
 
         # predict
-        output = model.translate(source)
+        output = model.forward(source, target)
+        # output = model.translate(source)
 
         # Dimension matching to cut it right for loss function.
         batch_size, sent_length = target.size(0), target.size(1)
