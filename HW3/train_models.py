@@ -109,7 +109,7 @@ def train(model_str,
             print(output.size())
             print('target.size()')
             print(target.size())
-            loss = criterion(output.view(batch_size, -1, sent_length), target)
+            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
 
             # Compute gradients
             loss.backward()

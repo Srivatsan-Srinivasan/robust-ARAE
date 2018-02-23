@@ -90,7 +90,7 @@ class LSTM(t.nn.Module):
         # EMBEDDING
         xx_source = self.reverse_source(x_source)
         embedded_x_source = self.source_embeddings(xx_source)
-        embedded_x_target = self.source_embeddings(x_target)
+        embedded_x_target = self.source_embeddings(x_target[:, :-1])
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)
