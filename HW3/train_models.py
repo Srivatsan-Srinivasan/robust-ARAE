@@ -16,9 +16,6 @@ from torch.autograd import Variable
 import json
 
 
-# @todo: modify these functions
-
-
 def init_optimizer(opt_params, model):
     optimizer = opt_params.get('optimizer', 'SGD')
     lr = opt_params.get('lr', 0.1)

@@ -13,7 +13,7 @@ CUDA_DEFAULT = False
 
 model_params_args_map = {'num_layers': 'lstm_nl',
                          'hidden_dim': 'lstm_h_dim',
-                         'embedding_dim': 'emb_size',
+                         'embedding_dim': 'embedding_dim',
                          'batch_size': 'batch_size',
                          'dropout': 'dropout',
                          'train_embedding': 'emb_train',

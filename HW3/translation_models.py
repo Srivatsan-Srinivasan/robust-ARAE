@@ -42,8 +42,8 @@ class LSTM(t.nn.Module):
             self.vocab_size = target_embeddings.size(0)
         except:
             # if you dont provide a pre-trained embedding, you have to provide these
-            self.embedding_dim = params.get('embedding_dim')  # @todo: add this to the argparse
-            self.vocab_size = params.get('vocab_size')  # @todo: add this to the argparse
+            self.embedding_dim = params.get('embedding_dim')
+            self.vocab_size = params.get('vocab_size')
             assert self.embedding_dim is not None and self.vocab_size is not None
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
@@ -189,8 +189,8 @@ class LSTMA(t.nn.Module):
             self.vocab_size = target_embeddings.size(0)
         except:
             # if you dont provide a pre-trained embedding, you have to provide these
-            self.embedding_dim = params.get('embedding_dim')  # @todo: add this to the argparse
-            self.vocab_size = params.get('vocab_size')  # @todo: add this to the argparse
+            self.embedding_dim = params.get('embedding_dim')
+            self.vocab_size = params.get('vocab_size')
             assert self.embedding_dim is not None and self.vocab_size is not None
         self.output_size = params.get('output_size', self.vocab_size)
         self.num_layers = params.get('num_layers', 1)
@@ -323,7 +323,6 @@ class LSTMA(t.nn.Module):
         return x_target
 
 
-# @ todo: is it useful for this assignment ?
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
     r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
 

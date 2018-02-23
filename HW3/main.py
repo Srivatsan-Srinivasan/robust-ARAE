@@ -10,7 +10,7 @@ import argparse
 import torch as t
 from process_params import check_args, get_params
 from const import *
-from train_seqmodels import train, predict
+from train_models import train, predict
 from data_process import generate_iterators, generate_text
 
 t.manual_seed(1)
@@ -33,7 +33,6 @@ parser.add_argument('--model', default='NNLM', help='state which model to use')
 parser.add_argument('--vocab_size', default= 10001, type = int, help='state which model to use')
 parser.add_argument('--lstm_nl', default=1, type=int)
 parser.add_argument('--lstm_h_dim', default=100, type=int)
-parser.add_argument('--emb_size', default=50, type=int)
 parser.add_argument('--batch_size', default=10, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
 parser.add_argument('--embed_dropout', default=False, type=bool)
@@ -41,6 +40,7 @@ parser.add_argument('--context_size', default=-1, type=int)
 parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
 parser.add_argument('--batch_norm', default=False, type=bool, help='Whether to include batch normalization or not')
+parser.add_argument('--embedding_dim', default=50, type=int)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
@@ -60,20 +60,16 @@ model_params, opt_params, train_params = get_params(args)
 train_iter, val_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'],
                                                                                                    emb_size=args.emb_size, emb=args.emb)
 
-if args.model in recur_models:
+if False:  # necessary for memory overflows ?
     t.backends.cudnn.enabled = False
 
 # Call for different models code should be here.
 # Train Model
 trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=val_iter, cuda=args.cuda, save=args.save,
                       save_path=args.output_filename,
-                      context_size=int(args.context_size), model_params=model_params, early_stopping=args.early_stopping,
-                      train_params=train_params, opt_params=opt_params, TEXT=TEXT, reshuffle_train=(args.model == 'NNLM'))
+                      model_params=model_params, early_stopping=args.early_stopping,
+                      train_params=train_params, opt_params=opt_params, TEXT=TEXT)
 
-# Predict Model
-# @todo: make it work for nnlm2
-#predict(trained_model, test_iter, context_size=int(args.con_size),
-#        save_loss=args.monitor, cuda=args.cuda, expt_name=args.exp_n)
 
 generate_text(trained_model, args.exp_n, TEXT, n=20, cuda=args.cuda)
 
