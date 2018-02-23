@@ -33,6 +33,3 @@ def check_args(args):
     if args.optimizer not in optimizers:
         raise Exception("Given optimizer string not in valid models. Add your new model to const.py and train_models.py" +
                         "Could also be case mismatch. Check const.py")
-    if args.emb not in embeddings:
-        raise Exception("Given embedding string not in valid models. Add your new embedding to const.py and data_process.py" +
-                        "Could also be case mismatch. Check const.py")
