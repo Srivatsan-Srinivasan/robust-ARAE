@@ -20,7 +20,6 @@ parser = argparse.ArgumentParser(description="For CS287 HW3")
 # Add arguments to be parsed.
 # GENERAL PARAMS
 parser.add_argument('--debug', default=False, type=bool)
-parser.add_argument('--emb', default='GloVe')
 parser.add_argument('--cuda', default=CUDA_DEFAULT, type=bool)
 parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
 parser.add_argument('--monitor', default=False, help='States if you need to pickle validation loss', type=bool)
@@ -35,8 +34,8 @@ parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
 parser.add_argument('--embed_dropout', default=False, type=bool)
-parser.add_argument('--emb_train', default=False, type=bool)
-parser.add_argument('--clip_g_n', default=0.25, type=float)
+parser.add_argument('--emb_train', default=True, type=bool)
+parser.add_argument('--clip_g_n', default=5, type=float)
 parser.add_argument('--embedding_dim', default=50, type=int)
 
 # OPTIMIZER PARAMS

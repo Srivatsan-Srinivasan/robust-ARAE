@@ -200,7 +200,7 @@ class LSTMA(t.nn.Module):
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
-        self.train_embedding = params.get('train_embedding', False)
+        self.train_embedding = params.get('train_embedding', True)
 
         # Initialize embeddings. Static embeddings for now.
         self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
