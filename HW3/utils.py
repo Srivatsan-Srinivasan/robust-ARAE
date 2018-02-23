@@ -7,9 +7,24 @@ from sklearn.utils import shuffle
 import torchtext
 import nltk
 import matplotlib.pyplot as plt
-
+import spacy
 os.chdir('../HW3')  # so that there is not an import bug if the working directory isn't already HW2
 from const import *
+
+
+BOS_WORD = '<s>'
+EOS_WORD = '</s>'
+
+spacy_de = spacy.load('de')
+spacy_en = spacy.load('en')
+
+
+def tokenize_de(text):
+    return [tok.text for tok in spacy_de.tokenizer(text)]
+
+
+def tokenize_en(text):
+    return [tok.text for tok in spacy_en.tokenizer(text)]
 
 
 def get_bleu_score(list_gold_responses, prediction):
