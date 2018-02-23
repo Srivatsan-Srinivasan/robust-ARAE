@@ -27,6 +27,7 @@ parser.add_argument('--save', default=False, help='Save the model or not', type=
 parser.add_argument('--output_filename', default=None, help='Where the model is saved', type=str)
 parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=bool)
 parser.add_argument('--max_len', default=20, type=int)
+parser.add_argument('--load_saved_data', default=False, type=bool)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='LSTM', help='state which model to use')
@@ -54,7 +55,7 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, val_iter, EN, DE = generate_iterators(MAX_LEN=args.max_len)
+train_iter, val_iter, EN, DE = generate_iterators(MAX_LEN=args.max_len, load_data=args.load_saved_data, BATCH_SIZE=args.batch_size)
 model_params['source_vocab_size'] = len(DE.vocab.itos)
 model_params['target_vocab_size'] = len(EN.vocab.itos)
 

@@ -13,34 +13,48 @@ from torch.autograd import Variable
 import spacy
 from torchtext import data
 from torchtext import datasets
+import pickle
 
 
-def generate_iterators(MAX_LEN=20):
-    spacy_de = spacy.load('de')
-    spacy_en = spacy.load('en')
+def generate_iterators(BATCH_SIZE=32, MAX_LEN=20, load_data=False):
+    if not load_data:
+        spacy_de = spacy.load('de')
+        spacy_en = spacy.load('en')
 
-    def tokenize_de(text):
-        return [tok.text for tok in spacy_de.tokenizer(text)]
+        def tokenize_de(text):
+            return [tok.text for tok in spacy_de.tokenizer(text)]
 
-    def tokenize_en(text):
-        return [tok.text for tok in spacy_en.tokenizer(text)]
+        def tokenize_en(text):
+            return [tok.text for tok in spacy_en.tokenizer(text)]
 
-    BOS_WORD = '<s>'
-    EOS_WORD = '</s>'
-    DE = data.Field(tokenize=tokenize_de)
-    EN = data.Field(tokenize=tokenize_en, init_token=BOS_WORD, eos_token=EOS_WORD)  # only target needs BOS/EOS
+        BOS_WORD = '<s>'
+        EOS_WORD = '</s>'
+        DE = data.Field(tokenize=tokenize_de)
+        EN = data.Field(tokenize=tokenize_en, init_token=BOS_WORD, eos_token=EOS_WORD)  # only target needs BOS/EOS
 
-    train, val, test = datasets.IWSLT.splits(exts=('.de', '.en'), fields=(DE, EN),
-                                             filter_pred=lambda x: len(vars(x)['src']) <= MAX_LEN and
-                                                                   len(vars(x)['trg']) <= MAX_LEN)
-    MIN_FREQ = 5
-    DE.build_vocab(train.src, min_freq=MIN_FREQ)
-    EN.build_vocab(train.trg, min_freq=MIN_FREQ)
-    BATCH_SIZE = 32
-    train_iter, val_iter = data.BucketIterator.splits((train, val), batch_size=BATCH_SIZE, device=-1,
-                                                      repeat=False, sort_key=lambda x: len(x.src))
+        train, val, test = datasets.IWSLT.splits(exts=('.de', '.en'), fields=(DE, EN),
+                                                 filter_pred=lambda x: len(vars(x)['src']) <= MAX_LEN and
+                                                                       len(vars(x)['trg']) <= MAX_LEN)
+        MIN_FREQ = 5
+        DE.build_vocab(train.src, min_freq=MIN_FREQ)
+        EN.build_vocab(train.trg, min_freq=MIN_FREQ)
+        train_iter, val_iter = data.BucketIterator.splits((train, val), batch_size=BATCH_SIZE, device=-1,
+                                                          repeat=False, sort_key=lambda x: len(x.src))
 
-    return train_iter, val_iter, EN, DE
+        return train_iter, val_iter, EN, DE
+    else:
+        with open('train.pkl', 'rb') as f:
+            train = pickle.load(f)
+        with open('val.pkl', 'rb') as f:
+            val = pickle.load(f)
+        with open('DE.torchtext.Field.pkl', 'rb') as f:
+            DE = pickle.load(f)
+        with open('EN.torchtext.Field.pkl', 'rb') as f:
+            EN = pickle.load(f)
+        BATCH_SIZE = 32
+        train_iter, val_iter = data.BucketIterator.splits((train, val), batch_size=BATCH_SIZE, device=-1,
+                                                          repeat=False, sort_key=lambda x: len(x.src))
+        return train_iter, val_iter, EN, DE
 
 
 # @todo: implement this
