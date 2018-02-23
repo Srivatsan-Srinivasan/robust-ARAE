@@ -11,15 +11,14 @@ embeddings = ['GloVe', 'fasttext']
 
 CUDA_DEFAULT = False
 
-model_params_args_map = {'num_layers': 'lstm_nl',
-                         'hidden_dim': 'lstm_h_dim',
+model_params_args_map = {'num_layers': 'n_layers',
+                         'hidden_dim': 'hidden_dim',
                          'embedding_dim': 'embedding_dim',
                          'batch_size': 'batch_size',
                          'dropout': 'dropout',
                          'train_embedding': 'emb_train',
                          'clip_grad_norm': 'clip_g_n',
                          'cuda': 'cuda',
-                         'vocab_size': 'vocab_size',
                          'embed_dropout': 'embed_dropout',
                          'source_vocab_size': 'source_vocab_size',
                          'target_vocab_size': 'target_vocab_size'

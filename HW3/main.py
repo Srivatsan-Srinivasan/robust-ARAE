@@ -30,16 +30,13 @@ parser.add_argument('--early_stopping', default=False, help='Whether to stop tra
 
 # MODEL PARAMS
 parser.add_argument('--model', default='LSTM', help='state which model to use')
-parser.add_argument('--vocab_size', default=10001, type = int, help='state which model to use')
-parser.add_argument('--lstm_nl', default=1, type=int)
-parser.add_argument('--lstm_h_dim', default=300, type=int)
+parser.add_argument('--n_layers', default=1, type=int)
+parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
 parser.add_argument('--embed_dropout', default=False, type=bool)
-parser.add_argument('--context_size', default=-1, type=int)
 parser.add_argument('--emb_train', default=False, type=bool)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
-parser.add_argument('--batch_norm', default=False, type=bool, help='Whether to include batch normalization or not')
 parser.add_argument('--embedding_dim', default=50, type=int)
 
 # OPTIMIZER PARAMS
