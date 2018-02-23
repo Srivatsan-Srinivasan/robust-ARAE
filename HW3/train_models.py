@@ -105,10 +105,6 @@ def train(model_str,
 
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)-1
-            print('output.size()')
-            print(output.size())
-            print('target.size()')
-            print(target.size())
             loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
 
             # Compute gradients

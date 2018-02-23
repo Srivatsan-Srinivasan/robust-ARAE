@@ -229,7 +229,7 @@ class LSTMA(t.nn.Module):
             self = self.cuda()
 
     # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
-    def init_hidden(self, data, type):
+    def init_hidden(self, data, type, batch_size=None):
         """
         Initialize the hidden state, either for the encoder or the decoder
 
@@ -238,6 +238,7 @@ class LSTMA(t.nn.Module):
 
         `data` is either something you initialize the hidden state with, or None
         """
+        bs = batch_size if batch_size is not None else self.batch_size
         if type == 'dec':
             # in that case, `data` is the output of the encoder
             # data[:, :1, self.hidden_dim // 2:]
@@ -248,13 +249,13 @@ class LSTMA(t.nn.Module):
             h = h.transpose(1, 0)
             return (
                 h,
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+                variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
             )
         elif type == 'enc':
             # in that case data is None
             return tuple((
-                variable(np.zeros((self.num_layers * 2, self.batch_size, self.hidden_dim // 2)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers * 2, self.batch_size, self.hidden_dim // 2)), cuda=self.cuda_flag)
+                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag)
             ))
         else:
             raise ValueError('the type should be either `dec` or `enc`')
@@ -268,9 +269,9 @@ class LSTMA(t.nn.Module):
             embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # RECURRENT
-        hidden = self.init_hidden(None, 'enc')
+        hidden = self.init_hidden(None, 'enc', x_source.size(0))
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        hidden = self.init_hidden(enc_out, 'dec')
+        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
         dec_out, _ = self.decoder_rnn(embedded_x_target, hidden)
 
         # ATTENTION
