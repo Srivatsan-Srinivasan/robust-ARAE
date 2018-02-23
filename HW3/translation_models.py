@@ -95,6 +95,10 @@ class LSTM(t.nn.Module):
             embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
+        print('embedded_x_source.size()')
+        print(embedded_x_source.size())
+        print('self.hidden_enc')
+        print(self.hidden_enc.size())
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
 
         # DECODING

@@ -42,7 +42,7 @@ def generate_iterators(BATCH_SIZE=32, MAX_LEN=20, load_data=False):
                                                           repeat=False, sort_key=lambda x: len(x.src))
 
         return train_iter, val_iter, EN, DE
-    else:
+    else:  # does not work...
         with open('train.pkl', 'rb') as f:
             train = pickle.load(f)
         with open('val.pkl', 'rb') as f:
