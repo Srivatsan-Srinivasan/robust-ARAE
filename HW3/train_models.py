@@ -106,7 +106,7 @@ def train(model_str,
             loss.backward()
 
             # Clip gradients and backprop
-            clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 5))
+            clip_grad_norm(model.parameters(), model_params.get("clip_gradients", 5.))
             optimizer.step()
 
             # monitoring
