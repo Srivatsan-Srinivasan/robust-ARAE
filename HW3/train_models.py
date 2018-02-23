@@ -165,6 +165,9 @@ def predict(model, test_iter, cuda=True):
         # get data
         source = batch.src.transpose(0,1)
         target = batch.trg.transpose(0,1)
+        if model.model_str == 'LSTM':
+            model.hidden_enc = model.init_hidden(source.size(0))
+            model.hidden_dec = model.init_hidden(source.size(0))
         if cuda:
             source = source.cuda()
             target = target.cuda()
@@ -176,12 +179,6 @@ def predict(model, test_iter, cuda=True):
         # Dimension matching to cut it right for loss function.
         batch_size, sent_length = target.size(0), target.size(1)
         loss = criterion(output.view(batch_size, -1, sent_length), target)
-
-        # Remember hidden and memory for next batch. Converting to tensor to break the
-        # computation graph. Converting it to variable in the next loop.
-        if model.model_str == 'LSTM':
-            model.hidden_enc = model.init_hidden()
-            model.hidden_dec = model.init_hidden()
 
         # monitoring
         count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
