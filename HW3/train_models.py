@@ -85,14 +85,14 @@ def train(model_str,
         for batch in train_iter:
 
             # Get data
-            source = batch.src.transpose(0,1)
-            target = batch.trg.transpose(0,1)
+            source = batch.src.transpose(0, 1)  # batch first
+            target = batch.trg.transpose(0, 1)
             if cuda:
                 source = source.cuda()
                 target = target.cuda()
 
             # Initialize hidden layer and memory
-            if model.model_str == 'LSTM':
+            if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the init of the dec needs the last h of the enc
                 model.hidden_enc = model.init_hidden(source.size(0))
                 model.hidden_dec = model.init_hidden(source.size(0))
 
@@ -107,10 +107,8 @@ def train(model_str,
             batch_size, sent_length = target.size(0), target.size(1)-1
             loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
 
-            # Compute gradients
+            # Compute gradients, clip, and backprop
             loss.backward()
-
-            # Clip gradients and backprop
             clip_grad_norm(model.parameters(), model_params.get("clip_gradients", 5.))
             optimizer.step()
 
@@ -162,10 +160,10 @@ def predict(model, test_iter, cuda=True):
 
     # Actual training loop.
     for batch in test_iter:
-        # get data
-        source = batch.src.transpose(0,1)
-        target = batch.trg.transpose(0,1)
-        if model.model_str == 'LSTM':
+        # Get data
+        source = batch.src.transpose(0, 1)  # batch first
+        target = batch.trg.transpose(0, 1)
+        if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the decoder needs the hidden of the encoder
             model.hidden_enc = model.init_hidden(source.size(0))
             model.hidden_dec = model.init_hidden(source.size(0))
         if cuda:
@@ -174,7 +172,6 @@ def predict(model, test_iter, cuda=True):
 
         # predict
         output = model.forward(source, target)
-        # output = model.translate(source)
 
         # Dimension matching to cut it right for loss function.
         batch_size, sent_length = target.size(0), target.size(1)-1
@@ -182,7 +179,7 @@ def predict(model, test_iter, cuda=True):
 
         # monitoring
         count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
-        total_loss += t.sum(loss.data)
+        total_loss += t.sum(loss.data)  # cut graph with .data
 
     # monitoring
     avg_loss = total_loss / count
