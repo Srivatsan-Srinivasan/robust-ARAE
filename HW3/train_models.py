@@ -70,9 +70,10 @@ def train(model_str,
     # Initialize model and other variables
     model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding)
 
+    val_loss = 1e6
     if scheduler is not None:
         assert val_iter is not None
-        scheduler.step(1e6)
+        scheduler.step(val_loss)
 
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
