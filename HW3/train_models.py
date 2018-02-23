@@ -105,7 +105,7 @@ def train(model_str,
 
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)-1
-            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
+            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # @todo: do not take into account all what is after the EOS. It artificially boosts performance
 
             # Compute gradients, clip, and backprop
             loss.backward()
@@ -175,7 +175,7 @@ def predict(model, test_iter, cuda=True):
 
         # Dimension matching to cut it right for loss function.
         batch_size, sent_length = target.size(0), target.size(1)-1
-        loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
+        loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # @todo: do not take into account all what is after the EOS. It artificially boosts performance
 
         # monitoring
         count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
