@@ -12,17 +12,18 @@ os.chdir('../HW3')  # so that there is not an import bug if the working director
 from const import *
 
 
-def get_bleu_score(list_gold_responses,prediction):
-    #note list gold responses should be list even if only one gold response
-    #note prediction is a string
+def get_bleu_score(list_gold_responses, prediction):
+    # note list gold responses should be list even if only one gold response
+    # note prediction is a string
     bleu = nltk.translate.bleu_score.sentence_bleu([x.split() for x in list_gold_responses], prediction.split())
     return bleu
 
-def showAttention(input_sentence, output_words, attentions):
+
+def show_attention(input_sentence, output_words, attentions):
     # input_sentence: string of input sentence
     # output_words: string of output sentence
     # attentions: matrix of attention values, horizontal axis is output and vertical axis is input
-    
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
     cax = ax.matshow(attentions.numpy(), cmap='bone')
@@ -34,12 +35,13 @@ def showAttention(input_sentence, output_words, attentions):
     ax.set_yticklabels([''] + output_words.split(' '))
 
     # Show label at every tick
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))  # @todo: `ticker` is not defined!!!
     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
 
     if True:
         plt.show()
-    fig.savefig(input_sentence+"_attention.png")
+    fig.savefig(input_sentence + "_attention.png")
+
 
 def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
     """Wrapper for t.autograd.Variable"""
