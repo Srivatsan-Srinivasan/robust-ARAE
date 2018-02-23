@@ -57,21 +57,29 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, val_iter, test_iter, TEXT, model_params['vocab_size'], embeddings = generate_iterators(args.model, debug=args.debug, batch_size=args.batch_size, context_size=model_params['context_size'],
-                                                                                                   emb_size=args.emb_size, emb=args.emb)
+train_iter, val_iter, EN, DE = generate_iterators()
 
 if False:  # necessary for memory overflows ?
     t.backends.cudnn.enabled = False
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model, TEXT.vocab.vectors, train_iter, val_iter=val_iter, cuda=args.cuda, save=args.save,
+trained_model = train(args.model,
+                      train_iter,
+                      val_iter=val_iter,
+                      cuda=args.cuda,
+                      save=args.save,
                       save_path=args.output_filename,
-                      model_params=model_params, early_stopping=args.early_stopping,
-                      train_params=train_params, opt_params=opt_params, TEXT=TEXT)
+                      source_embedding=None,
+                      target_embedding=None,
+                      model_params=model_params,
+                      early_stopping=args.early_stopping,
+                      train_params=train_params,
+                      opt_params=opt_params)
 
 
-generate_text(trained_model, args.exp_n, TEXT, n=20, cuda=args.cuda)
+# @todo : implement this
+# generate_text(trained_model, args.exp_n, TEXT, n=20, cuda=args.cuda)
 
 # Dummy code.
 print("The model is ", args.model)

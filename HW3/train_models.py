@@ -30,10 +30,10 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_str, embeddings, model_params, opt_params, cuda):
+def _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
-    model = eval(model_str)(model_params, embeddings)
+    model = eval(model_str)(model_params, source_embedding, target_embedding)
     model.train()  # important!
 
     optimizer = init_optimizer(opt_params, model)
@@ -55,10 +55,20 @@ def _train_initialize_variables(model_str, embeddings, model_params, opt_params,
     return model, criterion, optimizer, scheduler
 
 
-def train(model_str, embeddings, train_iter, val_iter=None, early_stopping=False, save=False, save_path=None,
-          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT):
+def train(model_str,
+          train_iter,
+          val_iter=None,
+          source_embedding=None,
+          target_embedding=None,
+          early_stopping=False,
+          save=False,
+          save_path=None,
+          model_params={},
+          opt_params={},
+          train_params={},
+          cuda=CUDA_DEFAULT):
     # Initialize model and other variables
-    model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, embeddings, model_params, opt_params, cuda)
+    model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding)
 
     if scheduler is not None:
         assert val_iter is not None
