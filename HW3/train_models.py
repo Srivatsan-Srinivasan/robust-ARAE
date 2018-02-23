@@ -63,16 +63,9 @@ def train(model_str, embeddings, train_iter, val_iter=None, early_stopping=False
     # Initialize model and other variables
     model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, embeddings, model_params, opt_params, cuda)
 
-    # First validation round before any training
-    if val_iter is not None:
-        model.eval()
-        print("Model initialized")
-        val_loss = predict(model, val_iter, cuda=cuda)
-        model.train()
-
     if scheduler is not None:
         assert val_iter is not None
-        scheduler.step(val_loss)
+        scheduler.step(1e6)
 
     print("All set. Actual Training begins")
     for epoch in range(train_params.get('n_ep', 30)):
