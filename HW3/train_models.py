@@ -82,10 +82,6 @@ def train(model_str,
 
         # Actual training loop.     
         for batch in train_iter:
-            # Initialize hidden layer and memory
-            if model.model_str == 'LSTM':
-                model.hidden_enc = model.init_hidden()
-                model.hidden_dec = model.init_hidden()
 
             # Get data
             source = batch.src.transpose(0,1)
@@ -93,6 +89,11 @@ def train(model_str,
             if cuda:
                 source = source.cuda()
                 target = target.cuda()
+
+            # Initialize hidden layer and memory
+            if model.model_str == 'LSTM':
+                model.hidden_enc = model.init_hidden(source.size(0))
+                model.hidden_dec = model.init_hidden(source.size(0))
 
             # zero gradients
             optimizer.zero_grad()

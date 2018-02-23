@@ -72,12 +72,13 @@ class LSTM(t.nn.Module):
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
 
-    def init_hidden(self):
+    def init_hidden(self, batch_size=None):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
+        bs = self.batch_size if batch_size is None else batch_size
         return tuple((
-            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
         ))
 
     def forward(self, x_source, x_target):
@@ -95,11 +96,6 @@ class LSTM(t.nn.Module):
             embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
-        print('embedded_x_source.size()')
-        print(embedded_x_source.size())
-        print('self.hidden_enc')
-        print(self.hidden_enc[0].size())
-        print(self.hidden_enc[1].size())
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
 
         # DECODING
