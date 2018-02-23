@@ -104,7 +104,7 @@ def train(model_str,
             output = model(source, target)
 
             # Dimension matching to cut it right for loss function.
-            batch_size, sent_length = target.size(0), target.size(1)
+            batch_size, sent_length = target.size(0), target.size(1)-1
             print('output.size()')
             print(output.size())
             print('target.size()')
