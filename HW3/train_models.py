@@ -86,8 +86,8 @@ def train(model_str,
         # Actual training loop.     
         for batch in train_iter:
             # get data
-            source = batch.src
-            target = batch.trg
+            source = batch.src.transpose(0,1)
+            target = batch.trg.transpose(0,1)
             if cuda:
                 source = source.cuda()
                 target = target.cuda()
