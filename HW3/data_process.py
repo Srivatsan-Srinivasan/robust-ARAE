@@ -15,7 +15,7 @@ from torchtext import data
 from torchtext import datasets
 
 
-def generate_iterators():
+def generate_iterators(MAX_LEN=20):
     spacy_de = spacy.load('de')
     spacy_en = spacy.load('en')
 
@@ -30,7 +30,6 @@ def generate_iterators():
     DE = data.Field(tokenize=tokenize_de)
     EN = data.Field(tokenize=tokenize_en, init_token=BOS_WORD, eos_token=EOS_WORD)  # only target needs BOS/EOS
 
-    MAX_LEN = 20
     train, val, test = datasets.IWSLT.splits(exts=('.de', '.en'), fields=(DE, EN),
                                              filter_pred=lambda x: len(vars(x)['src']) <= MAX_LEN and
                                                                    len(vars(x)['trg']) <= MAX_LEN)
