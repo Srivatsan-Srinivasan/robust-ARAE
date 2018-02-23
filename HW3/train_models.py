@@ -177,8 +177,8 @@ def predict(model, test_iter, cuda=True):
         # output = model.translate(source)
 
         # Dimension matching to cut it right for loss function.
-        batch_size, sent_length = target.size(0), target.size(1)
-        loss = criterion(output.view(batch_size, -1, sent_length), target)
+        batch_size, sent_length = target.size(0), target.size(1)-1
+        loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])
 
         # monitoring
         count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
