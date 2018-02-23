@@ -29,11 +29,11 @@ parser.add_argument('--output_filename', default=None, help='Where the model is 
 parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=bool)
 
 # MODEL PARAMS
-parser.add_argument('--model', default='NNLM', help='state which model to use')
-parser.add_argument('--vocab_size', default= 10001, type = int, help='state which model to use')
+parser.add_argument('--model', default='LSTM', help='state which model to use')
+parser.add_argument('--vocab_size', default=10001, type = int, help='state which model to use')
 parser.add_argument('--lstm_nl', default=1, type=int)
-parser.add_argument('--lstm_h_dim', default=100, type=int)
-parser.add_argument('--batch_size', default=10, type=int)
+parser.add_argument('--lstm_h_dim', default=300, type=int)
+parser.add_argument('--batch_size', default=32, type=int)
 parser.add_argument('--dropout', default=0.5, type=float)
 parser.add_argument('--embed_dropout', default=False, type=bool)
 parser.add_argument('--context_size', default=-1, type=int)
