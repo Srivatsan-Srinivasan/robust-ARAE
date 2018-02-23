@@ -118,7 +118,7 @@ class LSTM(t.nn.Module):
         count_eos = 0
         time = 0
 
-        x_target = (2 * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
         x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
 
         # EMBEDDING
@@ -144,7 +144,7 @@ class LSTM(t.nn.Module):
             x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
 
             # should you stop ?
-            count_eos += t.sum((pred.max(2)[1] == 3).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            count_eos += t.sum((pred.max(2)[1] == EOS_TOKEN).long()).data.cpu().numpy()[0]  # `3` is the EOS token
             time += 1
         return x_target
 
@@ -298,7 +298,7 @@ class LSTMA(t.nn.Module):
         hidden = self.init_hidden(None, 'enc')
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
         hidden = self.init_hidden(enc_out, 'dec')
-        x_target = (2 * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
         x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
         count_eos = 0
         time = 0
@@ -324,7 +324,7 @@ class LSTMA(t.nn.Module):
             x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
 
             # should you stop ?
-            count_eos += t.sum((pred.max(2)[1] == 3).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            count_eos += t.sum((pred.max(2)[1] == EOS_TOKEN).long()).data.cpu().numpy()[0]  # `3` is the EOS token
             time += 1
         return x_target
 

@@ -9,6 +9,9 @@ models = ['LSTM', 'LSTMA']
 optimizers = ['SGD', 'Adam', 'AdaMax']
 embeddings = ['GloVe', 'fasttext']
 
+SOS_TOKEN = 2
+EOS_TOKEN = 3
+
 CUDA_DEFAULT = False
 
 model_params_args_map = {'num_layers': 'n_layers',
