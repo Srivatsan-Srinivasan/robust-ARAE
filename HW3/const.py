@@ -20,7 +20,9 @@ model_params_args_map = {'num_layers': 'lstm_nl',
                          'clip_grad_norm': 'clip_g_n',
                          'cuda': 'cuda',
                          'vocab_size': 'vocab_size',
-                         'embed_dropout': 'embed_dropout'
+                         'embed_dropout': 'embed_dropout',
+                         'source_vocab_size': 'source_vocab_size',
+                         'target_vocab_size': 'target_vocab_size'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',

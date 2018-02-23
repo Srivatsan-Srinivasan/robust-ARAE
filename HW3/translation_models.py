@@ -37,23 +37,25 @@ class LSTM(t.nn.Module):
         self.batch_size = params.get('batch_size', 32)
         try:
             # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
             assert source_embeddings.size(1) == target_embeddings.size(1)
             self.embedding_dim = source_embeddings.size(1)
-            self.vocab_size = target_embeddings.size(0)
         except:
             # if you dont provide a pre-trained embedding, you have to provide these
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
             self.embedding_dim = params.get('embedding_dim')
-            self.vocab_size = params.get('vocab_size')
-            assert self.embedding_dim is not None and self.vocab_size is not None
-        self.output_size = params.get('output_size', self.vocab_size)
+            assert self.embedding_dim is not None and self.source_vocab_size is not None and self.target_vocab_size is not None
+        self.output_size = self.target_vocab_size
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
 
         # Initialize embeddings. Static embeddings for now.
-        self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.target_vocab_size, self.embedding_dim)
         if source_embeddings is not None:
             self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
         if target_embeddings is not None:
@@ -186,21 +188,23 @@ class LSTMA(t.nn.Module):
             # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
             assert source_embeddings.size(1) == target_embeddings.size(1)
             self.embedding_dim = source_embeddings.size(1)
-            self.vocab_size = target_embeddings.size(0)
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
         except:
             # if you dont provide a pre-trained embedding, you have to provide these
             self.embedding_dim = params.get('embedding_dim')
-            self.vocab_size = params.get('vocab_size')
-            assert self.embedding_dim is not None and self.vocab_size is not None
-        self.output_size = params.get('output_size', self.vocab_size)
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
+            assert self.embedding_dim is not None and self.source_vocab_size is not None and self.target_vocab_size is not None
+        self.output_size = self.target_vocab_size
         self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
 
         # Initialize embeddings. Static embeddings for now.
-        self.source_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-        self.target_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
+        self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.target_vocab_size, self.embedding_dim)
         if source_embeddings is not None:
             self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
         if target_embeddings is not None:

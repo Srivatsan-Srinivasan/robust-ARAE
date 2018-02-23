@@ -58,6 +58,8 @@ model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
 train_iter, val_iter, EN, DE = generate_iterators()
+model_params['source_vocab_size'] = len(DE.vocab.itos)
+model_params['target_vocab_size'] = len(EN.vocab.itos)
 
 if False:  # necessary for memory overflows ?
     t.backends.cudnn.enabled = False
