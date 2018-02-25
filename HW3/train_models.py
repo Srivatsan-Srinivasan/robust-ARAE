@@ -93,8 +93,8 @@ def train(model_str,
 
             # Initialize hidden layer and memory
             if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the init of the dec needs the last h of the enc
-                model.hidden_enc = model.init_hidden(source.size(0))
-                model.hidden_dec = model.init_hidden(source.size(0))
+                model.hidden_enc = model.init_hidden('enc', source.size(0))
+                model.hidden_dec = model.init_hidden('dec', source.size(0))
 
             # zero gradients
             optimizer.zero_grad()
