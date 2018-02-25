@@ -24,7 +24,8 @@ model_params_args_map = {'num_layers': 'n_layers',
                          'cuda': 'cuda',
                          'embed_dropout': 'embed_dropout',
                          'source_vocab_size': 'source_vocab_size',
-                         'target_vocab_size': 'target_vocab_size'
+                         'target_vocab_size': 'target_vocab_size',
+                         'blstm_enc': 'blstm_enc'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',

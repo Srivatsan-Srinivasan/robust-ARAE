@@ -39,6 +39,7 @@ parser.add_argument('--embed_dropout', default=False, type=bool)
 parser.add_argument('--emb_train', default=True, type=bool)
 parser.add_argument('--clip_gradients', default=5., type=float)
 parser.add_argument('--embedding_dim', default=50, type=int)
+parser.add_argument('--blstm_enc', default=True, type=bool, help="Whether the encoder of the seq2seq model should be bidirectionnal or not")
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)

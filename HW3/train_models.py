@@ -114,7 +114,7 @@ def train(model_str,
 
             # monitoring
             count += batch_size * sent_length  # in that case there are batch_size x bbp_length classifications per batch
-            total_loss += t.sum(loss.data)  # .data to break so that you dont keep references
+            total_loss += t.sum(loss.data)  # .data so that you dont keep references
 
         # monitoring
         avg_loss = total_loss / count

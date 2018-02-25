@@ -52,6 +52,7 @@ class LSTM(t.nn.Module):
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', False)
+        self.blstm_enc = params.get('blstm_enc', False)
 
         # Initialize embeddings. Static embeddings for now.
         self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
@@ -62,7 +63,7 @@ class LSTM(t.nn.Module):
             self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden2out = t.nn.Linear(self.hidden_dim, self.output_size)
         self.hidden_enc = self.init_hidden()
@@ -83,14 +84,17 @@ class LSTM(t.nn.Module):
 
     def forward(self, x_source, x_target):
         """
-        :param x_source: the source sentence
-        :param x_target: the target (translated) sentence
+        :param x_source: the source sentence (batch x sentence_length)
+        :param x_target: the target (translated) sentence (batch x sentence_length)
         :return:
         """
         # EMBEDDING
-        xx_source = self.reverse_source(x_source)
+        if not self.blstm_enc:
+            xx_source = self.reverse_source(x_source)
+        else:
+            xx_source = x_source
         embedded_x_source = self.source_embeddings(xx_source)
-        embedded_x_target = self.source_embeddings(x_target[:, :-1])
+        embedded_x_target = self.source_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)
@@ -99,7 +103,7 @@ class LSTM(t.nn.Module):
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
 
         # DECODING
-        embedded_x_target = self.append_hidden_to_target(embedded_x_target)
+        embedded_x_target = self.append_hidden_to_target(embedded_x_target)  # concat the context vector with the target sentence
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
         rnn_out = self.dropout_2(rnn_out)
 
@@ -122,7 +126,10 @@ class LSTM(t.nn.Module):
         x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
 
         # EMBEDDING
-        xx_source = self.reverse_source(x_source)
+        if not self.blstm_enc:
+            xx_source = self.reverse_source(x_source)
+        else:
+            xx_source = x_source
         embedded_x_source = self.source_embeddings(xx_source)
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
