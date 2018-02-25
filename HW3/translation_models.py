@@ -22,11 +22,147 @@ class LSTM(t.nn.Module):
     Implementation of `Sequence to Sequence Learning with Neural Networks`
     https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf
 
+    Here the input sentence is not reversed. See LSTMR for this
+
     NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
     """
 
     def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTM, self).__init__()
+        print("Initializing LSTM")
+        self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
+        self.model_str = 'LSTM'
+        self.params = params
+
+        # Initialize hyperparams.
+        self.hidden_dim = params.get('hidden_dim', 100)
+        self.batch_size = params.get('batch_size', 32)
+        try:
+            # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
+            assert source_embeddings.size(1) == target_embeddings.size(1)
+            self.embedding_dim = source_embeddings.size(1)
+        except:
+            # if you dont provide a pre-trained embedding, you have to provide these
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
+            self.embedding_dim = params.get('embedding_dim')
+            assert self.embedding_dim is not None and self.source_vocab_size is not None and self.target_vocab_size is not None
+        self.output_size = self.target_vocab_size
+        self.num_layers = params.get('num_layers', 1)
+        self.dropout = params.get('dropout', 0.5)
+        self.embed_dropout = params.get('embed_dropout')
+        self.train_embedding = params.get('train_embedding', False)
+
+        # Initialize embeddings. Static embeddings for now.
+        self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.target_vocab_size, self.embedding_dim)
+        if source_embeddings is not None:
+            self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+        if target_embeddings is not None:
+            self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
+
+        # Initialize network modules.
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
+        self.hidden_enc = self.init_hidden('enc')
+        self.hidden_dec = self.init_hidden('dec')
+        if self.embed_dropout:
+            self.dropout_1s = t.nn.Dropout(self.dropout)
+            self.dropout_1t = t.nn.Dropout(self.dropout)
+        self.dropout_2 = t.nn.Dropout(self.dropout)
+
+    def init_hidden(self, type, batch_size=None):
+        # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
+        # will return torch variable.
+        bs = self.batch_size if batch_size is None else batch_size
+        nl = self.num_layers
+        return tuple((
+            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag)
+        ))
+
+    def forward(self, x_source, x_target):
+        """
+        :param x_source: the source sentence (batch x sentence_length)
+        :param x_target: the target (translated) sentence (batch x sentence_length)
+        :return:
+        """
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        embedded_x_target = self.source_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+            embedded_x_target = self.dropout_1t(embedded_x_target)
+
+        # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
+        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
+
+        # DECODING
+        rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
+        rnn_out = self.dropout_2(rnn_out)
+        rnn_out = F.tanh(t.cat([rnn_out, context], -1))  # @todo: tanh necessary ?
+
+        # OUTPUT
+        out_linear = self.hidden2out(rnn_out)
+        return out_linear
+
+    def translate(self, x_source):
+        # INITIALIZE
+        self.eval()
+
+        self.hidden_enc = self.init_hidden('enc')
+        self.hidden_dec = self.init_hidden('dec')
+        hidden = self.hidden_dec
+
+        count_eos = 0
+        time = 0
+
+        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
+
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+
+        # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
+        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+
+        while count_eos < x_source.size(0):
+            embedded_x_target = self.target_embeddings(x_target)
+            dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
+            hidden = hidden[0].detach(), hidden[1].detach()
+            dec_out = dec_out[:, time:time + 1, :].detach()
+            dec_out = self.dropout_2(dec_out)
+            dec_out = F.tanh(t.cat([dec_out, context], -1))
+
+            # OUTPUT
+            pred = self.hidden2out(dec_out).detach()
+            # concatenate the output of the decoder and the context and apply nonlinearity
+            x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
+
+            # should you stop ?
+            count_eos += t.sum((pred.max(2)[1] == EOS_TOKEN).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            time += 1
+        return x_target
+
+
+class LSTMR(t.nn.Module):
+    """
+    Implementation of `Sequence to Sequence Learning with Neural Networks`
+    https://papers.nips.cc/paper/5346-sequence-to-sequence-learning-with-neural-networks.pdf
+
+    NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
+    """
+
+    def __init__(self, params, source_embeddings=None, target_embeddings=None):
+        super(LSTMR, self).__init__()
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
         self.model_str = 'LSTM'
@@ -64,8 +200,8 @@ class LSTM(t.nn.Module):
 
         # Initialize network modules.
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
-        self.decoder_rnn = t.nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.hidden2out = t.nn.Linear(self.hidden_dim, self.output_size)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
         self.hidden_dec = self.init_hidden('dec')
         if self.embed_dropout:
@@ -104,11 +240,13 @@ class LSTM(t.nn.Module):
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
 
         # DECODING
-        embedded_x_target = self.append_hidden_to_target(embedded_x_target)  # concat the context vector with the target sentence
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
         rnn_out = self.dropout_2(rnn_out)
+        rnn_out = F.tanh(t.cat([rnn_out, context], -1))
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
@@ -139,6 +277,7 @@ class LSTM(t.nn.Module):
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
 
         while count_eos < x_source.size(0):
             embedded_x_target = self.target_embeddings(x_target)
@@ -147,6 +286,7 @@ class LSTM(t.nn.Module):
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
             dec_out = self.dropout_2(dec_out)
+            dec_out = F.tanh(t.cat([dec_out, context], -1))
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
@@ -166,15 +306,6 @@ class LSTM(t.nn.Module):
         """
         # asssume that the batch_size is the first dim
         return variable(t.cat([x.data[:, -1:]] + [x.data[:, -(k + 1):-k] for k in range(1, x.size(1))], 1), to_float=False)
-
-    def append_hidden_to_target(self, x):
-        """Append self.hidden_enc to all timesteps of x"""
-        # self.hidden_enc[0] this is h. Size num_layers x batch x hdim
-        h = self.hidden_enc[0]
-        # h[-1:, :, :].permute(1,0,2) this is h for the last layer. Size batch x 1 x hdim
-        h_last = h[-1:, :, :].permute(1, 0, 2)
-        hidden = t.cat(x.size(1) * [h_last], 1)
-        return t.cat([x, hidden], 2)
 
 
 class LSTMA(t.nn.Module):
