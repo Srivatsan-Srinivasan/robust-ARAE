@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from translation_models import LSTM, LSTMA, TemporalCrossEntropyLoss
+from translation_models import LSTM, LSTMA, LSTMR, TemporalCrossEntropyLoss
 from const import *
 import torch.nn as nn, torch as t
 import torch.nn.functional as F

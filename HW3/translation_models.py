@@ -64,7 +64,7 @@ class LSTM(t.nn.Module):
             self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
@@ -200,8 +200,8 @@ class LSTMR(t.nn.Module):
 
         # Initialize network modules.
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
-        self.decoder_rnn = t.nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.hidden2out = t.nn.Linear(self.hidden_dim, self.output_size)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
         self.hidden_dec = self.init_hidden('dec')
         if self.embed_dropout:
@@ -240,11 +240,13 @@ class LSTMR(t.nn.Module):
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
 
         # DECODING
-        embedded_x_target = self.append_hidden_to_target(embedded_x_target)  # concat the context vector with the target sentence
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
         rnn_out = self.dropout_2(rnn_out)
+        rnn_out = F.tanh(t.cat([rnn_out, context], -1))
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
@@ -275,6 +277,7 @@ class LSTMR(t.nn.Module):
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
 
         while count_eos < x_source.size(0):
             embedded_x_target = self.target_embeddings(x_target)
@@ -283,6 +286,7 @@ class LSTMR(t.nn.Module):
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
             dec_out = self.dropout_2(dec_out)
+            dec_out = F.tanh(t.cat([dec_out, context], -1))
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
@@ -302,15 +306,6 @@ class LSTMR(t.nn.Module):
         """
         # asssume that the batch_size is the first dim
         return variable(t.cat([x.data[:, -1:]] + [x.data[:, -(k + 1):-k] for k in range(1, x.size(1))], 1), to_float=False)
-
-    def append_hidden_to_target(self, x):
-        """Append self.hidden_enc to all timesteps of x"""
-        # self.hidden_enc[0] this is h. Size (num_directions*num_layers) x batch x hdim
-        h = self.hidden_enc[0]
-        # h[-1:, :, :].permute(1,0,2) this is h for the last layer. Size batch x 1 x hdim
-        h_last = h[-1:, :, :].permute(1, 0, 2)
-        hidden = t.cat(x.size(1) * [h_last], 1)
-        return t.cat([x, hidden], 2)
 
 
 class LSTMA(t.nn.Module):
