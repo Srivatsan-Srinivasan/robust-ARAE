@@ -115,8 +115,8 @@ class LSTM(t.nn.Module):
         # INITIALIZE
         self.eval()
 
-        self.hidden_enc = self.init_hidden('enc')
-        self.hidden_dec = self.init_hidden('dec')
+        self.hidden_enc = self.init_hidden('enc', x_source.size(0))
+        self.hidden_dec = self.init_hidden('dec', x_source.size(0))
         hidden = self.hidden_dec
 
         count_eos = 0
