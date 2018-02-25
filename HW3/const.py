@@ -5,7 +5,7 @@ Created on Fri Feb  9 15:28:37 2018
 @author: SrivatsanPC
 """
 
-models = ['LSTM', 'LSTMA']
+models = ['LSTM', 'LSTMR', 'LSTMA']
 optimizers = ['SGD', 'Adam', 'AdaMax']
 embeddings = ['GloVe', 'fasttext']
 
