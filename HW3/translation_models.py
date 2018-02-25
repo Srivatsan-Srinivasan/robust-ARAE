@@ -77,10 +77,10 @@ class LSTM(t.nn.Module):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         bs = self.batch_size if batch_size is None else batch_size
-        nl = self.num_layers * (2*int(self.blstm_enc) + 1*(1-int(self.blstm_enc)))  # double if blstm encoder
+        # nl = self.num_layers * (2*int(self.blstm_enc) + 1*(1-int(self.blstm_enc)))
         return tuple((
-            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag),
-            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag)
+            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
         ))
 
     def forward(self, x_source, x_target):
