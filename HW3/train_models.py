@@ -37,7 +37,7 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda, sourc
     model.train()  # important!
 
     optimizer = init_optimizer(opt_params, model)
-    criterion = TemporalCrossEntropyLoss(size_average=False)
+    criterion = TemporalCrossEntropyLoss(size_average=False, ignore_index=PAD_TOKEN)
 
     if opt_params['lr_scheduler'] is not None:
         if opt_params['lr_scheduler'] == 'plateau':
@@ -149,7 +149,7 @@ def predict(model, test_iter, cuda=True):
     # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = TemporalCrossEntropyLoss(size_average=False)
+    criterion = TemporalCrossEntropyLoss(size_average=False, ignore_index=PAD_TOKEN)
     if cuda:
         criterion = criterion.cuda()
 

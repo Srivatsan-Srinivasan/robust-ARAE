@@ -477,7 +477,7 @@ class LSTMA(t.nn.Module):
             time += 1
         return x_target
     
-    def translate_beam(self,x_source):
+    def translate_beam(self, x_source):
         self.eval()        
 
         # EMBEDDING
@@ -592,7 +592,8 @@ class LSTMA(t.nn.Module):
             time += 1
             print(time)
         return self.beam 
-        
+
+
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
     r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
 
