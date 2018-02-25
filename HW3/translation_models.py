@@ -66,21 +66,23 @@ class LSTM(t.nn.Module):
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim + self.hidden_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden2out = t.nn.Linear(self.hidden_dim, self.output_size)
-        self.hidden_enc = self.init_hidden()
-        self.hidden_dec = self.init_hidden()
+        self.hidden_enc = self.init_hidden('enc')
+        self.hidden_dec = self.init_hidden('dec')
         if self.embed_dropout:
             self.dropout_1s = t.nn.Dropout(self.dropout)
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
 
-    def init_hidden(self, batch_size=None):
+    def init_hidden(self, type, batch_size=None):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         bs = self.batch_size if batch_size is None else batch_size
-        # nl = self.num_layers * (2*int(self.blstm_enc) + 1*(1-int(self.blstm_enc)))
+        nl = self.num_layers
+        if type == 'enc' and self.blstm_enc:
+            nl *= 2
         return tuple((
-            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag),
-            variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
+            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((nl, bs, self.hidden_dim)), cuda=self.cuda_flag)
         ))
 
     def forward(self, x_source, x_target):
@@ -116,8 +118,8 @@ class LSTM(t.nn.Module):
         # INITIALIZE
         self.eval()
 
-        self.hidden_enc = self.init_hidden()
-        self.hidden_dec = self.init_hidden()
+        self.hidden_enc = self.init_hidden('enc')
+        self.hidden_dec = self.init_hidden('dec')
         hidden = self.hidden_dec
 
         count_eos = 0

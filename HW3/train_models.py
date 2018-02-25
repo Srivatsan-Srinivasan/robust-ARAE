@@ -155,8 +155,8 @@ def predict(model, test_iter, cuda=True):
 
     # Initialize hidden layer and memory
     if model.model_str == "LSTM":
-        model.hidden_enc = model.init_hidden()
-        model.hidden_dec = model.init_hidden()
+        model.hidden_enc = model.init_hidden('enc')
+        model.hidden_dec = model.init_hidden('dec')
 
     # Actual training loop.
     for batch in test_iter:
@@ -164,8 +164,8 @@ def predict(model, test_iter, cuda=True):
         source = batch.src.transpose(0, 1)  # batch first
         target = batch.trg.transpose(0, 1)
         if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the decoder needs the hidden of the encoder
-            model.hidden_enc = model.init_hidden(source.size(0))
-            model.hidden_dec = model.init_hidden(source.size(0))
+            model.hidden_enc = model.init_hidden('enc', source.size(0))
+            model.hidden_dec = model.init_hidden('dec', source.size(0))
         if cuda:
             source = source.cuda()
             target = target.cuda()
