@@ -310,7 +310,308 @@ class LSTMR(t.nn.Module):
         # asssume that the batch_size is the first dim
         return variable(t.cat([x.data[:, -1:]] + [x.data[:, -(k + 1):-k] for k in range(1, x.size(1))], 1), to_float=False)
 
+class LSTMA(t.nn.Module):
+    """
+    Implementation of `Neural Machine Translation by Jointly Learning to Align and Translate`
+    https://arxiv.org/abs/1409.0473
 
+    NOTE THAT ITS INPUT SHOULD HAVE THE BATCH SIZE FIRST !!!!!
+    """
+
+    def __init__(self, params, source_embeddings=None, target_embeddings=None):
+        super(LSTMA, self).__init__()
+        print("Initializing LSTMA")
+        self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
+        self.model_str = 'LSTMA'
+        self.params = params
+
+        # Initialize hyperparams.
+        self.hidden_dim = params.get('hidden_dim', 100)
+        self.batch_size = params.get('batch_size', 32)
+        try:
+            # if you provide pre-trained embeddings for target/source, they should have the same embedding dim
+            assert source_embeddings.size(1) == target_embeddings.size(1)
+            self.embedding_dim = source_embeddings.size(1)
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
+        except:
+            # if you dont provide a pre-trained embedding, you have to provide these
+            self.embedding_dim = params.get('embedding_dim')
+            self.source_vocab_size = params.get('source_vocab_size')
+            self.target_vocab_size = params.get('target_vocab_size')
+            assert self.embedding_dim is not None and self.source_vocab_size is not None and self.target_vocab_size is not None
+        self.output_size = self.target_vocab_size
+        self.num_layers = params.get('num_layers', 1)
+        self.dropout = params.get('dropout', 0.5)
+        self.embed_dropout = params.get('embed_dropout')
+        self.train_embedding = params.get('train_embedding', True)
+
+        # Initialize embeddings. Static embeddings for now.
+        self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
+        self.target_embeddings = t.nn.Embedding(self.target_vocab_size, self.embedding_dim)
+        if source_embeddings is not None:
+            self.source_embeddings.weight = t.nn.Parameter(source_embeddings, requires_grad=self.train_embedding)
+        if target_embeddings is not None:
+            self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
+
+        # Initialize network modules.
+        # note that the encoder is a BiLSTM. The output is modified by the fact that the hidden dim is doubled, and if you set
+        # the number of layers to L, there will actually be 2L layers (the forward ones and the backward ones). Consequently the first
+        # dimension of the hidden outputs of the forward pass (the 2nd output in the tuple) will be a tuple of
+        # 2 tensors having as first dim twice the hidden dim you set
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
+        self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.hidden_dim)
+        self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
+        if self.embed_dropout:
+            self.dropout_1s = t.nn.Dropout(self.dropout)
+            self.dropout_1t = t.nn.Dropout(self.dropout)
+        self.dropout_2 = t.nn.Dropout(self.dropout)
+        self.lsm = nn.LogSoftmax()
+        
+        self.beam_size = params.get('beam_size',3)
+        self.max_beam_depth = params.get('max_beam_depth',20)
+
+        if self.cuda_flag:
+            self = self.cuda()
+
+    # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
+    def init_hidden(self, data, type, batch_size=None):
+        """
+        Initialize the hidden state, either for the encoder or the decoder
+
+        For type=`enc`, it should just be initialized with 0s
+        For type=`dec`, it should be initialized with tanh(W h1_backward) (see page 13 of the paper, last paragraph)
+
+        `data` is either something you initialize the hidden state with, or None
+        """
+        bs = batch_size if batch_size is not None else self.batch_size
+        if type == 'dec':
+            # in that case, `data` is the output of the encoder
+            # data[:, :1, self.hidden_dim // 2:]
+            # `:` for the whole batch
+            # `:1` because you want the hidden state of the first time step (see paper, they use backward(h1))
+            # but also `self.hidden_dim // 2:`, because you want the backward part only (the last coefficients)
+            h = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+            h = h.transpose(1, 0)
+            return (
+                h,
+                variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
+            )
+        elif type == 'enc':
+            # in that case data is None
+            return tuple((
+                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag),
+                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag)
+            ))
+        else:
+            raise ValueError('the type should be either `dec` or `enc`')
+
+    def forward(self, x_source, x_target):
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't make a prediction for the word following the last one
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+            embedded_x_target = self.dropout_1t(embedded_x_target)
+
+        # RECURRENT
+        hidden = self.init_hidden(None, 'enc', x_source.size(0))
+        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
+        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
+        dec_out, _ = self.decoder_rnn(embedded_x_target, hidden)
+
+        # ATTENTION
+        scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
+        attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
+        context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
+
+        # OUTPUT
+        # concatenate the output of the decoder and the context and apply nonlinearity
+        pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+        pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
+        pred = self.hidden2out(pred)
+        return pred
+
+    def translate(self, x_source):
+        self.eval()
+
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+
+        # RECURRENT
+        hidden = self.init_hidden(None, 'enc')
+        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
+        hidden = self.init_hidden(enc_out, 'dec')
+        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
+        count_eos = 0
+        time = 0
+        while count_eos < x_source.size(0):
+            embedded_x_target = self.target_embeddings(x_target)
+            dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
+            hidden = hidden[0].detach(), hidden[1].detach()
+            dec_out = dec_out[:, time:time + 1, :].detach()
+
+            # ATTENTION
+            scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
+            try:
+                attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
+            except:
+                attn_dist = F.softmax(scores.permute(1, 0, 2)).permute(1, 0, 2)
+            context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
+
+            # OUTPUT
+            # concatenate the output of the decoder and the context and apply nonlinearity
+            pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+            pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
+            pred = self.hidden2out(pred).detach()
+            x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
+
+            # should you stop ?
+            count_eos += t.sum((pred.max(2)[1] == EOS_TOKEN).long()).data.cpu().numpy()[0]  # `3` is the EOS token
+            time += 1
+        return x_target
+    
+    def translate_beam(self,x_source,print_beam_row=-1):
+        self.eval()        
+
+        # EMBEDDING
+        embedded_x_source = self.source_embeddings(x_source)
+        if self.embed_dropout:
+            embedded_x_source = self.dropout_1s(embedded_x_source)
+        
+        terminate_beam = False
+        batch_size = x_source.size(0)
+        
+        # RECURRENT
+        hidden = self.init_hidden(None, 'enc')
+        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
+        hidden = self.init_hidden(enc_out, 'dec')
+        x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
+        count_eos = 0
+        time = 0        
+        
+        #INIT SOME STUFF.
+        self.beam = np.array([x_target])
+        self.beam_scores = np.zeros((batch_size,1))
+        
+        while not terminate_beam and time < self.max_beam_depth: 
+            
+            collective_children   = np.array([])
+            collective_scores     = np.array([])
+           
+            if len(self.beam) == 1:
+                reshaped_beam = self.beam
+            else:
+                reshaped_beam = np.transpose(self.beam,(1,0,2))
+            
+            for it, elem in enumerate(reshaped_beam) : 
+                elem = t.from_numpy(elem).long()
+                x_target = elem.contiguous().view(self.batch_size,-1)
+                x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
+                embedded_x_target = self.target_embeddings(x_target)
+                dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
+                hidden = hidden[0].detach(), hidden[1].detach()
+                dec_out = dec_out[:, time:time + 1, :].detach()
+    
+                # ATTENTION
+                scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
+                try:
+                    attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
+                except:
+                    attn_dist = F.softmax(scores.permute(1, 0, 2)).permute(1, 0, 2)
+                context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
+    
+                # OUTPUT
+                # concatenate the output of the decoder and the context and apply nonlinearity
+                pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+                pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
+                pred = self.hidden2out(pred).detach()
+                
+                pred = self.lsm(pred.view(batch_size,-1)).detach()
+
+                topk = t.topk(pred, self.beam_size,dim=1)
+                #import pdb; pdb.set_trace()
+            
+                #topk dimensions - batch * 1 * beam
+                top_k_indices, top_k_scores = topk[1],topk[0]
+                
+                #temporarily get them in beam*batch dimensions to iterate over each beam element.
+                top_k_indices = top_k_indices.transpose(0,1)
+                top_k_scores = top_k_scores.transpose(0,1)              
+                
+                for new_word_batch, new_score_batch in zip(top_k_indices, top_k_scores):    
+                    #import pdb; pdb.set_trace()  
+                    new_word_batch= new_word_batch.contiguous().view(batch_size,1)
+                    new_score_batch = new_score_batch.contiguous().view(batch_size,1) 
+                    new_child_batch = t.cat([x_target,new_word_batch],1).detach()                    
+                   
+                    batch_parent_score = self.beam_scores[:,it].reshape((self.batch_size,1))
+                    batch_acc_score =  batch_parent_score + new_score_batch.data.cpu().numpy()        
+                
+                    if len(collective_children) > 0:
+                        collective_children = np.hstack((collective_children, new_child_batch.data.cpu().numpy())) 
+                        #Add the corresponding beam element's score with the new score and stack it.
+                        collective_scores   = np.hstack((collective_scores, batch_acc_score ))              
+                    else:
+                        collective_children, collective_scores = new_child_batch.data.cpu().numpy(),batch_acc_score               
+            #import pdb; pdb.set_trace()
+                     
+            #At the end of a for loop collective children, collective scores 
+            #will look a numpy array of tensors.            
+            current_beam_length = 1 #Means only start elem is there.
+            if len(self.beam)!= 1:
+                current_beam_length = self.beam.shape[1]  
+            
+            #import pdb; pdb.set_trace()
+                  
+            collective_children = collective_children.reshape((batch_size, current_beam_length*self.beam_size, 
+                                                               int(collective_children.shape[1]/
+                                                                   current_beam_length/self.beam_size)
+                                                             ))
+            
+            if collective_children.shape[1] == self.beam_size:  #Happens the first time.
+                self.beam = collective_children  
+                self.beam_scores = collective_scores
+                if print_beam_row > -1:
+                    for l in range(self.beam_size):
+                        print([EN.vocab.itos[int(x)] for x in self.beam[print_beam_row,int(l)]])
+                             
+                
+            else:
+                self.beam = deepcopy(np.zeros((batch_size,self.beam_size,collective_children.shape[2])))
+                for i in range(batch_size):
+                    #Since argsort gives ascending order
+                    #import pdb; pdb.set_trace()
+                    best_scores_indices = np.argsort(-1*collective_scores[i])[:self.beam_size]  
+                    for key,index in enumerate(best_scores_indices):
+                        self.beam[i][key][:] = collective_children[i][index]                       
+                        self.beam_scores[i][key] = collective_scores[i][index]
+                if print_beam_row > -1:
+                    for l in range(self.beam_size):
+                        print([EN.vocab.itos[int(x)] for x in self.beam[print_beam_row,int(l)]])
+           
+            
+            terminate_beam = True
+            
+            for x in self.beam:
+                    for c in x:
+                        if EOS_TOKEN not in c:
+                            terminate_beam = False
+                            break
+                    if not terminate_beam:
+                        break   
+            #import pdb; pdb.set_trace()
+            assert(self.beam.shape == (batch_size,self.beam_size,time+2))
+
+            time += 1                 
+            
+        return self.beam 
+    
+'''
 class LSTMA(t.nn.Module):
     """
     Implementation of `Neural Machine Translation by Jointly Learning to Align and Translate`
@@ -370,9 +671,6 @@ class LSTMA(t.nn.Module):
         self.dropout_2 = t.nn.Dropout(self.dropout)
         self.lsm = nn.LogSoftmax()
         
-        # Beam Search related.
-        self.beam = np.array([]) 
-        self.beam_scores = np.array([])
         self.beam_size = params.get('beam_size',3)
         self.max_beam_depth = params.get('max_beam_depth',20)
 
@@ -498,7 +796,7 @@ class LSTMA(t.nn.Module):
         hidden = self.init_hidden(None, 'enc')
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
         hidden = self.init_hidden(enc_out, 'dec')
-        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
         
@@ -506,7 +804,8 @@ class LSTMA(t.nn.Module):
         self.beam = np.array([x_target])
         self.beam_scores = np.zeros((batch_size,1))
         
-        while not terminate_beam and time < self.max_beam_depth:    
+        while not terminate_beam and time < self.max_beam_depth: 
+            import pdb; pdb.set_trace()
             collective_children   = np.array([])
             collective_scores     = np.array([])
            
@@ -514,9 +813,9 @@ class LSTMA(t.nn.Module):
                 reshaped_beam = self.beam
             else:
                 reshaped_beam = self.beam.reshape((self.beam_size,batch_size,time+1))
-                reshaped_beam = t.from_numpy(reshaped_beam)
-
+                
             for it, elem in enumerate(reshaped_beam) : 
+                elem = t.from_numpy(elem).long()
                 x_target = elem.view(self.batch_size,-1)
                 x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
                 embedded_x_target = self.target_embeddings(x_target)
@@ -598,7 +897,7 @@ class LSTMA(t.nn.Module):
             time += 1
             print(time)
         return self.beam 
-
+'''
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
     r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
