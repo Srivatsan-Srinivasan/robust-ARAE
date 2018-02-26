@@ -368,9 +368,6 @@ class LSTMA(t.nn.Module):
         self.dropout_2 = t.nn.Dropout(self.dropout)
         self.lsm = nn.LogSoftmax()
         
-        # Beam Search related.
-        self.beam = np.array([]) 
-        self.beam_scores = np.array([])
         self.beam_size = params.get('beam_size',3)
         self.max_beam_depth = params.get('max_beam_depth',20)
 
@@ -492,7 +489,7 @@ class LSTMA(t.nn.Module):
         hidden = self.init_hidden(None, 'enc')
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
         hidden = self.init_hidden(enc_out, 'dec')
-        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
         
@@ -500,7 +497,8 @@ class LSTMA(t.nn.Module):
         self.beam = np.array([x_target])
         self.beam_scores = np.zeros((batch_size,1))
         
-        while not terminate_beam and time < self.max_beam_depth:    
+        while not terminate_beam and time < self.max_beam_depth: 
+            import pdb; pdb.set_trace()
             collective_children   = np.array([])
             collective_scores     = np.array([])
            
@@ -508,9 +506,9 @@ class LSTMA(t.nn.Module):
                 reshaped_beam = self.beam
             else:
                 reshaped_beam = self.beam.reshape((self.beam_size,batch_size,time+1))
-                reshaped_beam = t.from_numpy(reshaped_beam)
-
+                
             for it, elem in enumerate(reshaped_beam) : 
+                elem = t.from_numpy(elem).long()
                 x_target = elem.view(self.batch_size,-1)
                 x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
                 embedded_x_target = self.target_embeddings(x_target)

@@ -1,0 +1,1 @@
+{"train_embedding": true, "embedding_dim": 50, "dropout": 0.5, "batch_size": 64, "clip_gradients": 5.0, "hidden_dim": 300, "cuda": true, "target_vocab_size": 11560, "num_layers": 1, "embed_dropout": false, "source_vocab_size": 13353}
