@@ -11,7 +11,7 @@ import torch as t
 from process_params import check_args, get_params
 from const import *
 from train_models import train, predict
-from data_process import generate_iterators, generate_text
+from data_process import generate_iterators
 from utils import EOS_WORD, BOS_WORD, tokenize_de, tokenize_en
 t.manual_seed(1)
 # Create Parser.
