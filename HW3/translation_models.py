@@ -200,7 +200,9 @@ class LSTMR(t.nn.Module):
             self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim,
+                                     (self.hidden_dim//2)*self.blstm_enc + self.hidden_dim*(1-self.blstm_enc),
+                                     dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
