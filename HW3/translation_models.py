@@ -379,7 +379,6 @@ class LSTMA(t.nn.Module):
         if self.cuda_flag:
             self = self.cuda()
 
-    # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
     def init_hidden(self, data, type, batch_size=None):
         """
         Initialize the hidden state, either for the encoder or the decoder
@@ -412,7 +411,7 @@ class LSTMA(t.nn.Module):
         else:
             raise ValueError('the type should be either `dec` or `enc`')
 
-    def forward(self, x_source, x_target):
+    def forward(self, x_source, x_target, return_attn=False):
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
         embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't make a prediction for the word following the last one
@@ -436,7 +435,11 @@ class LSTMA(t.nn.Module):
         pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
         pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
         pred = self.hidden2out(pred)
-        return pred
+
+        if not return_attn:
+            return pred
+        else:
+            return pred, attn_dist
 
     def translate(self, x_source):
         self.eval()
