@@ -447,9 +447,9 @@ class LSTMA(t.nn.Module):
             embedded_x_source = self.dropout_1s(embedded_x_source)
 
         # RECURRENT
-        hidden = self.init_hidden(None, 'enc')
+        hidden = self.init_hidden(None, 'enc', x_source.size(0))
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        hidden = self.init_hidden(enc_out, 'dec')
+        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
         x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
         x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
         count_eos = 0
