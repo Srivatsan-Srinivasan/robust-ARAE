@@ -480,7 +480,7 @@ class LSTMA(t.nn.Module):
             time += 1
         return x_target
 
-    def translate_beam(self, x_source):
+    def translate_beam(self, x_source,print_beam_row=-1):
         self.eval()
 
         # EMBEDDING
@@ -492,9 +492,9 @@ class LSTMA(t.nn.Module):
         batch_size = x_source.size(0)
 
         # RECURRENT
-        hidden = self.init_hidden(None, 'enc')
+        hidden = self.init_hidden(None, 'enc', x_source.size(0))
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        hidden = self.init_hidden(enc_out, 'dec')
+        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
         x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
@@ -504,19 +504,17 @@ class LSTMA(t.nn.Module):
         self.beam_scores = np.zeros((batch_size, 1))
 
         while not terminate_beam and time < self.max_beam_depth:
-            import pdb;
-            pdb.set_trace()
             collective_children = np.array([])
             collective_scores = np.array([])
 
             if len(self.beam) == 1:
                 reshaped_beam = self.beam
             else:
-                reshaped_beam = self.beam.reshape((self.beam_size, batch_size, time + 1))
-
+                reshaped_beam = np.transpose(self.beam,(1,0,2))
+                
             for it, elem in enumerate(reshaped_beam):
                 elem = t.from_numpy(elem).long()
-                x_target = elem.view(self.batch_size, -1)
+                x_target = elem.contiguous().view(self.batch_size, -1)
                 x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
                 embedded_x_target = self.target_embeddings(x_target)
                 dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
@@ -536,15 +534,17 @@ class LSTMA(t.nn.Module):
                 pred = F.tanh(t.cat([dec_out, context], -1))
                 pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
                 pred = self.hidden2out(pred).detach()
-                pred = self.lsm(pred).detach()
+                pred = self.lsm(pred.view(batch_size,-1)).detach()
 
-                topk = t.topk(pred, self.beam_size, dim=2)
+                topk = t.topk(pred, self.beam_size, dim=1)
                 top_k_indices, top_k_scores = topk[1], topk[0]
-                top_k_indices = top_k_indices.view(self.beam_size, batch_size)
-                top_k_scores = top_k_scores.view(self.beam_size, batch_size)
+                top_k_indices = top_k_indices.transpose(0,1)
+                top_k_scores = top_k_scores.transpose(0,1)
 
                 for new_word_batch, new_score_batch in zip(top_k_indices, top_k_scores):
-                    new_word_batch, new_score_batch = new_word_batch.view(batch_size, 1), new_score_batch.view(batch_size, 1)
+                    new_word_batch = new_word_batch.contiguous().view(batch_size,1)
+                    new_score_batch = new_score_batch.contiguous().view(batch_size,1)
+                     
                     new_child_batch = t.cat([x_target, new_word_batch], 1).detach()
 
                     batch_parent_score = self.beam_scores[:, it].reshape((self.batch_size, 1))
@@ -572,7 +572,6 @@ class LSTMA(t.nn.Module):
             if collective_children.shape[1] == self.beam_size:  # Happens the first time.
                 self.beam = collective_children
                 self.beam_scores = collective_scores
-
             else:
                 self.beam = deepcopy(np.zeros((batch_size, self.beam_size, collective_children.shape[2])))
                 for i in range(batch_size):

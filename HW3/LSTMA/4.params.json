@@ -1,0 +1,1 @@
+{"num_layers": 2, "cuda": true, "embed_dropout": false, "max_beam_depth": 20, "blstm_enc": true, "train_embedding": true, "hidden_dim": 650, "batch_size": 64, "dropout": 0.5, "source_vocab_size": 13353, "beam_size": 3, "embedding_dim": 50, "target_vocab_size": 11560, "clip_gradients": 5.0}
