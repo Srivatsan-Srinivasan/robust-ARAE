@@ -164,7 +164,7 @@ class LSTMR(t.nn.Module):
 
     def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTMR, self).__init__()
-        print("Initializing LSTM")
+        print("Initializing LSTMR")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
         self.model_str = 'LSTM'
         self.params = params
