@@ -105,7 +105,7 @@ class LSTM(t.nn.Module):
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
-        rnn_out = F.tanh(t.cat([rnn_out, context], -1))  # @todo: tanh necessary ?
+        rnn_out = F.tanh(t.cat([rnn_out, context], -1))
         rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
@@ -201,10 +201,10 @@ class LSTMR(t.nn.Module):
 
         # Initialize network modules.
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim,
-                                     (self.hidden_dim//2)*self.blstm_enc + self.hidden_dim*(1-self.blstm_enc),
+                                     (self.hidden_dim // 2) * self.blstm_enc + self.hidden_dim * (1 - self.blstm_enc),
                                      dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
+        self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
         self.hidden_dec = self.init_hidden('dec')
         if self.embed_dropout:
@@ -369,17 +369,13 @@ class LSTMA(t.nn.Module):
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
         self.lsm = nn.LogSoftmax()
-        
-        # Beam Search related.
-        self.beam = np.array([]) 
-        self.beam_scores = np.array([])
-        self.beam_size = params.get('beam_size',3)
-        self.max_beam_depth = params.get('max_beam_depth',20)
+
+        self.beam_size = params.get('beam_size', 3)
+        self.max_beam_depth = params.get('max_beam_depth', 20)
 
         if self.cuda_flag:
             self = self.cuda()
 
-    # @todo: maybe this is wrong in case of deep LSTM DECODER (I am not sure the dimensions are correct)
     def init_hidden(self, data, type, batch_size=None):
         """
         Initialize the hidden state, either for the encoder or the decoder
@@ -412,7 +408,7 @@ class LSTMA(t.nn.Module):
         else:
             raise ValueError('the type should be either `dec` or `enc`')
 
-    def forward(self, x_source, x_target):
+    def forward(self, x_source, x_target, return_attn=False):
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
         embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't make a prediction for the word following the last one
@@ -433,10 +429,14 @@ class LSTMA(t.nn.Module):
 
         # OUTPUT
         # concatenate the output of the decoder and the context and apply nonlinearity
-        pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+        pred = F.tanh(t.cat([dec_out, context], -1))
         pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
         pred = self.hidden2out(pred)
-        return pred
+
+        if return_attn:
+            return pred, attn_dist
+        else:
+            return pred
 
     def translate(self, x_source):
         self.eval()
@@ -470,7 +470,7 @@ class LSTMA(t.nn.Module):
 
             # OUTPUT
             # concatenate the output of the decoder and the context and apply nonlinearity
-            pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+            pred = F.tanh(t.cat([dec_out, context], -1))
             pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
             pred = self.hidden2out(pred).detach()
             x_target = t.cat([x_target, pred.max(2)[1]], 1).detach()
@@ -479,15 +479,15 @@ class LSTMA(t.nn.Module):
             count_eos += t.sum((pred.max(2)[1] == EOS_TOKEN).long()).data.cpu().numpy()[0]  # `3` is the EOS token
             time += 1
         return x_target
-    
+
     def translate_beam(self, x_source):
-        self.eval()        
+        self.eval()
 
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
-        
+
         terminate_beam = False
         batch_size = x_source.size(0)
 
@@ -495,32 +495,34 @@ class LSTMA(t.nn.Module):
         hidden = self.init_hidden(None, 'enc')
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
         hidden = self.init_hidden(enc_out, 'dec')
-        x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
+        x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
-        
-        #INIT SOME STUFF.
+
+        # INIT SOME STUFF.
         self.beam = np.array([x_target])
-        self.beam_scores = np.zeros((batch_size,1))
-        
-        while not terminate_beam and time < self.max_beam_depth:    
-            collective_children   = np.array([])
-            collective_scores     = np.array([])
-           
+        self.beam_scores = np.zeros((batch_size, 1))
+
+        while not terminate_beam and time < self.max_beam_depth:
+            import pdb;
+            pdb.set_trace()
+            collective_children = np.array([])
+            collective_scores = np.array([])
+
             if len(self.beam) == 1:
                 reshaped_beam = self.beam
             else:
-                reshaped_beam = self.beam.reshape((self.beam_size,batch_size,time+1))
-                reshaped_beam = t.from_numpy(reshaped_beam)
+                reshaped_beam = self.beam.reshape((self.beam_size, batch_size, time + 1))
 
-            for it, elem in enumerate(reshaped_beam) : 
-                x_target = elem.view(self.batch_size,-1)
+            for it, elem in enumerate(reshaped_beam):
+                elem = t.from_numpy(elem).long()
+                x_target = elem.view(self.batch_size, -1)
                 x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
                 embedded_x_target = self.target_embeddings(x_target)
                 dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
                 hidden = hidden[0].detach(), hidden[1].detach()
                 dec_out = dec_out[:, time:time + 1, :].detach()
-    
+
                 # ATTENTION
                 scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
                 try:
@@ -528,73 +530,73 @@ class LSTMA(t.nn.Module):
                 except:
                     attn_dist = F.softmax(scores.permute(1, 0, 2)).permute(1, 0, 2)
                 context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
-    
+
                 # OUTPUT
                 # concatenate the output of the decoder and the context and apply nonlinearity
-                pred = F.tanh(t.cat([dec_out, context], -1))  # @todo : tanh necessary ?
+                pred = F.tanh(t.cat([dec_out, context], -1))
                 pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
                 pred = self.hidden2out(pred).detach()
                 pred = self.lsm(pred).detach()
 
-                topk = t.topk(pred, self.beam_size,dim=2)
-                top_k_indices, top_k_scores = topk[1],topk[0]                    
-                top_k_indices = top_k_indices.view(self.beam_size,batch_size)
-                top_k_scores = top_k_scores.view(self.beam_size,batch_size)
+                topk = t.topk(pred, self.beam_size, dim=2)
+                top_k_indices, top_k_scores = topk[1], topk[0]
+                top_k_indices = top_k_indices.view(self.beam_size, batch_size)
+                top_k_scores = top_k_scores.view(self.beam_size, batch_size)
 
-                for new_word_batch, new_score_batch in zip(top_k_indices, top_k_scores):                    
-                    new_word_batch, new_score_batch = new_word_batch.view(batch_size,1),new_score_batch.view(batch_size,1)
-                    new_child_batch = t.cat([x_target,new_word_batch],1).detach()                    
-                   
-                    batch_parent_score = self.beam_scores[:,it].reshape((self.batch_size,1))
-                    batch_acc_score =  batch_parent_score + new_score_batch.data.cpu().numpy()        
-                
+                for new_word_batch, new_score_batch in zip(top_k_indices, top_k_scores):
+                    new_word_batch, new_score_batch = new_word_batch.view(batch_size, 1), new_score_batch.view(batch_size, 1)
+                    new_child_batch = t.cat([x_target, new_word_batch], 1).detach()
+
+                    batch_parent_score = self.beam_scores[:, it].reshape((self.batch_size, 1))
+                    batch_acc_score = batch_parent_score + new_score_batch.data.cpu().numpy()
+
                     if len(collective_children) > 0:
-                        collective_children = np.hstack((collective_children, new_child_batch.data.cpu().numpy())) 
-                        #Add the corresponding beam element's score with the new score and stack it.
-                        collective_scores   = np.hstack((collective_scores, batch_acc_score ))              
+                        collective_children = np.hstack((collective_children, new_child_batch.data.cpu().numpy()))
+                        # Add the corresponding beam element's score with the new score and stack it.
+                        collective_scores = np.hstack((collective_scores, batch_acc_score))
                     else:
-                        collective_children, collective_scores = new_child_batch.data.cpu().numpy(),batch_acc_score               
+                        collective_children, collective_scores = new_child_batch.data.cpu().numpy(), batch_acc_score
 
-                     
-            #At the end of a for loop collective children, collective scores 
-            #will look a numpy array of tensors.            
-            current_beam_length = 1 #Means only start elem is there.
-            if len(self.beam)!= 1:
-                current_beam_length = self.beam.shape[1]                
-                  
-            collective_children = collective_children.reshape((batch_size, current_beam_length*self.beam_size, 
-                                                               int(collective_children.shape[1]/
-                                                                   current_beam_length/self.beam_size)
-                                                             ))
-            
-            if collective_children.shape[1] == self.beam_size:  #Happens the first time.
-                self.beam = collective_children  
+
+                        # At the end of a for loop collective children, collective scores
+            # will look a numpy array of tensors.
+            current_beam_length = 1  # Means only start elem is there.
+            if len(self.beam) != 1:
+                current_beam_length = self.beam.shape[1]
+
+            collective_children = collective_children.reshape((batch_size, current_beam_length * self.beam_size,
+                                                               int(collective_children.shape[1] /
+                                                                   current_beam_length / self.beam_size)
+                                                               ))
+
+            if collective_children.shape[1] == self.beam_size:  # Happens the first time.
+                self.beam = collective_children
                 self.beam_scores = collective_scores
-                
+
             else:
-                self.beam = deepcopy(np.zeros((batch_size,self.beam_size,collective_children.shape[2])))
+                self.beam = deepcopy(np.zeros((batch_size, self.beam_size, collective_children.shape[2])))
                 for i in range(batch_size):
-                    #Since argsort gives ascending order
-                    best_scores_indices = np.argsort(-1*collective_scores[i])[:self.beam_size]  
-                    for key,index in enumerate(best_scores_indices):
+                    # Since argsort gives ascending order
+                    best_scores_indices = np.argsort(-1 * collective_scores[i])[:self.beam_size]
+                    for key, index in enumerate(best_scores_indices):
                         self.beam[i][key][:] = collective_children[i][index]
                         self.beam_scores[i][key] = collective_scores[i][index]
-            
+
             terminate_beam = True
-            
+
             for x in self.beam:
-                    for c in x:
-                        if EOS_TOKEN not in c:
-                            terminate_beam = False
-                            break
-                    if not terminate_beam:
-                        break   
-            #import pdb; pdb.set_trace()
-            assert(self.beam.shape == (batch_size,self.beam_size,time+2))
+                for c in x:
+                    if EOS_TOKEN not in c:
+                        terminate_beam = False
+                        break
+                if not terminate_beam:
+                    break
+                    # import pdb; pdb.set_trace()
+            assert (self.beam.shape == (batch_size, self.beam_size, time + 2))
 
             time += 1
             print(time)
-        return self.beam 
+        return self.beam
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
