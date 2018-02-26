@@ -99,14 +99,14 @@ class LSTM(t.nn.Module):
             embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
-        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
-        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        enc_output, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = enc_output[:, -1, :].unsqueeze(1)  # batch x hdim
         context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
-        rnn_out = self.dropout_2(rnn_out)
         rnn_out = F.tanh(t.cat([rnn_out, context], -1))  # @todo: tanh necessary ?
+        rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
@@ -140,8 +140,8 @@ class LSTM(t.nn.Module):
             dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
-            dec_out = self.dropout_2(dec_out)
             dec_out = F.tanh(t.cat([dec_out, context], -1))
+            dec_out = self.dropout_2(dec_out)
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
@@ -246,10 +246,14 @@ class LSTMR(t.nn.Module):
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
-        rnn_out = self.dropout_2(rnn_out)
         rnn_out = F.tanh(t.cat([rnn_out, context], -1))
+        rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
+        print('rnn_out.size()')
+        print(rnn_out.size())
+        print('self.hidden2out.weight.size()')
+        print(self.hidden2out.weight.size())
         out_linear = self.hidden2out(rnn_out)
         return out_linear
 
@@ -286,8 +290,8 @@ class LSTMR(t.nn.Module):
             dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
-            dec_out = self.dropout_2(dec_out)
             dec_out = F.tanh(t.cat([dec_out, context], -1))
+            dec_out = self.dropout_2(dec_out)
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
