@@ -99,14 +99,14 @@ class LSTM(t.nn.Module):
             embedded_x_target = self.dropout_1t(embedded_x_target)
 
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
-        _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
-        context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        enc_output, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
+        context = enc_output[:, -1, :].unsqueeze(1)  # batch x hdim
         context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
-        rnn_out = self.dropout_2(rnn_out)
         rnn_out = F.tanh(t.cat([rnn_out, context], -1))  # @todo: tanh necessary ?
+        rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
@@ -116,8 +116,8 @@ class LSTM(t.nn.Module):
         # INITIALIZE
         self.eval()
 
-        self.hidden_enc = self.init_hidden('enc')
-        self.hidden_dec = self.init_hidden('dec')
+        self.hidden_enc = self.init_hidden('enc', x_source.size(0))
+        self.hidden_dec = self.init_hidden('dec', x_source.size(0))
         hidden = self.hidden_dec
 
         count_eos = 0
@@ -140,8 +140,8 @@ class LSTM(t.nn.Module):
             dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
-            dec_out = self.dropout_2(dec_out)
             dec_out = F.tanh(t.cat([dec_out, context], -1))
+            dec_out = self.dropout_2(dec_out)
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
@@ -200,7 +200,9 @@ class LSTMR(t.nn.Module):
             self.target_embeddings.weight = t.nn.Parameter(target_embeddings, requires_grad=self.train_embedding)
 
         # Initialize network modules.
-        self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
+        self.encoder_rnn = t.nn.LSTM(self.embedding_dim,
+                                     (self.hidden_dim//2)*self.blstm_enc + self.hidden_dim*(1-self.blstm_enc),
+                                     dropout=self.dropout, num_layers=self.num_layers, batch_first=True, bidirectional=self.blstm_enc)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         self.hidden2out = t.nn.Linear(self.hidden_dim*2, self.output_size)
         self.hidden_enc = self.init_hidden('enc')
@@ -246,8 +248,8 @@ class LSTMR(t.nn.Module):
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
-        rnn_out = self.dropout_2(rnn_out)
         rnn_out = F.tanh(t.cat([rnn_out, context], -1))
+        rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
@@ -286,8 +288,8 @@ class LSTMR(t.nn.Module):
             dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
             hidden = hidden[0].detach(), hidden[1].detach()
             dec_out = dec_out[:, time:time + 1, :].detach()
-            dec_out = self.dropout_2(dec_out)
             dec_out = F.tanh(t.cat([dec_out, context], -1))
+            dec_out = self.dropout_2(dec_out)
 
             # OUTPUT
             pred = self.hidden2out(dec_out).detach()
@@ -360,7 +362,7 @@ class LSTMA(t.nn.Module):
         # 2 tensors having as first dim twice the hidden dim you set
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
-        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.hidden_dim)
+        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.num_layers * self.hidden_dim)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:
             self.dropout_1s = t.nn.Dropout(self.dropout)
@@ -391,8 +393,9 @@ class LSTMA(t.nn.Module):
             # `:` for the whole batch
             # `:1` because you want the hidden state of the first time step (see paper, they use backward(h1))
             # but also `self.hidden_dim // 2:`, because you want the backward part only (the last coefficients)
-            h = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # @todo: verify that the last hdim/2 weights actually correspond to the backward layer(s)
+            h = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # the last hdim/2 weights correspond to the backward layer(s)
             h = h.transpose(1, 0)
+            h = t.cat(t.split(h, self.hidden_dim, dim=2), 0)
             return (
                 h,
                 variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
@@ -474,7 +477,7 @@ class LSTMA(t.nn.Module):
             time += 1
         return x_target
     
-    def translate_beam(self,x_source):
+    def translate_beam(self, x_source):
         self.eval()        
 
         # EMBEDDING
@@ -590,7 +593,8 @@ class LSTMA(t.nn.Module):
             time += 1
             print(time)
         return self.beam 
-        
+
+
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
     r"""This criterion combines `LogSoftMax` and `NLLLoss` in one single class.
 

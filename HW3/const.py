@@ -9,6 +9,7 @@ models = ['LSTM', 'LSTMR', 'LSTMA']
 optimizers = ['SGD', 'Adam', 'AdaMax']
 embeddings = ['GloVe', 'fasttext']
 
+PAD_TOKEN = 1
 SOS_TOKEN = 2
 EOS_TOKEN = 3
 
