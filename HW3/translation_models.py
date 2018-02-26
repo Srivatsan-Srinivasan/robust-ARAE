@@ -242,7 +242,11 @@ class LSTMR(t.nn.Module):
         # ENCODING SOURCE SENTENCE INTO FIXED LENGTH VECTOR
         _, self.hidden_enc = self.encoder_rnn(embedded_x_source, self.hidden_enc)
         context = _[:, -1, :].unsqueeze(1)  # batch x hdim
+        print('context.size()')
+        print(context.size())
         context = context.repeat(1, x_target.size(1) - 1, 1)  # batch x target_length x hdim
+        print('context.size()')
+        print(context.size())
 
         # DECODING
         rnn_out, self.hidden_dec = self.decoder_rnn(embedded_x_target, self.hidden_dec)
