@@ -34,7 +34,7 @@ parser.add_argument('--model', default='LSTM', help='state which model to use')
 parser.add_argument('--n_layers', default=1, type=int)
 parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--batch_size', default=32, type=int)
-parser.add_argument('--dropout', default=0.5, type=float)
+parser.add_argument('--dropout', default=0.3, type=float)
 parser.add_argument('--embed_dropout', default=False, type=bool)
 parser.add_argument('--emb_train', default=True, type=bool)
 parser.add_argument('--clip_gradients', default=5., type=float)
@@ -42,6 +42,7 @@ parser.add_argument('--embedding_dim', default=50, type=int)
 parser.add_argument('--blstm_enc', default=False, type=bool, help="Whether the encoder of the seq2seq model should be bidirectionnal or not")
 parser.add_argument('--beam_size', default=3, type=int, help = "Size of beam")
 parser.add_argument('--max_beam_depth', default=20, type=int, help = "Specifies how long you want the translation to be")
+parser.add_argument('--embedding', default=None, type=str, help='Name of a word embedding. Currently supported: None/FastText')
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
@@ -58,11 +59,13 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, val_iter, EN, DE = generate_iterators(MAX_LEN=args.max_len, load_data=args.load_saved_data, BATCH_SIZE=args.batch_size)
+train_iter, val_iter, EN, DE = generate_iterators(MAX_LEN=args.max_len, load_data=args.load_saved_data, BATCH_SIZE=args.batch_size, embedding=args.embedding)
+source_embedding = DE.vocab.vectors if args.embedding is not None else None
+target_embedding = EN.vocab.vectors if args.embedding is not None else None
 model_params['source_vocab_size'] = len(DE.vocab.itos)
 model_params['target_vocab_size'] = len(EN.vocab.itos)
 
-if False:  # necessary for memory overflows ?
+if False:  # necessary for memory overflows ? It seems not
     t.backends.cudnn.enabled = False
 
 # Call for different models code should be here.
@@ -73,8 +76,8 @@ trained_model = train(args.model,
                       cuda=args.cuda,
                       save=args.save,
                       save_path=args.output_filename,
-                      source_embedding=None,
-                      target_embedding=None,
+                      source_embedding=source_embedding,
+                      target_embedding=target_embedding,
                       model_params=model_params,
                       early_stopping=args.early_stopping,
                       train_params=train_params,
