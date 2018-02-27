@@ -494,7 +494,12 @@ class LSTMA(t.nn.Module):
         # RECURRENT
         hidden = self.init_hidden(None, 'enc', x_source.size(0))
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
+        
+        #One hidden for each beam element.
+        hidden = []
+        for i in range(self.beam_size):
+            hidden.append(self.init_hidden(enc_out, 'dec', x_source.size(0)))
+        
         x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
@@ -517,8 +522,8 @@ class LSTMA(t.nn.Module):
                 x_target = elem.contiguous().view(self.batch_size, -1)
                 x_target = variable(x_target, to_float=False, cuda=self.cuda_flag).long()
                 embedded_x_target = self.target_embeddings(x_target)
-                dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
-                hidden = hidden[0].detach(), hidden[1].detach()
+                dec_out, hidden_out = self.decoder_rnn(embedded_x_target, hidden[it])
+                hidden[it] = hidden_out[0].detach(), hidden_out[1].detach()
                 dec_out = dec_out[:, time:time + 1, :].detach()
 
                 # ATTENTION
