@@ -8,6 +8,7 @@ import torchtext
 import nltk
 import matplotlib.pyplot as plt
 import spacy
+from matplotlib import ticker
 os.chdir('../HW3')  # so that there is not an import bug if the working directory isn't already HW2
 from const import *
 
@@ -35,13 +36,10 @@ def get_bleu_score(list_gold_responses, prediction):
 
 
 def show_attention(input_sentence, output_words, attentions):
-    # input_sentence: string of input sentence
-    # output_words: string of output sentence
-    # attentions: matrix of attention values, horizontal axis is output and vertical axis is input
-
+    # Set up figure with colorbar
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    cax = ax.matshow(attentions.numpy(), cmap='bone')
+    cax = ax.matshow(attentions.numpy().T, cmap='bone')
     fig.colorbar(cax)
 
     # Set up axes
@@ -50,12 +48,21 @@ def show_attention(input_sentence, output_words, attentions):
     ax.set_yticklabels([''] + output_words.split(' '))
 
     # Show label at every tick
-    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))  # @todo: `ticker` is not defined!!!
+    ax.xaxis.set_major_locator(ticker.MultipleLocator(1))
     ax.yaxis.set_major_locator(ticker.MultipleLocator(1))
 
-    if True:
-        plt.show()
-    fig.savefig(input_sentence + "_attention.png")
+    plt.show()
+
+
+def evaluate_and_show_attention(lstm, src, trg, DE, EN):
+    output_words, attentions = lstm(src, trg, True)
+    print('input =', vec2text(src.cpu(), DE))
+    print('output =', vec2text(output_words.max(2)[1].cpu(), EN))
+    show_attention(vec2text(src.cpu(), DE), vec2text(output_words.max(2)[1].cpu(), EN), attentions.squeeze(0).cpu().data)
+
+
+def vec2text(x, TEXT):
+    return '\n'.join([' '.join([TEXT.vocab.itos[xx] for xx in row]) for row in x.data.numpy()])
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
