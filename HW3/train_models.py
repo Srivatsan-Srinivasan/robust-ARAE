@@ -105,7 +105,7 @@ def train(model_str,
 
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)-1
-            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # @todo: do not take into account all what is after the EOS. It artificially boosts performance
+            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # remove the first element of target (it is the SOS token)
 
             # Compute gradients, clip, and backprop
             loss.backward()
@@ -113,7 +113,7 @@ def train(model_str,
             optimizer.step()
 
             # monitoring
-            count += batch_size * sent_length  # in that case there are batch_size x bbp_length classifications per batch
+            count += t.sum((target.data[:, 1:] != PAD_TOKEN).long())  # in that case there are batch_size x bbp_length classifications per batch, minus the pad tokens
             total_loss += t.sum(loss.data)  # .data so that you dont keep references
 
         # monitoring
@@ -178,7 +178,7 @@ def predict(model, test_iter, cuda=True):
         loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # @todo: do not take into account all what is after the EOS. It artificially boosts performance
 
         # monitoring
-        count += batch_size * sent_length  # in that case there are batch_size x sent_length classifications per batch
+        count += t.sum((target.data[:, 1:] != PAD_TOKEN).long())  # in that case there are batch_size x sent_length classifications per batch, minus the #PAD_TOKENS
         total_loss += t.sum(loss.data)  # cut graph with .data
 
     # monitoring
