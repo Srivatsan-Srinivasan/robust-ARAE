@@ -649,7 +649,7 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
 
     Examples::
 
-        >>> loss = nn.CrossEntropyLoss2D()
+        >>> loss = TemporalCrossEntropyLoss()
         >>> input = variable(torch.randn(batch_size, vocab_size, sentence_length), requires_grad=True)  # for each element of the batch, for each position x=0..sentence_length-1, it gives a probability distribution over the |V| possible words
         >>> target = variable(...)  # size (batch_size, sentence_length). LongTensor containing the correct class (correct next word) at each position of the sentence
         >>> output = loss(input, target)
@@ -664,17 +664,17 @@ class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
 
     def forward(self, pred, true):
         """
-        Let `C` be the number of classes and `|V|` the vocab size
+        Let `T` be the sentence length and `|V|` the vocab size (#classes)
         What this class does is just reshaping the inputs so that you can use classical cross entropy on top of that
 
-        :param pred: FloatTensor of shape (batch_size, |V|, C)
-        :param true: LongTensor of shape (batch_size, C)
+        :param pred: FloatTensor of shape (batch_size, |V|, T)
+        :param true: LongTensor of shape (batch_size, T)
         :return:
         """
         t.nn.modules.loss._assert_no_grad(true)
 
         # doing it this way allows to use parallelism. Better than looping on last dim !
         # note that this version of pytorch seems outdated
-        true_ = true.contiguous().view(true.size(0) * true.size(1))  # true.size() = (batch_size, bptt_length)
-        pred_ = pred.contiguous().view(pred.size(0) * pred.size(2), pred.size(1))  # pred.size() = (batch_size, vocab_size, bptt_length)
+        true_ = true.contiguous().view(true.size(0) * true.size(1))  # true_.size() = (batch_size*T, )
+        pred_ = pred.contiguous().view(pred.size(0) * pred.size(2), pred.size(1))  # pred_.size() = (batch_size*T, |V|)
         return self.cross_entropy.forward(pred_, true_)
