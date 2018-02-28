@@ -622,7 +622,6 @@ class LSTMF(t.nn.Module):
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
         self.output_size = self.target_vocab_size
-        self.num_layers = params.get('num_layers', 1)
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.initialize_embeddings(params, source_embeddings, target_embeddings)
