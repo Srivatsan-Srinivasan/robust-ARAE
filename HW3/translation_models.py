@@ -632,7 +632,7 @@ class LSTMF(t.nn.Module):
         self.encoder_rnn2 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, bidirectional=False, batch_first=True)
         self.decoder_rnn1 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, batch_first=True)
         self.decoder_rnn2 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, batch_first=True)
-        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.num_layers * self.hidden_dim)
+        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, 2 * self.hidden_dim)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:
             self.dropout_1s = t.nn.Dropout(self.dropout)
@@ -696,7 +696,7 @@ class LSTMF(t.nn.Module):
             h = t.cat(t.split(h, self.hidden_dim, dim=2), 0)
             return (
                 h,
-                variable(np.zeros((self.num_layers, bs, self.hidden_dim)), cuda=self.cuda_flag)
+                variable(np.zeros((2, bs, self.hidden_dim)), cuda=self.cuda_flag)
             )
         elif type == 'enc':
             # in that case data is None
@@ -726,10 +726,11 @@ class LSTMF(t.nn.Module):
         hidden = self.init_hidden(None, 'enc', batch_size)
         enc_out, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden)  # skip connection + dropout
         # decoder
-        hidden = self.init_hidden(enc_out, 'dec', batch_size)
-        dec_out, _ = self.decoder_rnn1(embedded_x_target, hidden)
-        hidden = self.init_hidden(enc_out, 'dec', batch_size)
-        dec_out, _ = self.decoder_rnn2(self.dropout_1_dec(embedded_x_target + dec_out), hidden)
+        hidden12 = self.init_hidden(enc_out, 'dec', batch_size)
+        hidden1 = hidden12[0][:1, :, :], hidden12[1][:1, :, :]
+        hidden2 = hidden12[0][1:, :, :], hidden12[1][1:, :, :]
+        dec_out, _ = self.decoder_rnn1(embedded_x_target, hidden1)
+        dec_out, _ = self.decoder_rnn2(self.dropout_1_dec(embedded_x_target + dec_out), hidden2)
 
         # ATTENTION: just like in the paper
         scores = self.linear_attn(F.tanh(
