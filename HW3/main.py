@@ -39,10 +39,10 @@ parser.add_argument('--embed_dropout', default=False, type=bool)
 parser.add_argument('--emb_train', default=True, type=bool)
 parser.add_argument('--clip_gradients', default=5., type=float)
 parser.add_argument('--embedding_dim', default=50, type=int)
-parser.add_argument('--blstm_enc', default=False, type=bool, help="Whether the encoder of the seq2seq model should be bidirectionnal or not")
+parser.add_argument('--blstm_enc', default=False, type=bool, help="Whether the encoder of the seq2seq model should be bidirectional or not")
 parser.add_argument('--beam_size', default=3, type=int, help = "Size of beam")
 parser.add_argument('--max_beam_depth', default=20, type=int, help = "Specifies how long you want the translation to be")
-parser.add_argument('--embedding', default=None, type=str, help='Name of a word embedding. Currently supported: None/FastText')
+parser.add_argument('--embedding', default=None, type=str, help='Name of a word embedding. Currently supported: None/FastText/fasttext')
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
