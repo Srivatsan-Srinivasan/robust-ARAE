@@ -14,6 +14,8 @@ from collections import namedtuple
 from utils import *
 from torch.autograd import Variable
 import json
+import os
+os.chdir('../HW3')
 
 
 def init_optimizer(opt_params, model):
@@ -130,8 +132,8 @@ def train(model_str,
                 if early_stopping:
                     break
             else:
-                if save and best_val_loss > former_val_loss:  # save only the best
-                    best_val_loss = former_val_loss
+                if save and best_val_loss > val_loss:  # save only the best
+                    best_val_loss = val_loss * 1.
                     assert save_path is not None
                     # weights
                     save_model(model, save_path + '.pytorch')

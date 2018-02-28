@@ -11,10 +11,9 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-
-os.chdir('../HW2')  # so that there is not any import bug in case HW2 is not already the working directory
+os.chdir('../HW3')  # so that there is not any import bug in case HW3 is not already the working directory
 from utils import *
-from const import *
+from const import SOS_TOKEN, PAD_TOKEN, EOS_TOKEN, CUDA_DEFAULT
 from copy import deepcopy
 
 
@@ -236,7 +235,7 @@ class LSTMR(t.nn.Module):
         else:
             xx_source = x_source
         embedded_x_source = self.source_embeddings(xx_source)
-        embedded_x_target = self.target(x_target[:, :-1])  # don't take into account the last token because there is nothing after
+        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)
