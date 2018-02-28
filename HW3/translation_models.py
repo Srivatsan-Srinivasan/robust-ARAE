@@ -364,8 +364,7 @@ class LSTMA(t.nn.Module):
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
         if self.weight_norm:
-            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn)
-            self.decoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn)
+            self.wn()
         self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.num_layers * self.hidden_dim)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:
@@ -411,6 +410,15 @@ class LSTMA(t.nn.Module):
             ))
         else:
             raise ValueError('the type should be either `dec` or `enc`')
+
+    def wn(self):
+        for i in range(self.num_layers):
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d'%i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d_reverse'%i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d'%i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d_reverse'%i)
+            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_hh_l%d'%i)
+            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_ih_l%d'%i)
 
     def forward(self, x_source, x_target, return_attn=False):
         # EMBEDDING
