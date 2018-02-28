@@ -11,10 +11,9 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import os
-
-os.chdir('../HW2')  # so that there is not any import bug in case HW2 is not already the working directory
+os.chdir('../HW3')  # so that there is not any import bug in case HW3 is not already the working directory
 from utils import *
-from const import *
+from const import SOS_TOKEN, PAD_TOKEN, EOS_TOKEN, CUDA_DEFAULT
 from copy import deepcopy
 
 

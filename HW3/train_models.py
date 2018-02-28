@@ -14,6 +14,8 @@ from collections import namedtuple
 from utils import *
 from torch.autograd import Variable
 import json
+import os
+os.chdir('../HW3')
 
 
 def init_optimizer(opt_params, model):
