@@ -621,10 +621,10 @@ class LSTMF(t.nn.Module):
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim', 100)
         self.batch_size = params.get('batch_size', 32)
-        self.output_size = self.target_vocab_size
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.initialize_embeddings(params, source_embeddings, target_embeddings)
+        self.output_size = self.target_vocab_size
         assert self.hidden_dim == self.embedding_dim
 
         # Initialize network modules.
