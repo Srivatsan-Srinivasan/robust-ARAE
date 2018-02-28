@@ -346,6 +346,7 @@ class LSTMA(t.nn.Module):
         self.dropout = params.get('dropout', 0.5)
         self.embed_dropout = params.get('embed_dropout')
         self.train_embedding = params.get('train_embedding', True)
+        self.weight_norm = params.get('wn', False)
 
         # Initialize embeddings. Static embeddings for now.
         self.source_embeddings = t.nn.Embedding(self.source_vocab_size, self.embedding_dim)
@@ -362,6 +363,9 @@ class LSTMA(t.nn.Module):
         # 2 tensors having as first dim twice the hidden dim you set
         self.encoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=self.num_layers, bidirectional=True, batch_first=True)
         self.decoder_rnn = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
+        if self.weight_norm:
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn)
+            self.decoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn)
         self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, self.num_layers * self.hidden_dim)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:

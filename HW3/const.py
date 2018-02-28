@@ -29,7 +29,8 @@ model_params_args_map = {'num_layers': 'n_layers',
                          'blstm_enc': 'blstm_enc',
                          'beam_size':'beam_size',
                          'max_beam_depth': 'max_beam_depth',
-                         'embedding': 'embedding'
+                         'embedding': 'embedding',
+                         'wn': 'wn'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',
