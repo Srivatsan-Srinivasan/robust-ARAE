@@ -93,7 +93,7 @@ class LSTM(t.nn.Module):
         """
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
-        embedded_x_target = self.source_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
+        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)
@@ -236,7 +236,7 @@ class LSTMR(t.nn.Module):
         else:
             xx_source = x_source
         embedded_x_source = self.source_embeddings(xx_source)
-        embedded_x_target = self.source_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
+        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)

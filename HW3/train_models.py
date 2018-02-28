@@ -71,6 +71,7 @@ def train(model_str,
     model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding)
 
     val_loss = 1e6
+    best_val_loss = 1e6
     if scheduler is not None:
         assert val_iter is not None
         scheduler.step(val_loss)
@@ -129,7 +130,8 @@ def train(model_str,
                 if early_stopping:
                     break
             else:
-                if save:
+                if save and best_val_loss > former_val_loss:  # save only the best
+                    best_val_loss = former_val_loss
                     assert save_path is not None
                     # weights
                     save_model(model, save_path + '.pytorch')
