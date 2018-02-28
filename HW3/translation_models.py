@@ -691,18 +691,24 @@ class LSTMF(t.nn.Module):
             # `:` for the whole batch
             # `:1` because you want the hidden state of the first time step (see paper, they use backward(h1))
             # but also `self.hidden_dim // 2:`, because you want the backward part only (the last coefficients)
-            h = F.tanh(self.hidden_dec_initializer(data[:, :1, self.hidden_dim // 2:]))  # the last hdim/2 weights correspond to the backward layer(s)
+            h = F.tanh(self.hidden_dec_initializer(data[:, -1:, self.hidden_dim // 2:]))  # the last hdim/2 weights correspond to the backward layer(s)
             h = h.transpose(1, 0)
             h = t.cat(t.split(h, self.hidden_dim, dim=2), 0)
             return (
                 h,
                 variable(np.zeros((2, bs, self.hidden_dim)), cuda=self.cuda_flag)
             )
-        elif type == 'enc':
+        elif type == 'enc1':
             # in that case data is None
             return tuple((
-                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers * 2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag)
+                variable(np.zeros((2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag),
+                variable(np.zeros((2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag)
+            ))
+        elif type == 'enc2':
+            # in that case data is None
+            return tuple((
+                variable(np.zeros((1, bs, self.hidden_dim)), cuda=self.cuda_flag),
+                variable(np.zeros((1, bs, self.hidden_dim)), cuda=self.cuda_flag)
             ))
         else:
             raise ValueError('the type should be either `dec` or `enc`')
@@ -721,10 +727,10 @@ class LSTMF(t.nn.Module):
 
         # RECURRENT: 2 layers of encoder and 2 layers of decoder. There is dropout inbetween layers, and skip connections as well
         # encoder
-        hidden = self.init_hidden(None, 'enc', batch_size)
-        enc_out, _ = self.encoder_rnn1(embedded_x_source, hidden)
-        hidden = self.init_hidden(None, 'enc', batch_size)
-        enc_out, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden)  # skip connection + dropout
+        hidden1 = self.init_hidden(None, 'enc1', batch_size)
+        hidden2 = self.init_hidden(None, 'enc2', batch_size)
+        enc_out, _ = self.encoder_rnn1(embedded_x_source, hidden1)
+        enc_out, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden2)  # skip connection + dropout
         # decoder
         hidden12 = self.init_hidden(enc_out, 'dec', batch_size)
         hidden1 = hidden12[0][:1, :, :], hidden12[1][:1, :, :]
