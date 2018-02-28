@@ -716,7 +716,7 @@ class LSTMF(t.nn.Module):
     def forward(self, x_source, x_target, return_attn=False):
         batch_size = x_source.size(0)
         src_len = x_source.size(1)
-        trg_len = x_target.size(1)
+        trg_len = x_target.size(1) - 1
 
         # EMBEDDING
         embedded_x_source = self.source_embeddings(x_source)
