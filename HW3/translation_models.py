@@ -236,7 +236,7 @@ class LSTMR(t.nn.Module):
         else:
             xx_source = x_source
         embedded_x_source = self.source_embeddings(xx_source)
-        embedded_x_target = self.target_embeddings(x_target[:, :-1])  # don't take into account the last token because there is nothing after
+        embedded_x_target = self.target(x_target[:, :-1])  # don't take into account the last token because there is nothing after
         if self.embed_dropout:
             embedded_x_source = self.dropout_1s(embedded_x_source)
             embedded_x_target = self.dropout_1t(embedded_x_target)
@@ -769,8 +769,9 @@ class LSTMF(t.nn.Module):
         else:
             return pred
 
-    # @todo: implement this
     def translate(self, x_source):
+        batch_size = x_source.size(0)
+        src_len = x_source.size(1)
         self.eval()
 
         # EMBEDDING
@@ -779,25 +780,29 @@ class LSTMF(t.nn.Module):
             embedded_x_source = self.dropout_1s(embedded_x_source)
 
         # RECURRENT
-        hidden = self.init_hidden(None, 'enc', x_source.size(0))
-        enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        hidden = self.init_hidden(enc_out, 'dec', x_source.size(0))
+        hidden1 = self.init_hidden(None, 'enc1', batch_size)
+        hidden2 = self.init_hidden(None, 'enc2', batch_size)
+        enc_out, _ = self.encoder_rnn1(embedded_x_source, hidden1)
+        enc_out, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden2)  # skip connection + dropout
         x_target = (SOS_TOKEN * t.ones(x_source.size(0), 1)).long()  # `2` is the SOS token (<s>)
         x_target = variable(x_target, to_float=False, cuda=self.cuda_flag)
         count_eos = 0
         time = 0
         while count_eos < x_source.size(0):
             embedded_x_target = self.target_embeddings(x_target)
-            dec_out, hidden = self.decoder_rnn(embedded_x_target, hidden)
-            hidden = hidden[0].detach(), hidden[1].detach()
+            hidden12 = self.init_hidden(enc_out, 'dec', batch_size)
+            hidden1 = hidden12[0][:1, :, :], hidden12[1][:1, :, :]
+            hidden2 = hidden12[0][1:, :, :], hidden12[1][1:, :, :]
+            dec_out, _ = self.decoder_rnn1(embedded_x_target, hidden1)
+            dec_out, _ = self.decoder_rnn2(self.dropout_1_dec(embedded_x_target + dec_out), hidden2)
             dec_out = dec_out[:, time:time + 1, :].detach()
 
-            # ATTENTION
-            scores = t.bmm(enc_out, dec_out.transpose(1, 2))  # this will be a batch x source_len x target_len
-            try:
-                attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
-            except:
-                attn_dist = F.softmax(scores.permute(1, 0, 2)).permute(1, 0, 2)
+            # ATTENTION: just like in the paper
+            scores = self.linear_attn(F.tanh(
+                self.linear_enc(enc_out).unsqueeze(2).expand(batch_size, src_len, 1, self.hidden_dim) +
+                self.linear_dec(dec_out).unsqueeze(1).expand(batch_size, src_len, 1, self.hidden_dim)
+            )).squeeze(3)
+            attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
             context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
 
             # OUTPUT
