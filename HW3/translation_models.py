@@ -11,6 +11,7 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import os
+
 os.chdir('../HW3')  # so that there is not any import bug in case HW3 is not already the working directory
 from utils import *
 from const import SOS_TOKEN, PAD_TOKEN, EOS_TOKEN, CUDA_DEFAULT
@@ -412,12 +413,12 @@ class LSTMA(t.nn.Module):
 
     def wn(self):
         for i in range(self.num_layers):
-            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d'%i)
-            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d_reverse'%i)
-            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d'%i)
-            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d_reverse'%i)
-            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_hh_l%d'%i)
-            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_ih_l%d'%i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d' % i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_hh_l%d_reverse' % i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d' % i)
+            self.encoder_rnn = t.nn.utils.weight_norm(self.encoder_rnn, 'weight_ih_l%d_reverse' % i)
+            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_hh_l%d' % i)
+            self.decoder_rnn = t.nn.utils.weight_norm(self.decoder_rnn, 'weight_ih_l%d' % i)
 
     def forward(self, x_source, x_target, return_attn=False):
         # EMBEDDING
@@ -491,7 +492,7 @@ class LSTMA(t.nn.Module):
             time += 1
         return x_target
 
-    def translate_beam(self, x_source,print_beam_row=-1):
+    def translate_beam(self, x_source, print_beam_row=-1):
         self.eval()
 
         # EMBEDDING
@@ -505,12 +506,12 @@ class LSTMA(t.nn.Module):
         # RECURRENT
         hidden = self.init_hidden(None, 'enc', x_source.size(0))
         enc_out, _ = self.encoder_rnn(embedded_x_source, hidden)
-        
-        #One hidden for each beam element.
+
+        # One hidden for each beam element.
         hidden = []
         for i in range(self.beam_size):
             hidden.append(self.init_hidden(enc_out, 'dec', x_source.size(0)))
-        
+
         x_target = SOS_TOKEN * np.ones((x_source.size(0), 1))  # `2` is the SOS token (<s>)
         count_eos = 0
         time = 0
@@ -526,8 +527,8 @@ class LSTMA(t.nn.Module):
             if len(self.beam) == 1:
                 reshaped_beam = self.beam
             else:
-                reshaped_beam = np.transpose(self.beam,(1,0,2))
-                
+                reshaped_beam = np.transpose(self.beam, (1, 0, 2))
+
             for it, elem in enumerate(reshaped_beam):
                 elem = t.from_numpy(elem).long()
                 x_target = elem.contiguous().view(self.batch_size, -1)
@@ -550,17 +551,17 @@ class LSTMA(t.nn.Module):
                 pred = F.tanh(t.cat([dec_out, context], -1))
                 pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
                 pred = self.hidden2out(pred).detach()
-                pred = self.lsm(pred.view(batch_size,-1)).detach()
+                pred = self.lsm(pred.view(batch_size, -1)).detach()
 
                 topk = t.topk(pred, self.beam_size, dim=1)
                 top_k_indices, top_k_scores = topk[1], topk[0]
-                top_k_indices = top_k_indices.transpose(0,1)
-                top_k_scores = top_k_scores.transpose(0,1)
+                top_k_indices = top_k_indices.transpose(0, 1)
+                top_k_scores = top_k_scores.transpose(0, 1)
 
                 for new_word_batch, new_score_batch in zip(top_k_indices, top_k_scores):
-                    new_word_batch = new_word_batch.contiguous().view(batch_size,1)
-                    new_score_batch = new_score_batch.contiguous().view(batch_size,1)
-                     
+                    new_word_batch = new_word_batch.contiguous().view(batch_size, 1)
+                    new_score_batch = new_score_batch.contiguous().view(batch_size, 1)
+
                     new_child_batch = t.cat([x_target, new_word_batch], 1).detach()
 
                     batch_parent_score = self.beam_scores[:, it].reshape((self.batch_size, 1))
@@ -637,27 +638,19 @@ class LSTMF(t.nn.Module):
         self.initialize_embeddings(params, source_embeddings, target_embeddings)
         self.output_size = self.target_vocab_size
         assert self.hidden_dim == self.embedding_dim
-        self.n_layers = params.get('n_layers', 2)
 
         # Initialize network modules.
         self.encoder_rnn1 = t.nn.LSTM(self.embedding_dim, self.hidden_dim // 2, dropout=self.dropout, num_layers=1, bidirectional=True, batch_first=True)
         self.encoder_rnn2 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, bidirectional=False, batch_first=True)
-        if self.n_layers > 2:
-            self.encoder_rnn3 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, bidirectional=False, batch_first=True)
         self.decoder_rnn1 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, batch_first=True)
         self.decoder_rnn2 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, batch_first=True)
-        if self.n_layers > 2:
-            self.decoder_rnn3 = t.nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=1, batch_first=True)
-        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, (2*(self.n_layers==2) + 3*(self.n_layers>2)) * self.hidden_dim)
+        self.hidden_dec_initializer = t.nn.Linear(self.hidden_dim // 2, 2 * self.hidden_dim)
         self.hidden2out = t.nn.Linear(self.hidden_dim * 2, self.output_size)
         if self.embed_dropout:
             self.dropout_1s = t.nn.Dropout(self.dropout)
             self.dropout_1t = t.nn.Dropout(self.dropout)
         self.dropout_1_enc = t.nn.Dropout(self.dropout)
         self.dropout_1_dec = t.nn.Dropout(self.dropout)
-        if self.n_layers >2:
-            self.dropout_11_enc = t.nn.Dropout(self.dropout)
-            self.dropout_11_dec = t.nn.Dropout(self.dropout)
         self.dropout_2 = t.nn.Dropout(self.dropout)
         self.linear_enc = t.nn.Linear(self.hidden_dim, self.hidden_dim)
         self.linear_dec = t.nn.Linear(self.hidden_dim, self.hidden_dim)
@@ -715,7 +708,7 @@ class LSTMF(t.nn.Module):
             h = t.cat(t.split(h, self.hidden_dim, dim=2), 0)
             return (
                 h,
-                variable(np.zeros(((2*(self.n_layers==2) + 3*(self.n_layers>2)), bs, self.hidden_dim)), cuda=self.cuda_flag)
+                variable(np.zeros((2, bs, self.hidden_dim)), cuda=self.cuda_flag)
             )
         elif type == 'enc1':
             # in that case data is None
@@ -723,7 +716,7 @@ class LSTMF(t.nn.Module):
                 variable(np.zeros((2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag),
                 variable(np.zeros((2, bs, self.hidden_dim // 2)), cuda=self.cuda_flag)
             ))
-        elif type == 'enc2' or type == 'enc3':
+        elif type == 'enc2':
             # in that case data is None
             return tuple((
                 variable(np.zeros((1, bs, self.hidden_dim)), cuda=self.cuda_flag),
@@ -749,31 +742,25 @@ class LSTMF(t.nn.Module):
         hidden1 = self.init_hidden(None, 'enc1', batch_size)
         hidden2 = self.init_hidden(None, 'enc2', batch_size)
         enc_out, _ = self.encoder_rnn1(embedded_x_source, hidden1)
-        enc_out_, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden2)  # skip connection + dropout
-        if self.n_layers > 2:
-            hidden3 = self.init_hidden(None, 'enc3', batch_size)
-            enc_out_, _ = self.encoder_rnn3(self.dropout_11_enc(enc_out_ + enc_out), hidden3)  # skip connection + dropout
+        enc_out, _ = self.encoder_rnn2(self.dropout_1_enc(embedded_x_source + enc_out), hidden2)  # skip connection + dropout
         # decoder
         hidden12 = self.init_hidden(enc_out, 'dec', batch_size)
         hidden1 = hidden12[0][:1, :, :], hidden12[1][:1, :, :]
-        hidden2 = hidden12[0][1:2, :, :], hidden12[1][1:2, :, :]
+        hidden2 = hidden12[0][1:, :, :], hidden12[1][1:, :, :]
         dec_out, _ = self.decoder_rnn1(embedded_x_target, hidden1)
-        dec_out_, _ = self.decoder_rnn2(self.dropout_1_dec(embedded_x_target + dec_out), hidden2)
-        if self.n_layers > 2:
-            hidden3 = hidden12[0][2:3, :, :], hidden12[1][2:3,:,:]
-            dec_out_, _ = self.decoder_rnn3(self.dropout_11_dec(dec_out + dec_out_), hidden3)
+        dec_out, _ = self.decoder_rnn2(self.dropout_1_dec(embedded_x_target + dec_out), hidden2)
 
         # ATTENTION: just like in the paper
         scores = self.linear_attn(F.tanh(
-            self.linear_enc(enc_out_).unsqueeze(2).expand(batch_size, src_len, trg_len, self.hidden_dim) +
-            self.linear_dec(dec_out_).unsqueeze(1).expand(batch_size, src_len, trg_len, self.hidden_dim)
+            self.linear_enc(enc_out).unsqueeze(2).expand(batch_size, src_len, trg_len, self.hidden_dim) +
+            self.linear_dec(dec_out).unsqueeze(1).expand(batch_size, src_len, trg_len, self.hidden_dim)
         )).squeeze(3)
         attn_dist = F.softmax(scores, dim=1)  # batch x source_len x target_len
-        context = t.bmm(attn_dist.permute(0, 2, 1), enc_out_)  # batch x target_len x hidden_dim
+        context = t.bmm(attn_dist.permute(0, 2, 1), enc_out)  # batch x target_len x hidden_dim
 
         # OUTPUT
         # concatenate the output of the decoder and the context and apply nonlinearity
-        pred = F.tanh(t.cat([dec_out_, context], -1))
+        pred = F.tanh(t.cat([dec_out, context], -1))
         pred = self.dropout_2(pred)  # batch x target_len x 2 hdim
         pred = self.hidden2out(pred)
 
