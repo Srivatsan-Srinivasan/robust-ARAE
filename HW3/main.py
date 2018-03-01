@@ -66,8 +66,8 @@ target_embedding = EN.vocab.vectors if args.embedding is not None else None
 model_params['source_vocab_size'] = len(DE.vocab.itos)
 model_params['target_vocab_size'] = len(EN.vocab.itos)
 
-if False:  # necessary for memory overflows ? It seems not
-    t.backends.cudnn.enabled = False
+if True:
+    t.backends.cudnn.enabled = True  # False necessary for memory overflows ? It seems not
 
 # Call for different models code should be here.
 # Train Model
@@ -83,10 +83,6 @@ trained_model = train(args.model,
                       early_stopping=args.early_stopping,
                       train_params=train_params,
                       opt_params=opt_params)
-
-
-# @todo : implement this
-# generate_text(trained_model, args.exp_n, TEXT, n=20, cuda=args.cuda)
 
 # Dummy code.
 print("The model is ", args.model)
