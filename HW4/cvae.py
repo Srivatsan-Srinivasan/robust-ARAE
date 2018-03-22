@@ -9,7 +9,7 @@ from utils import one_hot
 from matplotlib import pyplot as plt
 
 
-# @todo: test that the main function works with this one
+# @todo: test that the main.py file works with this one
 
 relu = ReLU()
 sigmoid = Sigmoid()
@@ -17,9 +17,7 @@ sigmoid = Sigmoid()
 
 class CVAE(nn.Module):
     """
-    The only difference is that now the encoder and the decoder have an additional input
-    This input consists in an array of length 10, concatenated to the flattened picture in the encoder, and to the
-    latent code in the decoder
+    Simple CVAE
     """
 
     def __init__(self, latent_dim=2, hdim=400):
@@ -69,6 +67,7 @@ class CVAE(nn.Module):
 
 
 def loss_function(x_dec, x, mu, logvar):
+    """CVAE objective"""
     batch_size = x_dec.size(0)
     xent = F.binary_cross_entropy(x_dec, x, size_average=True)
     kl_div = -0.5 * t.sum(1 + logvar - mu.pow(2) - t.exp(logvar))
@@ -79,15 +78,14 @@ def loss_function(x_dec, x, mu, logvar):
 def train_one_epoch(model, train_dataset, train_labels, epoch, batch_size, optimizer, log=100):
     """
     One pass over the training dataset
-
-    :param model:
+    :param model: a CVAE
     :param train_dataset:
     :param train_labels:
-    :param epoch:
+    :param epoch: so that you can print the right epoch in the logging
     :param batch_size:
     :param optimizer:
-    :param log:
-    :return:
+    :param log: logging frequency
+    :return: the training loss
     """
     model.train()
     train_loss = 0

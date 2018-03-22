@@ -63,6 +63,7 @@ class VAE(nn.Module):
 
 
 def loss_function(x_dec, x, mu, logvar):
+    """VAE objective"""
     batch_size = x_dec.size(0)
     xent = F.binary_cross_entropy(x_dec, x, size_average=True)
     kl_div = -0.5 * t.sum(1 + logvar - mu.pow(2) - t.exp(logvar))
@@ -152,10 +153,10 @@ def test_one_epoch(model, test_dataset, epoch, batch_size):
     return test_loss
 
 
-def visualize_latent(model, train_dataset, train_labels):
+def visualize_latent(model, train_dataset, train_labels, n=10000):
     x, y = shuffle(train_dataset, train_labels)
-    x = variable(t.cat(x[:10000]))
-    y = t.cat(y[:10000]).numpy()
+    x = variable(t.cat(x[:n]))
+    y = t.cat(y[:n]).numpy()
     mu, logvar = model.encode(x)
     z = mu.data.numpy()
     for i in range(0, 10):
