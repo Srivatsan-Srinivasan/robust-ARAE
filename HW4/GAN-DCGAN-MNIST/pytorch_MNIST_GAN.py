@@ -12,7 +12,7 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 
-# G(z)
+#G(z)
 class generator(nn.Module):
     # initializers
     def __init__(self, input_size=32, n_class = 10):
@@ -54,7 +54,8 @@ class discriminator(nn.Module):
 
 fixed_z_ = torch.randn((5 * 5, 100))    # fixed noise
 fixed_z_ = Variable(fixed_z_.cuda(), volatile=True)
-def show_result(num_epoch, show = False, save = False, path = 'result.png', isFix=False):
+
+def show_result(num_epoch, G, show = False, save = False, path = 'result.png', isFix=False):
     z_ = torch.randn((5*5, 100))
     z_ = Variable(z_.cuda(), volatile=True)
 
@@ -86,6 +87,50 @@ def show_result(num_epoch, show = False, save = False, path = 'result.png', isFi
     else:
         plt.close()
 
+def show_interpolated_result(num_epoch, G, show = False, save = False, path = 'result.png', isFix=False):
+    # 6 random z1 and z2
+    z1 = torch.randn((6, 100))
+    z2 = torch.randn((6, 100))
+    alphas = [0.2,0.4,0.6,0.8,1]
+    
+    z_ = z1
+    for alpha in alphas:
+        z_ = torch.cat((z_, (1-alpha)*z1 + alpha*z2))
+    
+    z_ = Variable(z_).cuda()
+
+    G.eval()
+    
+    test_images = G(z_)
+    G.train()
+    print("Saving Interpolated Results") 
+    
+    size_figure_grid = 6
+    fig, ax = plt.subplots(size_figure_grid, size_figure_grid, figsize=(5, 5))
+    for i, j in itertools.product(range(size_figure_grid), range(size_figure_grid)):
+        ax[i, j].get_xaxis().set_visible(False)
+        ax[i, j].get_yaxis().set_visible(False)
+
+    for k in range(6*6):
+        i = k // 6  #6 examples        
+        j = k % 6   #6 interpolated values
+        ax[i, j].cla()
+        ax[i, j].imshow(test_images[k, :].cpu().data.view(28, 28).numpy(), cmap='gray')
+
+    label = 'Epoch {0}'.format(num_epoch)
+    fig.text(0.5, 0.04, label, ha='center')
+    plt.xlabel("Six different latent variable examples")
+    plt.ylabel("Interpolated Values from z1 to z2")
+    plt.title("Interpolated values (6 examples left to right) using simple GAN")
+    import pdb; pdb.set_trace()
+    plt.savefig(path)
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
+    print("Interpolated Results saved")
+
 def show_train_hist(hist, show = False, save = False, path = 'Train_hist.png'):
     x = range(len(hist['D_losses']))
 
@@ -110,113 +155,125 @@ def show_train_hist(hist, show = False, save = False, path = 'Train_hist.png'):
     else:
         plt.close()
 
-# training parameters
-batch_size = 128
-lr = 0.0002
-train_epoch = 100
+def make_result_dirs():
+     # results save folder
+    if not os.path.isdir('MNIST_GAN_results'):
+        os.mkdir('MNIST_GAN_results')
+    if not os.path.isdir('MNIST_GAN_results/Random_results'):
+        os.mkdir('MNIST_GAN_results/Random_results')
+    if not os.path.isdir('MNIST_GAN_results/Fixed_results'):
+        os.mkdir('MNIST_GAN_results/Fixed_results')    
+    if not os.path.isdir('MNIST_GAN_results/Interpolated_results'):
+        os.mkdir('MNIST_GAN_results/Interpolated_results')
+        
+def train_GAN(expt_name = 'GAN1'):
+    # training parameters
+    batch_size = 128
+    lr = 0.0002
+    train_epoch = 100
+    make_result_dirs()
+    
+    # data_loader
+    transform = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
+    ])
+    train_loader = torch.utils.data.DataLoader(
+        datasets.MNIST('data', train=True, download=True, transform=transform),
+        batch_size=batch_size, shuffle=True)
 
-# data_loader
-transform = transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Normalize(mean=(0.5, 0.5, 0.5), std=(0.5, 0.5, 0.5))
-])
-train_loader = torch.utils.data.DataLoader(
-    datasets.MNIST('data', train=True, download=True, transform=transform),
-    batch_size=batch_size, shuffle=True)
+    # network
+    G = generator(input_size=100, n_class=28*28)
+    D = discriminator(input_size=28*28, n_class=1)
+    G.cuda()
+    D.cuda()
 
-# network
-G = generator(input_size=100, n_class=28*28)
-D = discriminator(input_size=28*28, n_class=1)
-G.cuda()
-D.cuda()
+    # Binary Cross Entropy loss
+    BCE_loss = nn.BCELoss()
 
-# Binary Cross Entropy loss
-BCE_loss = nn.BCELoss()
+    # Adam optimizer
+    G_optimizer = optim.Adam(G.parameters(), lr=lr)
+    D_optimizer = optim.Adam(D.parameters(), lr=lr)
 
-# Adam optimizer
-G_optimizer = optim.Adam(G.parameters(), lr=lr)
-D_optimizer = optim.Adam(D.parameters(), lr=lr)
+   
 
-# results save folder
-if not os.path.isdir('MNIST_GAN_results'):
-    os.mkdir('MNIST_GAN_results')
-if not os.path.isdir('MNIST_GAN_results/Random_results'):
-    os.mkdir('MNIST_GAN_results/Random_results')
-if not os.path.isdir('MNIST_GAN_results/Fixed_results'):
-    os.mkdir('MNIST_GAN_results/Fixed_results')
+    train_hist = {}
+    train_hist['D_losses'] = []
+    train_hist['G_losses'] = []
+    for epoch in range(train_epoch):
+        D_losses = []
+        G_losses = []
+        for x_, _ in train_loader:
+            # train discriminator D
+            D.zero_grad()
 
-train_hist = {}
-train_hist['D_losses'] = []
-train_hist['G_losses'] = []
-for epoch in range(train_epoch):
-    D_losses = []
-    G_losses = []
-    for x_, _ in train_loader:
-        # train discriminator D
-        D.zero_grad()
+            x_ = x_.view(-1, 28 * 28)
 
-        x_ = x_.view(-1, 28 * 28)
+            mini_batch = x_.size()[0]
 
-        mini_batch = x_.size()[0]
+            y_real_ = torch.ones(mini_batch)
+            y_fake_ = torch.zeros(mini_batch)
 
-        y_real_ = torch.ones(mini_batch)
-        y_fake_ = torch.zeros(mini_batch)
+            x_, y_real_, y_fake_ = Variable(x_.cuda()), Variable(y_real_.cuda()), Variable(y_fake_.cuda())
+            D_result = D(x_)
+            D_real_loss = BCE_loss(D_result, y_real_)
+            D_real_score = D_result
 
-        x_, y_real_, y_fake_ = Variable(x_.cuda()), Variable(y_real_.cuda()), Variable(y_fake_.cuda())
-        D_result = D(x_)
-        D_real_loss = BCE_loss(D_result, y_real_)
-        D_real_score = D_result
+            z_ = torch.randn((mini_batch, 100))
+            z_ = Variable(z_.cuda())
+            G_result = G(z_)
 
-        z_ = torch.randn((mini_batch, 100))
-        z_ = Variable(z_.cuda())
-        G_result = G(z_)
+            D_result = D(G_result)
+            D_fake_loss = BCE_loss(D_result, y_fake_)
+            D_fake_score = D_result
 
-        D_result = D(G_result)
-        D_fake_loss = BCE_loss(D_result, y_fake_)
-        D_fake_score = D_result
+            D_train_loss = D_real_loss + D_fake_loss
 
-        D_train_loss = D_real_loss + D_fake_loss
+            D_train_loss.backward()
+            D_optimizer.step()
 
-        D_train_loss.backward()
-        D_optimizer.step()
+            D_losses.append(D_train_loss.data[0])
 
-        D_losses.append(D_train_loss.data[0])
+            # train generator G
+            G.zero_grad()
 
-        # train generator G
-        G.zero_grad()
+            z_ = torch.randn((mini_batch, 100))
+            y_ = torch.ones(mini_batch)
 
-        z_ = torch.randn((mini_batch, 100))
-        y_ = torch.ones(mini_batch)
+            z_, y_ = Variable(z_.cuda()), Variable(y_.cuda())
+            G_result = G(z_)
+            D_result = D(G_result)
+            G_train_loss = BCE_loss(D_result, y_)
+            G_train_loss.backward()
+            G_optimizer.step()
 
-        z_, y_ = Variable(z_.cuda()), Variable(y_.cuda())
-        G_result = G(z_)
-        D_result = D(G_result)
-        G_train_loss = BCE_loss(D_result, y_)
-        G_train_loss.backward()
-        G_optimizer.step()
+            G_losses.append(G_train_loss.data[0])
 
-        G_losses.append(G_train_loss.data[0])
+        print('[%d/%d]: loss_d: %.3f, loss_g: %.3f' % (
+            (epoch + 1), train_epoch, torch.mean(torch.FloatTensor(D_losses)), torch.mean(torch.FloatTensor(G_losses))))
+        p = 'MNIST_GAN_results/Random_results/MNIST_GAN_' +  expt_name + '_' + str(epoch + 1) + '.png'
+        fixed_p = 'MNIST_GAN_results/Fixed_results/MNIST_GAN_' + expt_name +'_' + str(epoch + 1) + '.png'
+        show_result((epoch+1), G, save=True, path=p, isFix=False)
+        show_result((epoch+1), G, save=True, path=fixed_p, isFix=True)
+        train_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
+        train_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
 
-    print('[%d/%d]: loss_d: %.3f, loss_g: %.3f' % (
-        (epoch + 1), train_epoch, torch.mean(torch.FloatTensor(D_losses)), torch.mean(torch.FloatTensor(G_losses))))
-    p = 'MNIST_GAN_results/Random_results/MNIST_GAN_' + str(epoch + 1) + '.png'
-    fixed_p = 'MNIST_GAN_results/Fixed_results/MNIST_GAN_' + str(epoch + 1) + '.png'
-    show_result((epoch+1), save=True, path=p, isFix=False)
-    show_result((epoch+1), save=True, path=fixed_p, isFix=True)
-    train_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
-    train_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
+    interpolated_p = 'MNIST_GAN_results/Interpolated_results/MNIST_GAN_' + expt_name + '_'+ str(epoch + 1) + '.png'
+    show_interpolated_result((epoch+1), G, save=True, path=interpolated_p, isFix=True)
+    print("Training finish!... save training results")
+    torch.save(G.state_dict(), "MNIST_GAN_results/generator_param.pkl")
+    torch.save(D.state_dict(), "MNIST_GAN_results/discriminator_param.pkl")
+    with open('MNIST_GAN_results/train_hist.pkl', 'wb') as f:
+        pickle.dump(train_hist, f)
 
+    show_train_hist(train_hist, save=True, path='MNIST_GAN_results/MNIST_GAN_train_hist.png')
 
-print("Training finish!... save training results")
-torch.save(G.state_dict(), "MNIST_GAN_results/generator_param.pkl")
-torch.save(D.state_dict(), "MNIST_GAN_results/discriminator_param.pkl")
-with open('MNIST_GAN_results/train_hist.pkl', 'wb') as f:
-    pickle.dump(train_hist, f)
+    images = []
+    for e in range(train_epoch):
+        img_name = 'MNIST_GAN_results/Fixed_results/MNIST_GAN_' + str(e + 1) + '.png'
+        images.append(imageio.imread(img_name))
+    imageio.mimsave('MNIST_GAN_results/generation_animation.gif', images, fps=5)
+    return G
 
-show_train_hist(train_hist, save=True, path='MNIST_GAN_results/MNIST_GAN_train_hist.png')
+#train_GAN()
 
-images = []
-for e in range(train_epoch):
-    img_name = 'MNIST_GAN_results/Fixed_results/MNIST_GAN_' + str(e + 1) + '.png'
-    images.append(imageio.imread(img_name))
-imageio.mimsave('MNIST_GAN_results/generation_animation.gif', images, fps=5)
