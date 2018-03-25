@@ -7,10 +7,6 @@ os.chdir('../HW4')  # so that there is not an import bug if the working director
 from const import *
 
 
-BOS_WORD = '<s>'
-EOS_WORD = '</s>'
-
-
 def get_bleu_score(list_gold_responses, prediction):
     # note list gold responses should be list even if only one gold response
     # note prediction is a string

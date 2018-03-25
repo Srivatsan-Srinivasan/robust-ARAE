@@ -18,6 +18,7 @@ class VAE(nn.Module):
 
     def __init__(self, latent_dim=2, hdim=400):
         super(VAE, self).__init__()
+        self.model_str = 'VAE'
         self.latent_dim = latent_dim
         self.hdim = hdim
 
@@ -26,7 +27,7 @@ class VAE(nn.Module):
         self.bn_1 = BN(hdim, momentum=.9)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
         self.bn_mu = BN(latent_dim, momentum=.9)
-        self.fc_logvar = fc(hdim, latent_dim)  # output the variance of z
+        self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
         self.bn_logvar = BN(latent_dim, momentum=.9)
 
         # decoder
