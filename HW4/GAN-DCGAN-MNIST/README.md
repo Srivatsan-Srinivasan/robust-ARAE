@@ -1,4 +1,4 @@
-# pytorch-MNIST-CelebA-GAN-DCGAN
+# pytorch-MNIST-GAN
 Pytorch implementation of Generative Adversarial Networks 
 
 * MNIST dataset: http://yann.lecun.com/exdb/mnist/
