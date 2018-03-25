@@ -4,12 +4,11 @@ from process_params import check_args, get_params
 from const import *
 from train_models import train, predict
 from data_process import generate_iterators
+
+
 t.manual_seed(1)
 # Create Parser.
 parser = argparse.ArgumentParser(description="For CS287 HW4")
-
-
-# @todo: modify the argparse and verify that it runs with VAE/CVAE
 
 
 # Add arguments to be parsed.
