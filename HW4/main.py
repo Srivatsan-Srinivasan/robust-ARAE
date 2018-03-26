@@ -26,9 +26,9 @@ parser.add_argument('--shuffle', default=True, help='Whether to stop training on
 # MODEL PARAMS
 parser.add_argument('--model', default='VAE', help='state which model to use')
 parser.add_argument('--type', default='MLP', help='what kind of architecture ? For example NLP/CNN/PixelCNN...')  # @todo make it do something in the instantiation of models
-parser.add_argument('--n_layers', default=1, type=int)
+parser.add_argument('--n_layers', default=1, type=int)  # @todo: make it do something
 parser.add_argument('--hidden_dim', default=300, type=int)
-parser.add_argument('--latent_dim', default=50, type=int)
+parser.add_argument('--latent_dim', default=2, type=int)
 parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)
 
 # OPTIMIZER PARAMS

@@ -60,7 +60,7 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     return model, criterion, optimizer, scheduler
 
 
-def get_kwargs(model_str, img, label):
+def _get_kwargs(model_str, img, label):
     """
     VAE/CVAE take different inputs for their forward method.
     As a workaround (to have a unique train function), just add `**kwargs` to each `.forward()` signature, and
@@ -115,7 +115,7 @@ def train(model_str,
             optimizer.zero_grad()
             model.zero_grad()
 
-            kwargs = get_kwargs(model_str, img, label)
+            kwargs = _get_kwargs(model_str, img, label)
 
             # predict
             output = model(**kwargs)
@@ -159,6 +159,7 @@ def train(model_str,
     return model
 
 
+# @todo: generate pictures after each epoch
 def predict(model, test_iter, cuda=CUDA_DEFAULT):
     # Monitoring loss
     total_loss = 0
@@ -178,7 +179,7 @@ def predict(model, test_iter, cuda=CUDA_DEFAULT):
             label = label.cuda()
 
         # predict
-        kwargs = get_kwargs(model.model_str, img, label)
+        kwargs = _get_kwargs(model.model_str, img, label)
         output = model.forward(**kwargs)
         loss = criterion(img, output)
 
