@@ -8,15 +8,14 @@ from vae import VAE, test_one_epoch as test_one_epoch_vae, train_one_epoch as tr
 from cvae import CVAE, test_one_epoch as test_one_epoch_cvae, train_one_epoch as train_one_epoch_cvae
 from gan import GAN
 from const import *
-import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.nn.utils import clip_grad_norm
-from collections import namedtuple
-from utils import *
+from utils import variable, one_hot, ReduceLROnPlateau, LambdaLR, save_model
 from torch.autograd import Variable
 import json
+import numpy as np
 import os
+import torch as t
 from matplotlib import pyplot as plt
 os.chdir('../HW4')
 from IPython import display
@@ -112,6 +111,7 @@ def train(model_str,
         # Actual training loop.
         for batch in train_iter:
             img, label = batch
+            label = one_hot(label)
             img = img.view(img.size(0), -1)
             img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
             batch_size = img.size(0)
@@ -170,7 +170,7 @@ def train(model_str,
     return model
 
 
-def predict(model, test_iter, cuda=True):
+def predict(model, test_iter, cuda=CUDA_DEFAULT):
     # Monitoring loss
     total_loss = 0
     count = 0

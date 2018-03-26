@@ -4,6 +4,7 @@ from process_params import check_args, get_params
 from const import *
 from train_models import train, predict
 from data_process import generate_iterators
+import ast
 
 
 t.manual_seed(1)
@@ -13,14 +14,14 @@ parser = argparse.ArgumentParser(description="For CS287 HW4")
 
 # Add arguments to be parsed.
 # GENERAL PARAMS
-parser.add_argument('--debug', default=False, type=bool)
-parser.add_argument('--cuda', default=CUDA_DEFAULT, type=bool)
+parser.add_argument('--debug', default=False, type=ast.literal_eval)
+parser.add_argument('--cuda', default=CUDA_DEFAULT, type=ast.literal_eval)
 parser.add_argument('--exp_n', default='dummy_expt', help='Give name for expt')
-parser.add_argument('--monitor', default=False, help='States if you need to pickle validation loss', type=bool)
-parser.add_argument('--save', default=False, help='Save the model or not', type=bool)
+parser.add_argument('--monitor', default=False, help='States if you need to pickle validation loss', type=ast.literal_eval)
+parser.add_argument('--save', default=False, help='Save the model or not', type=ast.literal_eval)
 parser.add_argument('--output_filename', default=None, help='Where the model is saved', type=str)
-parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=bool)
-parser.add_argument('--shuffle', default=True, help='Whether to stop training once the validation error starts increasing', type=bool)
+parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=ast.literal_eval)
+parser.add_argument('--shuffle', default=True, help='Whether to stop training once the validation error starts increasing', type=ast.literal_eval)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='VAE', help='state which model to use')
@@ -28,7 +29,7 @@ parser.add_argument('--type', default='MLP', help='what kind of architecture ? F
 parser.add_argument('--n_layers', default=1, type=int)
 parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--latent_dim', default=50, type=int)
-parser.add_argument('--batchnorm', default=True, type=bool)  # @todo make it do something in the instantiation of models
+parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)  # @todo make it do something in the instantiation of models
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
@@ -42,7 +43,6 @@ parser.add_argument('--batch_size', default=100, type=int)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
-check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.

@@ -1,6 +1,6 @@
 from torch.nn import Linear as fc, ReLU, Sigmoid, Dropout, BatchNorm1d as BN
 from torch import nn
-from utils import flatten, variable
+from utils import variable
 import torch as t
 import numpy as np
 import torch.nn.functional as F

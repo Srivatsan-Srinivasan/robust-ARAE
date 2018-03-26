@@ -1,6 +1,6 @@
 from torch.nn import Linear as fc, ReLU, Sigmoid, Dropout, BatchNorm1d as BN
 from torch import nn
-from utils import flatten, variable
+from utils import variable
 import torch as t
 import numpy as np
 import torch.nn.functional as F
@@ -37,7 +37,7 @@ class VAE(nn.Module):
         self.fc3 = fc(hdim, 784)
         self.bn_3 = BN(784, momentum=.9)
 
-    def encode(self, x):
+    def encode(self, x, **kwargs):
         h1 = relu(self.bn_1(self.fc1(x)))
         mu = self.bn_mu(self.fc_mu(h1))
         logvar = self.bn_logvar(self.fc_logvar(h1))
@@ -51,7 +51,7 @@ class VAE(nn.Module):
         else:
             return mu
 
-    def decode(self, z):
+    def decode(self, z, **kwargs):
         h1 = relu(self.bn_2(self.fc2(z)))
         return sigmoid(self.bn_3(self.fc3(h1)))
 

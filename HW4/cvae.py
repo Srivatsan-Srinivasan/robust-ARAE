@@ -1,11 +1,11 @@
 from torch.nn import Linear as fc, ReLU, Sigmoid, Dropout, BatchNorm1d as BN
 from torch import nn
-from utils import flatten, variable
+from utils import variable
 import torch as t
 import numpy as np
 import torch.nn.functional as F
 from sklearn.utils import shuffle
-from utils import one_hot
+from utils import one_hot_np
 from matplotlib import pyplot as plt
 
 
@@ -41,8 +41,12 @@ class CVAE(nn.Module):
         self.fc3 = fc(hdim, 784)
         self.bn_3 = BN(784, momentum=.9)
 
-    def encode(self, x, y):
-        h1 = relu(self.bn_1(self.fc1(t.cat([flatten(x), y], -1))))
+    def encode(self, x, y, **kwargs):
+        print('x.size()')
+        print(x.size())
+        print('y.size()')
+        print(y.size())
+        h1 = relu(self.bn_1(self.fc1(t.cat([x, y], -1))))
         mu = self.bn_mu(self.fc_mu(h1))
         logvar = self.bn_logvar(self.fc_logvar(h1))
         return mu, logvar
@@ -55,7 +59,7 @@ class CVAE(nn.Module):
         else:
             return mu
 
-    def decode(self, z, y):
+    def decode(self, z, y, **kwargs):
         h1 = relu(self.bn_2(self.fc2(t.cat([z, y], -1))))
         h2 = sigmoid(self.bn_3(self.fc3(h1)))
         batch_size = h2.size(0)
@@ -63,9 +67,9 @@ class CVAE(nn.Module):
         return x_dec
 
     def forward(self, x, y, **kwargs):
-        mu, logvar = self.encode(x, y)
+        mu, logvar = self.encode(x, y, **kwargs)
         z = self.reparameterize(mu, logvar)
-        return self.decode(z, y), mu, logvar
+        return self.decode(z, y, **kwargs), mu, logvar
 
 
 def loss_function(x_dec, x, mu, logvar):
@@ -97,7 +101,7 @@ def train_one_epoch(model, train_dataset, train_labels, epoch, batch_size, optim
 
         # sample data
         x = variable(t.cat(train_dataset_[i:i + batch_size], 0))
-        y = variable(one_hot(t.cat(train_labels_[i:i + batch_size]).numpy()))
+        y = variable(one_hot_np(t.cat(train_labels_[i:i + batch_size]).numpy()))
         if len(x) != batch_size:
             continue
 
@@ -139,7 +143,7 @@ def test_one_epoch(model, test_dataset, test_labels, epoch, batch_size):
 
         # sample data
         x = variable(t.cat(test_dataset_[i:i + batch_size], 0))
-        y = variable(one_hot(t.cat(test_labels_[i:i + batch_size]).numpy()))
+        y = variable(one_hot_np(t.cat(test_labels_[i:i + batch_size]).numpy()))
         if len(x) != batch_size:
             continue
 
@@ -158,7 +162,7 @@ def generate_digit(model, n, digit):
     # generate new samples
     figure = np.zeros((28 * n, 28 * n))
     sample = variable(t.randn(n*n, model.latent_dim))
-    digits = variable(one_hot(np.array(n*n*[digit])))
+    digits = variable(one_hot_np(np.array(n*n*[digit])))
     model.eval()
     sample = model.decode(sample, digits).cpu()
     model.train()
