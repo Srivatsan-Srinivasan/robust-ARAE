@@ -4,8 +4,8 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from vae import VAE, test_one_epoch as test_one_epoch_vae, train_one_epoch as train_one_epoch_vae
-from cvae import CVAE, test_one_epoch as test_one_epoch_cvae, train_one_epoch as train_one_epoch_cvae
+from vae import VAE
+from cvae import CVAE
 from gan import GAN
 from const import *
 import torch.nn.functional as F
