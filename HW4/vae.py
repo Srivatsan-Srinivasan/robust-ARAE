@@ -38,7 +38,7 @@ class VAE(nn.Module):
         self.bn_3 = BN(784, momentum=.9)
 
     def encode(self, x):
-        h1 = relu(self.bn_1(self.fc1(flatten(x))))
+        h1 = relu(self.bn_1(self.fc1(x)))
         mu = self.bn_mu(self.fc_mu(h1))
         logvar = self.bn_logvar(self.fc_logvar(h1))
         return mu, logvar
@@ -53,10 +53,7 @@ class VAE(nn.Module):
 
     def decode(self, z):
         h1 = relu(self.bn_2(self.fc2(z)))
-        h2 = sigmoid(self.bn_3(self.fc3(h1)))
-        batch_size = h2.size(0)
-        x_dec = h2.resize(batch_size, 1, 28, 28)
-        return x_dec
+        return sigmoid(self.bn_3(self.fc3(h1)))
 
     def forward(self, x, **kwargs):
         mu, logvar = self.encode(x)
