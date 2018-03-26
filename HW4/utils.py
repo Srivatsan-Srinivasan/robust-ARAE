@@ -16,7 +16,7 @@ def one_hot_np(y):
 def one_hot(y):
     y_onehot = t.FloatTensor(y.size(0), 10)
     y_onehot.zero_()
-    y_onehot.scatter_(1, y, 1)
+    y_onehot.scatter_(1, y.view(y.size(0), 1), 1)
     return y_onehot
 
 

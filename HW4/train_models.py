@@ -128,8 +128,7 @@ def train(model_str,
             kwargs = get_kwargs(model_str, img, label)
 
             # predict
-            output = model(**kwargs)  # it is a tuple for VAE
-
+            output = model(**kwargs)
             loss = criterion(img, output)
 
             # Compute gradients, clip, and backprop
@@ -176,10 +175,10 @@ def predict(model, test_iter, cuda=CUDA_DEFAULT):
     count = 0
     criterion = get_criterion(model.model_str)
 
-    # Actual training loop.
     for batch in test_iter:
         # Get data
         img, label = batch
+        label = one_hot(label)
         img = img.view(img.size(0), -1)
         img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
         batch_size = img.size(0)
@@ -191,8 +190,6 @@ def predict(model, test_iter, cuda=CUDA_DEFAULT):
         # predict
         kwargs = get_kwargs(model.model_str, img, label)
         output = model.forward(**kwargs)
-
-        # Dimension matching to cut it right for loss function.
         loss = criterion(img, output)
 
         # monitoring
