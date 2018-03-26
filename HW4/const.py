@@ -5,20 +5,10 @@ CUDA_DEFAULT = False
 
 model_params_args_map = {'num_layers': 'n_layers',
                          'hidden_dim': 'hidden_dim',
-                         'embedding_dim': 'embedding_dim',
+                         'latent_dim': 'embedding_dim',
                          'batch_size': 'batch_size',
                          'dropout': 'dropout',
-                         'train_embedding': 'emb_train',
-                         'clip_gradients': 'clip_gradients',
-                         'cuda': 'cuda',
-                         'embed_dropout': 'embed_dropout',
-                         'source_vocab_size': 'source_vocab_size',
-                         'target_vocab_size': 'target_vocab_size',
-                         'blstm_enc': 'blstm_enc',
-                         'beam_size':'beam_size',
-                         'max_beam_depth': 'max_beam_depth',
-                         'embedding': 'embedding',
-                         'wn': 'wn'
+                         'cuda': 'cuda'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',
