@@ -78,9 +78,11 @@ def get_kwargs(model_str, img, label):
     use this kwargs functions
     :returns: a dict with keys the arguments of the forward function of `model_str`
     """
+
     pass
 
 
+# @todo: maybe differentiate GANs from VAEs ?
 def train(model_str,
           train_iter,
           val_iter=None,
