@@ -7,7 +7,6 @@ model_params_args_map = {'num_layers': 'n_layers',
                          'hidden_dim': 'hidden_dim',
                          'latent_dim': 'embedding_dim',
                          'batch_size': 'batch_size',
-                         'dropout': 'dropout',
                          'cuda': 'cuda'
                          }
 

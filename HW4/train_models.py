@@ -39,10 +39,10 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-# @todo: implement
-def get_criterion(model_str, cuda):
+def get_criterion(model_str):
     """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
-    pass
+    if model_str == 'VAE' or model_str == 'CVAE':
+        return lambda input, output: F.binary_cross_entropy(output[0], input) - 0.5*t.sum(1 + input[2] - input[1].pow(2) - t.exp(input[2]))/(784*input.size(0))
 
 
 def _train_initialize_variables(model_str, model_params, opt_params, cuda):
@@ -52,7 +52,7 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     model.train()  # important!
 
     optimizer = init_optimizer(opt_params, model)
-    criterion = get_criterion(model_str, cuda)
+    criterion = get_criterion(model_str)
 
     if opt_params['lr_scheduler'] is not None:
         if opt_params['lr_scheduler'] == 'plateau':
@@ -70,16 +70,17 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     return model, criterion, optimizer, scheduler
 
 
-# @todo: implement
 def get_kwargs(model_str, img, label):
     """
-    VAE/CVAE/GAN/CGAN/... take different inputs for their forward method.
+    VAE/CVAE take different inputs for their forward method.
     As a workaround (to have a unique train function), just add `**kwargs` to each `.forward()` signature, and
     use this kwargs functions
     :returns: a dict with keys the arguments of the forward function of `model_str`
     """
-
-    pass
+    if model_str == 'CVAE':
+        return {'x': img, 'y': label}
+    if model_str == 'VAE':
+        return {'x': img}
 
 
 # @todo: maybe differentiate GANs from VAEs ?
@@ -111,6 +112,8 @@ def train(model_str,
         # Actual training loop.
         for batch in train_iter:
             img, label = batch
+            img = img.view(img.size(0), -1)
+            img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
             batch_size = img.size(0)
 
             # Get data
@@ -127,7 +130,7 @@ def train(model_str,
             # predict
             output = model(**kwargs)  # it is a tuple for VAE
 
-            loss = criterion(output)
+            loss = criterion(img, output)
 
             # Compute gradients, clip, and backprop
             loss.backward()
@@ -171,12 +174,14 @@ def predict(model, test_iter, cuda=True):
     # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = get_criterion(model.model_str, cuda)
+    criterion = get_criterion(model.model_str)
 
     # Actual training loop.
     for batch in test_iter:
         # Get data
         img, label = batch
+        img = img.view(img.size(0), -1)
+        img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
         batch_size = img.size(0)
 
         if cuda:
@@ -188,7 +193,7 @@ def predict(model, test_iter, cuda=True):
         output = model.forward(**kwargs)
 
         # Dimension matching to cut it right for loss function.
-        loss = criterion(output)
+        loss = criterion(img, output)
 
         # monitoring
         count += batch_size
