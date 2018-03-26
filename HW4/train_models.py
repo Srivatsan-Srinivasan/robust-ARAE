@@ -1,9 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 16:12:30 2018
-
-@author: SrivatsanPC
-"""
 from vae import VAE
 from cvae import CVAE
 from gan import GAN
