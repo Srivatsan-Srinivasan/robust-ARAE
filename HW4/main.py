@@ -29,7 +29,7 @@ parser.add_argument('--type', default='MLP', help='what kind of architecture ? F
 parser.add_argument('--n_layers', default=1, type=int)
 parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--latent_dim', default=50, type=int)
-parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)  # @todo make it do something in the instantiation of models
+parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)

@@ -22,25 +22,42 @@ class VAE(nn.Module):
 
         self.latent_dim = latent_dim = params.get('latent_dim', 2)
         self.hdim = hdim = params.get('hdim', 400)
+        self.batchnorm = params.get('batchnorm', True)
 
         # encoder
         self.fc1 = fc(784, hdim)
-        self.bn_1 = BN(hdim, momentum=.9)
+        if self.batchnorm:
+            self.bn_1 = BN(hdim, momentum=.9)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
-        self.bn_mu = BN(latent_dim, momentum=.9)
+        if self.batchnorm:
+            self.bn_mu = BN(latent_dim, momentum=.9)
         self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
-        self.bn_logvar = BN(latent_dim, momentum=.9)
+        if self.batchnorm:
+            self.bn_logvar = BN(latent_dim, momentum=.9)
 
         # decoder
         self.fc2 = fc(latent_dim, hdim)
-        self.bn_2 = BN(hdim, momentum=.9)
+        if self.batchnorm:
+            self.bn_2 = BN(hdim, momentum=.9)
         self.fc3 = fc(hdim, 784)
-        self.bn_3 = BN(784, momentum=.9)
+        if self.batchnorm:
+            self.bn_3 = BN(784, momentum=.9)
 
     def encode(self, x, **kwargs):
-        h1 = relu(self.bn_1(self.fc1(x)))
-        mu = self.bn_mu(self.fc_mu(h1))
-        logvar = self.bn_logvar(self.fc_logvar(h1))
+        h1 = self.fc1(x)
+        if self.batchnorm:
+            h1 = relu(self.bn_1(h1))
+        else:
+            h1 = relu(h1)
+
+        mu = self.fc_mu(h1)
+        if self.batchnorm:
+            mu = self.bn_mu(mu)
+
+        logvar = self.fc_logvar(h1)
+        if self.batchnorm:
+            logvar = self.bn_logvar(logvar)
+
         return mu, logvar
 
     def reparameterize(self, mu, logvar):
@@ -52,8 +69,17 @@ class VAE(nn.Module):
             return mu
 
     def decode(self, z, **kwargs):
-        h1 = relu(self.bn_2(self.fc2(z)))
-        return sigmoid(self.bn_3(self.fc3(h1)))
+        h1 = self.fc2(z)
+        if self.batchnorm:
+            h1 = relu(self.bn_2(h1))
+        else:
+            h1 = relu(h1)
+
+        result = self.fc3(h1)
+        if self.batchnorm:
+            return sigmoid(self.bn_3(result))
+        else:
+            return sigmoid(result)
 
     def forward(self, x, **kwargs):
         mu, logvar = self.encode(x)
