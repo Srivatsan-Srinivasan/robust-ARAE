@@ -25,8 +25,8 @@ def generate_iterators(BATCH_SIZE=100, shuffle=True):
 
     val_img = train_img[-10000:].clone()
     val_label = train_label[-10000:].clone()
-    train_img = train_img[:10000]
-    train_label = train_label[:10000]
+    train_img = train_img[:-10000]
+    train_label = train_label[:-10000]
 
     train = torch.utils.data.TensorDataset(train_img, train_label)
     val = torch.utils.data.TensorDataset(val_img, val_label)
