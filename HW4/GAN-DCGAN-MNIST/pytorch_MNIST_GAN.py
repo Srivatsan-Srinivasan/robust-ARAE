@@ -217,16 +217,14 @@ def train_GAN(expt_name = 'GAN1'):
             x_, y_real_, y_fake_ = Variable(x_.cuda()), Variable(y_real_.cuda()), Variable(y_fake_.cuda())
             D_result = D(x_)
             D_real_loss = BCE_loss(D_result, y_real_)
-            D_real_score = D_result
-
+            
             z_ = torch.randn((mini_batch, 100))
             z_ = Variable(z_.cuda())
             G_result = G(z_)
 
             D_result = D(G_result)
             D_fake_loss = BCE_loss(D_result, y_fake_)
-            D_fake_score = D_result
-
+            
             D_train_loss = D_real_loss + D_fake_loss
 
             D_train_loss.backward()
