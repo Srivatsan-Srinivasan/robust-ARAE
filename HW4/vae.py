@@ -16,17 +16,19 @@ sigmoid = Sigmoid()
 class VAE(nn.Module):
     """A simple VAE using BN"""
 
-    def __init__(self, latent_dim=2, hdim=400):
+    def __init__(self, params):
         super(VAE, self).__init__()
-        self.latent_dim = latent_dim
-        self.hdim = hdim
+        self.model_str = 'VAE'
+
+        self.latent_dim = latent_dim = params.get('latent_dim', 2)
+        self.hdim = hdim = params.get('hdim', 400)
 
         # encoder
         self.fc1 = fc(784, hdim)
         self.bn_1 = BN(hdim, momentum=.9)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
         self.bn_mu = BN(latent_dim, momentum=.9)
-        self.fc_logvar = fc(hdim, latent_dim)  # output the variance of z
+        self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
         self.bn_logvar = BN(latent_dim, momentum=.9)
 
         # decoder
@@ -56,7 +58,7 @@ class VAE(nn.Module):
         x_dec = h2.resize(batch_size, 1, 28, 28)
         return x_dec
 
-    def forward(self, x):
+    def forward(self, x, **kwargs):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar

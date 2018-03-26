@@ -39,14 +39,20 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding):
+# @todo: implement
+def get_criterion(model_str, cuda):
+    """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
+    pass
+
+
+def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
-    model = eval(model_str)(model_params, source_embedding, target_embedding)
+    model = eval(model_str)(model_params)
     model.train()  # important!
 
     optimizer = init_optimizer(opt_params, model)
-    criterion = TemporalCrossEntropyLoss(size_average=False, ignore_index=PAD_TOKEN)
+    criterion = get_criterion(model_str, cuda)
 
     if opt_params['lr_scheduler'] is not None:
         if opt_params['lr_scheduler'] == 'plateau':
@@ -64,11 +70,22 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda, sourc
     return model, criterion, optimizer, scheduler
 
 
+# @todo: implement
+def get_kwargs(model_str, img, label):
+    """
+    VAE/CVAE/GAN/CGAN/... take different inputs for their forward method.
+    As a workaround (to have a unique train function), just add `**kwargs` to each `.forward()` signature, and
+    use this kwargs functions
+    :returns: a dict with keys the arguments of the forward function of `model_str`
+    """
+
+    pass
+
+
+# @todo: maybe differentiate GANs from VAEs ?
 def train(model_str,
           train_iter,
           val_iter=None,
-          source_embedding=None,
-          target_embedding=None,
           early_stopping=False,
           save=False,
           save_path=None,
@@ -77,7 +94,7 @@ def train(model_str,
           train_params={},
           cuda=CUDA_DEFAULT):
     # Initialize model and other variables
-    model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, model_params, opt_params, cuda, source_embedding, target_embedding)
+    model, criterion, optimizer, scheduler = _train_initialize_variables(model_str, model_params, opt_params, cuda)
 
     val_loss = 1e6
     best_val_loss = 1e6
@@ -93,37 +110,31 @@ def train(model_str,
 
         # Actual training loop.
         for batch in train_iter:
+            img, label = batch
+            batch_size = img.size(0)
 
             # Get data
-            source = batch.src.transpose(0, 1)  # batch first
-            target = batch.trg.transpose(0, 1)
             if cuda:
-                source = source.cuda()
-                target = target.cuda()
-
-            # Initialize hidden layer and memory
-            if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the init of the dec needs the last h of the enc
-                model.hidden_enc = model.init_hidden('enc', source.size(0))
-                model.hidden_dec = model.init_hidden('dec', source.size(0))
+                img = img.cuda()
+                label = label.cuda()
 
             # zero gradients
             optimizer.zero_grad()
             model.zero_grad()
 
-            # predict
-            output = model(source, target)
+            kwargs = get_kwargs(model_str, img, label)
 
-            # Dimension matching to cut it right for loss function.
-            batch_size, sent_length = target.size(0), target.size(1)-1
-            loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # remove the first element of target (it is the SOS token)
+            # predict
+            output = model(**kwargs)  # it is a tuple for VAE
+
+            loss = criterion(output)
 
             # Compute gradients, clip, and backprop
             loss.backward()
-            clip_grad_norm(model.parameters(), model_params.get("clip_gradients", 5.))
             optimizer.step()
 
             # monitoring
-            count += t.sum((target.data[:, 1:] != PAD_TOKEN).long())  # in that case there are batch_size x bbp_length classifications per batch, minus the pad tokens
+            count += batch_size
             total_loss += t.sum(loss.data)  # .data so that you dont keep references
 
         # monitoring
@@ -160,36 +171,27 @@ def predict(model, test_iter, cuda=True):
     # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = TemporalCrossEntropyLoss(size_average=False, ignore_index=PAD_TOKEN)
-    if cuda:
-        criterion = criterion.cuda()
-
-    # Initialize hidden layer and memory
-    if model.model_str == "LSTM":
-        model.hidden_enc = model.init_hidden('enc')
-        model.hidden_dec = model.init_hidden('dec')
+    criterion = get_criterion(model.model_str, cuda)
 
     # Actual training loop.
     for batch in test_iter:
         # Get data
-        source = batch.src.transpose(0, 1)  # batch first
-        target = batch.trg.transpose(0, 1)
-        if model.model_str == 'LSTM':  # for LSTMA it is done in the forward because the decoder needs the hidden of the encoder
-            model.hidden_enc = model.init_hidden('enc', source.size(0))
-            model.hidden_dec = model.init_hidden('dec', source.size(0))
+        img, label = batch
+        batch_size = img.size(0)
+
         if cuda:
-            source = source.cuda()
-            target = target.cuda()
+            img = img.cuda()
+            label = label.cuda()
 
         # predict
-        output = model.forward(source, target)
+        kwargs = get_kwargs(model.model_str, img, label)
+        output = model.forward(**kwargs)
 
         # Dimension matching to cut it right for loss function.
-        batch_size, sent_length = target.size(0), target.size(1)-1
-        loss = criterion(output.view(batch_size, -1, sent_length), target[:, 1:])  # @todo: do not take into account all what is after the EOS. It artificially boosts performance
+        loss = criterion(output)
 
         # monitoring
-        count += t.sum((target.data[:, 1:] != PAD_TOKEN).long())  # in that case there are batch_size x sent_length classifications per batch, minus the #PAD_TOKENS
+        count += batch_size
         total_loss += t.sum(loss.data)  # cut graph with .data
 
     # monitoring
@@ -199,6 +201,7 @@ def predict(model, test_iter, cuda=True):
 
 
 # @todo: use these two functions in the train function. They should probably be modified before
+# HUM Maybe they are useless ?
 def _train_cvae(model, optimizer, batch_size, train_dataset, train_labels, test_dataset, test_labels, EPOCHS):
     train_losses = []
     test_losses = []

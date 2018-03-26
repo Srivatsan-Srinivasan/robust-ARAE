@@ -20,17 +20,19 @@ class CVAE(nn.Module):
     Simple CVAE
     """
 
-    def __init__(self, latent_dim=2, hdim=400):
+    def __init__(self, params):
         super(CVAE, self).__init__()
-        self.latent_dim = latent_dim
-        self.hdim = hdim
+        self.model_str = 'CVAE'
+
+        self.latent_dim = latent_dim = params.get('latent_dim', 2)
+        self.hdim = hdim = params.get('hdim', 100)
 
         # encoder
         self.fc1 = fc(784 + 10, hdim)
         self.bn_1 = BN(hdim, momentum=.9)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
         self.bn_mu = BN(latent_dim, momentum=.9)
-        self.fc_logvar = fc(hdim, latent_dim)  # output the variance of z
+        self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
         self.bn_logvar = BN(latent_dim, momentum=.9)
 
         # decoder
@@ -60,7 +62,7 @@ class CVAE(nn.Module):
         x_dec = h2.resize(batch_size, 1, 28, 28)
         return x_dec
 
-    def forward(self, x, y):
+    def forward(self, x, y, **kwargs):
         mu, logvar = self.encode(x, y)
         z = self.reparameterize(mu, logvar)
         return self.decode(z, y), mu, logvar
