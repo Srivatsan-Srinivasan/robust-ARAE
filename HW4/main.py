@@ -30,6 +30,10 @@ parser.add_argument('--n_layers', default=1, type=int)  # @todo: make it do some
 parser.add_argument('--hidden_dim', default=300, type=int)
 parser.add_argument('--latent_dim', default=2, type=int)
 parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)
+parser.add_argument('--n_filters', default=20, type=int)
+parser.add_argument('--padding', default=1, type=int)
+parser.add_argument('--kernel_size', default=3, type=int)
+
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)

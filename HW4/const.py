@@ -8,7 +8,10 @@ model_params_args_map = {'num_layers': 'n_layers',
                          'latent_dim': 'embedding_dim',
                          'batch_size': 'batch_size',
                          'cuda': 'cuda',
-                         'batchnorm': 'batchnorm'
+                         'batchnorm': 'batchnorm',
+                         'n_filters': 'n_filters',
+                         'padding': 'padding',
+                         'kernel_size': 'kernel_size'
                          }
 
 opt_params_args_map = {'optimizer': 'optimizer',
