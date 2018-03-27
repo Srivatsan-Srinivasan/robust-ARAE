@@ -120,6 +120,8 @@ def show_interpolated_result(num_epoch, G, show = False, save = False, path = 'r
     z_ = z1
     for alpha in alphas:
         z_ = torch.cat((z_, (1-alpha)*z1 + alpha*z2))
+        
+    z_ = z_.view(-1, 100, 1, 1)
     
     z_ = Variable(z_).cuda()
 
@@ -139,7 +141,8 @@ def show_interpolated_result(num_epoch, G, show = False, save = False, path = 'r
         i = k // 6  #6 examples        
         j = k % 6   #6 interpolated values
         ax[i, j].cla()
-        ax[i, j].imshow(test_images[k, :].cpu().data.view(28, 28).numpy(), cmap='gray')
+        ax[i, j].imshow(test_images[k, 0].cpu().data.numpy(), cmap='gray')
+        #ax[i, j].imshow(test_images[k, :].cpu().data.view(28, 28).numpy(), cmap='gray')
 
     label = 'Epoch {0}'.format(num_epoch)
     fig.text(0.5, 0.04, label, ha='center')
