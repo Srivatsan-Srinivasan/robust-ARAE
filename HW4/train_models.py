@@ -1,28 +1,18 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 16:12:30 2018
-
-@author: SrivatsanPC
-"""
-from vae import VAE, test_one_epoch as test_one_epoch_vae, train_one_epoch as train_one_epoch_vae
-from cvae import CVAE, test_one_epoch as test_one_epoch_cvae, train_one_epoch as train_one_epoch_cvae
+from vae import VAE
+from cvae import CVAE
 from gan import GAN
 from const import *
-import torch.nn as nn, torch as t
 import torch.nn.functional as F
 import torch.optim as optim
-from torch.nn.utils import clip_grad_norm
-from collections import namedtuple
-from utils import *
+from utils import variable, one_hot, ReduceLROnPlateau, LambdaLR, save_model
 from torch.autograd import Variable
 import json
+import numpy as np
 import os
+import torch as t
 from matplotlib import pyplot as plt
 os.chdir('../HW4')
 from IPython import display
-
-
-# @todo: modify all these functions
 
 
 def init_optimizer(opt_params, model):
@@ -39,10 +29,10 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-# @todo: implement
-def get_criterion(model_str, cuda):
+def get_criterion(model_str):
     """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
-    pass
+    if model_str == 'VAE' or model_str == 'CVAE':
+        return lambda input, output: F.binary_cross_entropy(output[0], input) - 0.5*t.sum(1 + input[2] - input[1].pow(2) - t.exp(input[2]))/(784*input.size(0))
 
 
 def _train_initialize_variables(model_str, model_params, opt_params, cuda):
@@ -52,7 +42,7 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     model.train()  # important!
 
     optimizer = init_optimizer(opt_params, model)
-    criterion = get_criterion(model_str, cuda)
+    criterion = get_criterion(model_str)
 
     if opt_params['lr_scheduler'] is not None:
         if opt_params['lr_scheduler'] == 'plateau':
@@ -70,19 +60,19 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     return model, criterion, optimizer, scheduler
 
 
-# @todo: implement
-def get_kwargs(model_str, img, label):
+def _get_kwargs(model_str, img, label):
     """
-    VAE/CVAE/GAN/CGAN/... take different inputs for their forward method.
+    VAE/CVAE take different inputs for their forward method.
     As a workaround (to have a unique train function), just add `**kwargs` to each `.forward()` signature, and
     use this kwargs functions
     :returns: a dict with keys the arguments of the forward function of `model_str`
     """
+    if model_str == 'CVAE':
+        return {'x': img, 'y': label}
+    if model_str == 'VAE':
+        return {'x': img}
 
-    pass
 
-
-# @todo: maybe differentiate GANs from VAEs ?
 def train(model_str,
           train_iter,
           val_iter=None,
@@ -111,6 +101,9 @@ def train(model_str,
         # Actual training loop.
         for batch in train_iter:
             img, label = batch
+            label = one_hot(label)
+            img = img.view(img.size(0), -1)
+            img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
             batch_size = img.size(0)
 
             # Get data
@@ -122,12 +115,11 @@ def train(model_str,
             optimizer.zero_grad()
             model.zero_grad()
 
-            kwargs = get_kwargs(model_str, img, label)
+            kwargs = _get_kwargs(model_str, img, label)
 
             # predict
-            output = model(**kwargs)  # it is a tuple for VAE
-
-            loss = criterion(output)
+            output = model(**kwargs)
+            loss = criterion(img, output)
 
             # Compute gradients, clip, and backprop
             loss.backward()
@@ -167,16 +159,19 @@ def train(model_str,
     return model
 
 
-def predict(model, test_iter, cuda=True):
+# @todo: generate pictures after each epoch
+def predict(model, test_iter, cuda=CUDA_DEFAULT):
     # Monitoring loss
     total_loss = 0
     count = 0
-    criterion = get_criterion(model.model_str, cuda)
+    criterion = get_criterion(model.model_str)
 
-    # Actual training loop.
     for batch in test_iter:
         # Get data
         img, label = batch
+        label = one_hot(label)
+        img = img.view(img.size(0), -1)
+        img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
         batch_size = img.size(0)
 
         if cuda:
@@ -184,11 +179,9 @@ def predict(model, test_iter, cuda=True):
             label = label.cuda()
 
         # predict
-        kwargs = get_kwargs(model.model_str, img, label)
+        kwargs = _get_kwargs(model.model_str, img, label)
         output = model.forward(**kwargs)
-
-        # Dimension matching to cut it right for loss function.
-        loss = criterion(output)
+        loss = criterion(img, output)
 
         # monitoring
         count += batch_size
@@ -198,72 +191,3 @@ def predict(model, test_iter, cuda=True):
     avg_loss = total_loss / count
     print("Validation loss is %.4f" % avg_loss)
     return avg_loss
-
-
-# @todo: use these two functions in the train function. They should probably be modified before
-# HUM Maybe they are useless ?
-def _train_cvae(model, optimizer, batch_size, train_dataset, train_labels, test_dataset, test_labels, EPOCHS):
-    train_losses = []
-    test_losses = []
-
-    for epoch in range(1, EPOCHS + 1):
-        train_losses.append(train_one_epoch_cvae(model, train_dataset, train_labels, epoch, batch_size, optimizer))
-        test_losses.append(test_one_epoch_cvae(model, test_dataset, test_labels, epoch, batch_size))
-
-        # generate new samples
-        figure = np.zeros((28 * 3, 28 * 3))
-        sample = variable(t.randn(9, model.latent_dim))
-        digits = variable(one_hot(np.arange(1, 10, 1)))
-        model.eval()
-        sample = model.decode(sample, digits).cpu()
-        model.train()
-        for k, s in enumerate(sample):
-            i = k // 3
-            j = k % 3
-            digit = s.data.numpy().reshape(28, 28)
-            figure[i * 28: (i + 1) * 28, j * 28: (j + 1) * 28] = digit
-
-        print('epoch', epoch)
-        print('losses')
-        plt.plot(train_losses, label='train')
-        plt.plot(test_losses, label='test')
-        plt.legend()
-        plt.show()
-        print('generated samples')
-        plt.figure(figsize=(10, 10))
-        plt.imshow(figure, cmap='Greys_r')
-        plt.show()
-        display.clear_output(wait=True)
-
-
-def _train_vae(model, optimizer, batch_size, train_dataset, test_dataset, EPOCHS):
-    train_losses = []
-    test_losses = []
-
-    for epoch in range(1, EPOCHS + 1):
-        train_losses.append(train_one_epoch_vae(model, train_dataset, epoch, batch_size, optimizer))
-        test_losses.append(test_one_epoch_vae(model, test_dataset, epoch, batch_size))
-
-        # generate new samples
-        figure = np.zeros((28 * 5, 28 * 5))
-        sample = Variable(t.randn(25, model.latent_dim))
-        model.eval()
-        sample = model.decode(sample).cpu()
-        model.train()
-        for k, s in enumerate(sample):
-            i = k // 5
-            j = k % 5
-            digit = s.data.numpy().reshape(28, 28)
-            figure[i * 28: (i + 1) * 28, j * 28: (j + 1) * 28] = digit
-
-        print('epoch', epoch)
-        print('losses')
-        plt.plot(train_losses, label='train')
-        plt.plot(test_losses, label='test')
-        plt.legend()
-        plt.show()
-        print('generated samples')
-        plt.figure(figsize=(10, 10))
-        plt.imshow(figure, cmap='Greys_r')
-        plt.show()
-        display.clear_output(wait=True)

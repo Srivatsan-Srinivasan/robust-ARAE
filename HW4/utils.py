@@ -7,6 +7,19 @@ os.chdir('../HW4')  # so that there is not an import bug if the working director
 from const import *
 
 
+def one_hot_np(y):
+    yy = np.zeros((y.shape[0], 10))
+    yy[np.arange(y.shape[0]), y] = 1
+    return yy
+
+
+def one_hot(y):
+    y_onehot = t.FloatTensor(y.size(0), 10)
+    y_onehot.zero_()
+    y_onehot.scatter_(1, y.view(y.size(0), 1), 1)
+    return y_onehot
+
+
 def get_bleu_score(list_gold_responses, prediction):
     # note list gold responses should be list even if only one gold response
     # note prediction is a string
@@ -62,12 +75,6 @@ def pickle_entry(entry, name):
 
 def load_pickle_entry(file_name):
     return pickle.load(open(file_name, "rb"))
-
-
-def one_hot(y):
-    yy = np.zeros((y.shape[0], 10))
-    yy[np.arange(y.shape[0]), y] = 1
-    return yy
 
 
 def flatten(x):

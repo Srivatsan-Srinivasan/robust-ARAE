@@ -951,9 +951,9 @@ class LSTMFP(t.nn.Module):
 
     def __init__(self, params, source_embeddings=None, target_embeddings=None):
         super(LSTMFP, self).__init__()
-        print("Initializing LSTMF")
+        print("Initializing LSTMFP")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
-        self.model_str = 'LSTMF'
+        self.model_str = 'LSTMFP'
         self.params = params
 
         # Initialize hyperparams.
@@ -1286,7 +1286,6 @@ class LSTMFP(t.nn.Module):
             time += 1
             print(time)
         return self.beam
-
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):

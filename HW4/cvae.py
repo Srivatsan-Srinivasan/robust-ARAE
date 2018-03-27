@@ -1,15 +1,13 @@
 from torch.nn import Linear as fc, ReLU, Sigmoid, Dropout, BatchNorm1d as BN
 from torch import nn
-from utils import flatten, variable
+from utils import variable
 import torch as t
 import numpy as np
 import torch.nn.functional as F
 from sklearn.utils import shuffle
-from utils import one_hot
+from utils import one_hot_np
 from matplotlib import pyplot as plt
 
-
-# @todo: test that the main.py file works with this one
 
 relu = ReLU()
 sigmoid = Sigmoid()
@@ -26,25 +24,41 @@ class CVAE(nn.Module):
 
         self.latent_dim = latent_dim = params.get('latent_dim', 2)
         self.hdim = hdim = params.get('hdim', 100)
+        self.batchnorm = params.get('batchnorm', True)
 
         # encoder
         self.fc1 = fc(784 + 10, hdim)
-        self.bn_1 = BN(hdim, momentum=.9)
+        if self.batchnorm:
+            self.bn_1 = BN(hdim, momentum=.9)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
-        self.bn_mu = BN(latent_dim, momentum=.9)
+        if self.batchnorm:
+            self.bn_mu = BN(latent_dim, momentum=.9)
         self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
-        self.bn_logvar = BN(latent_dim, momentum=.9)
+        if self.batchnorm:
+            self.bn_logvar = BN(latent_dim, momentum=.9)
 
         # decoder
         self.fc2 = fc(latent_dim + 10, hdim)
-        self.bn_2 = BN(hdim, momentum=.9)
+        if self.batchnorm:
+            self.bn_2 = BN(hdim, momentum=.9)
         self.fc3 = fc(hdim, 784)
-        self.bn_3 = BN(784, momentum=.9)
+        if self.batchnorm:
+            self.bn_3 = BN(784, momentum=.9)
 
-    def encode(self, x, y):
-        h1 = relu(self.bn_1(self.fc1(t.cat([flatten(x), y], -1))))
-        mu = self.bn_mu(self.fc_mu(h1))
-        logvar = self.bn_logvar(self.fc_logvar(h1))
+    def encode(self, x, y, **kwargs):
+        h1 = self.fc1(t.cat([x, y], -1))
+        if self.batchnorm:
+            h1 = relu(self.bn_1(h1))
+        else:
+            h1 = relu(h1)
+
+        mu = self.fc_mu(h1)
+        if self.batchnorm:
+            mu = self.bn_mu(mu)
+
+        logvar = self.fc_logvar(h1)
+        if self.batchnorm:
+            logvar = self.bn_logvar(logvar)
         return mu, logvar
 
     def reparameterize(self, mu, logvar):
@@ -55,17 +69,23 @@ class CVAE(nn.Module):
         else:
             return mu
 
-    def decode(self, z, y):
-        h1 = relu(self.bn_2(self.fc2(t.cat([z, y], -1))))
-        h2 = sigmoid(self.bn_3(self.fc3(h1)))
-        batch_size = h2.size(0)
-        x_dec = h2.resize(batch_size, 1, 28, 28)
-        return x_dec
+    def decode(self, z, y, **kwargs):
+        h1 = self.fc2(t.cat([z, y], -1))
+        if self.batchnorm:
+            h1 = relu(self.bn_2(h1))
+        else:
+            h1 = relu(h1)
+
+        result = self.fc3(h1)
+        if self.batchnorm:
+            return sigmoid(self.bn_3(result))
+        else:
+            return sigmoid(result)
 
     def forward(self, x, y, **kwargs):
-        mu, logvar = self.encode(x, y)
+        mu, logvar = self.encode(x, y, **kwargs)
         z = self.reparameterize(mu, logvar)
-        return self.decode(z, y), mu, logvar
+        return self.decode(z, y, **kwargs), mu, logvar
 
 
 def loss_function(x_dec, x, mu, logvar):
@@ -77,88 +97,12 @@ def loss_function(x_dec, x, mu, logvar):
     return xent, kl_div
 
 
-def train_one_epoch(model, train_dataset, train_labels, epoch, batch_size, optimizer, log=100):
-    """
-    One pass over the training dataset
-    :param model: a CVAE
-    :param train_dataset:
-    :param train_labels:
-    :param epoch: so that you can print the right epoch in the logging
-    :param batch_size:
-    :param optimizer:
-    :param log: logging frequency
-    :return: the training loss
-    """
-    model.train()
-    train_loss = 0
-    train_dataset_, train_labels_ = shuffle(train_dataset, train_labels)
-    for i in range(0, len(train_dataset), batch_size):
-        batch_idx = i // batch_size
-
-        # sample data
-        x = variable(t.cat(train_dataset_[i:i + batch_size], 0))
-        y = variable(one_hot(t.cat(train_labels_[i:i + batch_size]).numpy()))
-        if len(x) != batch_size:
-            continue
-
-        # init grads
-        optimizer.zero_grad()
-
-        x_dec, mu, logvar = model(x, y)
-        xent, kl = loss_function(x_dec, x, mu, logvar)
-        loss = xent + kl
-
-        # compute grads
-        loss.backward()
-        train_loss += loss.data[0]
-
-        # update weights
-        optimizer.step()
-
-    print('====> Epoch: {} Average loss: {:.4f}'.format(
-        epoch, train_loss * batch_size / len(train_dataset)))
-    return train_loss * batch_size / len(train_dataset_)
-
-
-def test_one_epoch(model, test_dataset, test_labels, epoch, batch_size):
-    """
-    One pass over the test dataset
-    :param model:
-    :param test_dataset:
-    :param test_labels:
-    :param epoch:
-    :param batch_size:
-    :return:
-    """
-    # @todo: modify this function so that it saves the
-    model.eval()
-    test_loss = 0
-    test_dataset_, test_labels_ = shuffle(test_dataset, test_labels)
-    for i in range(0, len(test_dataset), batch_size):
-        batch_idx = i // batch_size
-
-        # sample data
-        x = variable(t.cat(test_dataset_[i:i + batch_size], 0))
-        y = variable(one_hot(t.cat(test_labels_[i:i + batch_size]).numpy()))
-        if len(x) != batch_size:
-            continue
-
-        x_dec, mu, logvar = model(x, y)
-        xent, kl = loss_function(x_dec, x, mu, logvar)
-        test_loss += (xent + kl).data.numpy()[0]
-
-    test_loss /= (len(test_dataset) / batch_size)
-    print('====> Test set loss: {:.4f}'.format(test_loss))
-
-    return test_loss
-
-
 def generate_digit(model, n, digit):
     # @todo: modify the function so that it can save the generated images
     # generate new samples
     figure = np.zeros((28 * n, 28 * n))
     sample = variable(t.randn(n*n, model.latent_dim))
-    digits = variable(one_hot(np.array(n*n*[digit])))
+    digits = variable(one_hot_np(np.array(n*n*[digit])))
     model.eval()
     sample = model.decode(sample, digits).cpu()
     model.train()
