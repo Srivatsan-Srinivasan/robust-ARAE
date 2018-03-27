@@ -189,7 +189,7 @@ def make_results_dir():
     if not os.path.isdir('MNIST_DCGAN_results/Interpolated_results'):
         os.mkdir('MNIST_DCGAN_results/Interpolated_results')
         
-def train_DCGAN(expt_name = 'DCGAN1'):
+def train_DCGAN(expt_name='DCGAN1'):
     # training parameters
     batch_size = 128
     lr = 0.0002
