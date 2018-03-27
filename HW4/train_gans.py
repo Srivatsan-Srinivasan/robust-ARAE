@@ -9,7 +9,6 @@ import os
 import torch as t
 from matplotlib import pyplot as plt
 os.chdir('../HW4')
-from IPython import display
 
 
 def init_optimizer(opt_params, model):
@@ -25,18 +24,6 @@ def init_optimizer(opt_params, model):
     if optimizer == 'RMSProp':
         optimizer = optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     return optimizer
-
-
-# @todo: do you need this ?
-def get_criterions(model_str):
-    """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
-    if model_str == 'WGAN':
-        # `true` is the output of the disc for true images,
-        # `synthetic` is the output of the disc passed with the outputs of the generator
-        # Weights of the generator should be frozen (just call .detach() before passing it as input of the disc)
-        # In practice we minimize this, which is the same as maximizing the opposite (which we want to do)
-        loss_d = lambda true, synthetic: -true + synthetic
-        loss_g = lambda: None
 
 
 def _train_initialize_variables(model_str, model_params, opt_params, cuda):

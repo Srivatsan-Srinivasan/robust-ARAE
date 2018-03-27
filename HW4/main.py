@@ -2,15 +2,14 @@ import argparse
 import torch as t
 from process_params import check_args, get_params
 from const import *
-from train_vaes import train, predict
+from train_gans import train as train_gan
+from train_vaes import train as train_vae
 from data_process import generate_iterators
 import ast
-
 
 t.manual_seed(1)
 # Create Parser.
 parser = argparse.ArgumentParser(description="For CS287 HW4")
-
 
 # Add arguments to be parsed.
 # GENERAL PARAMS
@@ -33,7 +32,6 @@ parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)
 parser.add_argument('--n_filters', default=20, type=int)
 parser.add_argument('--padding', default=1, type=int)
 parser.add_argument('--kernel_size', default=3, type=int)
-
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
@@ -58,16 +56,26 @@ if False:
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(args.model,
-                      train_iter,
-                      val_iter=val_iter,
-                      cuda=args.cuda,
-                      save=args.save,
-                      save_path=args.output_filename,
-                      model_params=model_params,
-                      early_stopping=args.early_stopping,
-                      train_params=train_params,
-                      opt_params=opt_params)
+if 'VAE' in args.model:
+    trained_model = train_vae(args.model,
+                              train_iter,
+                              val_iter=val_iter,
+                              cuda=args.cuda,
+                              save=args.save,
+                              save_path=args.output_filename,
+                              model_params=model_params,
+                              early_stopping=args.early_stopping,
+                              train_params=train_params,
+                              opt_params=opt_params)
+else:
+    trained_model = train_gan(args.model,
+                              train_iter,
+                              cuda=args.cuda,
+                              save=args.save,
+                              save_path=args.output_filename,
+                              model_params=model_params,
+                              train_params=train_params,
+                              opt_params=opt_params)
 
 # Dummy code.
 print("The model is ", args.model)
