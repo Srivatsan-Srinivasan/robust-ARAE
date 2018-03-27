@@ -1,11 +1,9 @@
 from vae import VAE
 from cvae import CVAE
-from gan import GAN
 from const import *
 import torch.nn.functional as F
 import torch.optim as optim
 from utils import variable, one_hot, ReduceLROnPlateau, LambdaLR, save_model
-from torch.autograd import Variable
 import json
 import numpy as np
 import os
@@ -25,7 +23,8 @@ def init_optimizer(opt_params, model):
         optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     if optimizer == 'Adamax':
         optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
-
+    if optimizer == 'RMSProp':
+        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     return optimizer
 
 

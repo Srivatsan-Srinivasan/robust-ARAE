@@ -3,7 +3,7 @@ import torchvision.datasets as datasets
 import torchvision.transforms as transforms
 
 
-def generate_iterators(BATCH_SIZE=100, shuffle=True):
+def generate_iterators(BATCH_SIZE=100, shuffle=True, continuous=False):
     try:
         train_dataset = datasets.MNIST(root='./data/',
                                        train=True,
@@ -18,9 +18,13 @@ def generate_iterators(BATCH_SIZE=100, shuffle=True):
                                   train=False,
                                   transform=transforms.ToTensor())
 
-    train_img = torch.stack([torch.bernoulli(d[0]) for d in train_dataset])
+    if not continuous:
+        train_img = torch.stack([torch.bernoulli(d[0]) for d in train_dataset])
+        test_img = torch.stack([torch.bernoulli(d[0]) for d in test_dataset])
+    else:
+        train_img = torch.stack([d[0] for d in train_dataset])
+        test_img = torch.stack([d[0] for d in test_dataset])
     train_label = torch.LongTensor([d[1] for d in train_dataset])
-    test_img = torch.stack([torch.bernoulli(d[0]) for d in test_dataset])
     test_label = torch.LongTensor([d[1] for d in test_dataset])
 
     val_img = train_img[-10000:].clone()

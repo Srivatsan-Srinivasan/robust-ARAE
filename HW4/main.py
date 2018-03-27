@@ -2,7 +2,7 @@ import argparse
 import torch as t
 from process_params import check_args, get_params
 from const import *
-from train_models import train, predict
+from train_vaes import train, predict
 from data_process import generate_iterators
 import ast
 
@@ -50,8 +50,8 @@ args = parser.parse_args()
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-
-train_iter, val_iter, test_iter = generate_iterators(BATCH_SIZE=args.batch_size, shuffle=args.shuffle)
+continuous = 'GAN' in args.model
+train_iter, val_iter, test_iter = generate_iterators(BATCH_SIZE=args.batch_size, shuffle=args.shuffle, continuous=continuous)
 
 if False:
     t.backends.cudnn.enabled = True  # False necessary for memory overflows ? It seems not
