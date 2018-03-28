@@ -80,5 +80,5 @@ class ConVAE(nn.Module):
 
     def forward(self, x, cuda=CUDA_DEFAULT, **kwargs):
         mu, logvar = self.encode(x)
-        z = self.reparameterize(mu, logvar, cuda=cuda)
+        z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
