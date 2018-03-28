@@ -3,10 +3,6 @@ from torch import nn
 from utils import variable
 import torch as t
 import numpy as np
-import torch.nn.functional as F
-from sklearn.utils import shuffle
-from torchvision.utils import save_image
-from matplotlib import pyplot as plt
 from pixelcnn import PixelCNN
 
 
@@ -40,6 +36,7 @@ class PixelVAE(nn.Module):
         self.pixelcnn = PixelCNN(params)
 
     def encode(self, x, **kwargs):
+        x = x.view(x.size(0), -1)
         h1 = self.fc1(x)
         if self.batchnorm:
             h1 = relu(self.bn_1(h1))
@@ -65,6 +62,7 @@ class PixelVAE(nn.Module):
             return mu
 
     def decode(self, x, z, **kwargs):
+        x = x.view(x.size(0), 1, 28, 28)
         return self.pixelcnn.forward(x, z, **kwargs)
 
     def forward(self, x, **kwargs):
@@ -79,5 +77,5 @@ class PixelVAE(nn.Module):
         for i in range(28):
             for j in range(28):
                 xx = self.pixelcnn.forward(x, z, **kwargs)
-                generated_pic[:, i, j] = xx[:, i, j]  # take only the ij-th pixel
+                generated_pic[:, 0, i, j] = xx[:, 0, i, j]  # take only the ij-th pixel
         return generated_pic

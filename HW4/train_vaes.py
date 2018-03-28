@@ -31,8 +31,10 @@ def init_optimizer(opt_params, model):
 
 def get_criterion(model_str):
     """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
-    if model_str == 'VAE' or model_str == 'CVAE':
+    if model_str == 'VAE' or model_str == 'CVAE' or model_str == 'PixelVAE':
         return lambda input, output: F.binary_cross_entropy(output[0], input) - 0.5*t.sum(1 + input[2] - input[1].pow(2) - t.exp(input[2]))/(784*input.size(0))
+    else:
+        raise ValueError('This name is unknown: %s' % model_str)
 
 
 def _train_initialize_variables(model_str, model_params, opt_params, cuda):
@@ -102,13 +104,12 @@ def train(model_str,
 
         # Actual training loop.
         for batch in train_iter:
+            # Get data
             img, label = batch
             label = one_hot(label)
             img = img.view(img.size(0), -1)
             img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
             batch_size = img.size(0)
-
-            # Get data
             if cuda:
                 img = img.cuda()
                 label = label.cuda()
@@ -133,6 +134,13 @@ def train(model_str,
 
         # monitoring
         avg_loss = total_loss / count
+
+        model.eval()
+        z = variable(np.random.normal(size=(9, model.latent_dim)), cuda=cuda)
+        generated_images = model.decode(z).data.numpy().reshape((9, 28, 28))
+        np.save('%s/generated_images_%d_steps' % (save_path, epoch), generated_images)
+        model.train()
+
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss))
         if val_iter is not None:
             model.eval()

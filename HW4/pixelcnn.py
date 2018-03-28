@@ -4,7 +4,10 @@ import torch.nn.functional as F
 
 
 class MaskedConv2d(t.nn.Conv2d):
-    """This is taken from https://github.com/jzbontar/pixelcnn-pytorch/blob/master/main.py"""
+    """
+    Masked convolutions that allow to build an autoregressive CNN
+    This is taken from https://github.com/jzbontar/pixelcnn-pytorch/blob/master/main.py
+    """
     def __init__(self, mask_type, *args, **kwargs):
         super(MaskedConv2d, self).__init__(*args, **kwargs)
         assert mask_type in {'A', 'B'}
@@ -65,7 +68,7 @@ class PixelCNN(t.nn.Module):
 
     def forward(self, x, z, **kwargs):
         h_conv = x
-        for k in range(1, self.n_layers+1):
+        for k in range(1, self.n_layers):
             conv_a = getattr(self, 'conv%da'%k)
             conv_b = getattr(self, 'conv%db'%k)
             fc_a = getattr(self, 'fc%da'%k)
@@ -76,10 +79,10 @@ class PixelCNN(t.nn.Module):
             h_latent_b = fc_b(z)
 
             if self.batchnorm:
-                bn_conv_a = getattr(self, 'bn_conv%da')
-                bn_conv_b = getattr(self, 'bn_conv%db')
-                bn_fc_a = getattr(self, 'bn_fc%da')
-                bn_fc_b = getattr(self, 'bn_fc%db')
+                bn_conv_a = getattr(self, 'bn_conv%da'%k)
+                bn_conv_b = getattr(self, 'bn_conv%db'%k)
+                bn_fc_a = getattr(self, 'bn_fc%da'%k)
+                bn_fc_b = getattr(self, 'bn_fc%db'%k)
                 h_conv_a = bn_conv_a(h_conv_a)
                 h_conv_b = bn_conv_b(h_conv_b)
                 h_latent_a = bn_fc_a(h_latent_a)
