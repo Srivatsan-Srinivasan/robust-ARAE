@@ -1,4 +1,4 @@
-models = ['GAN', 'VAE', 'CVAE', 'WGAN', 'DCGAN', 'WDCGAN']
+models = ['GAN', 'VAE', 'CVAE', 'WGAN', 'DCGAN', 'WDCGAN', 'ConVAE']
 optimizers = ['SGD', 'Adam', 'AdaMax']
 
 CUDA_DEFAULT = False

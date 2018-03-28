@@ -27,21 +27,21 @@ class VAE(nn.Module):
         # encoder
         self.fc1 = fc(784, hdim)
         if self.batchnorm:
-            self.bn_1 = BN(hdim, momentum=.9)
+            self.bn_1 = BN(hdim, momentum=.1)
         self.fc_mu = fc(hdim, latent_dim)  # output the mean of z
         if self.batchnorm:
-            self.bn_mu = BN(latent_dim, momentum=.9)
+            self.bn_mu = BN(latent_dim, momentum=.1)
         self.fc_logvar = fc(hdim, latent_dim)  # output the log of the variance of z
         if self.batchnorm:
-            self.bn_logvar = BN(latent_dim, momentum=.9)
+            self.bn_logvar = BN(latent_dim, momentum=.1)
 
         # decoder
         self.fc2 = fc(latent_dim, hdim)
         if self.batchnorm:
-            self.bn_2 = BN(hdim, momentum=.9)
+            self.bn_2 = BN(hdim, momentum=.1)
         self.fc3 = fc(hdim, 784)
         if self.batchnorm:
-            self.bn_3 = BN(784, momentum=.9)
+            self.bn_3 = BN(784, momentum=.1)
 
     def encode(self, x, **kwargs):
         h1 = self.fc1(x)

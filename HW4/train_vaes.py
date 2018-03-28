@@ -1,5 +1,6 @@
 from vae import VAE
 from cvae import CVAE
+from convae import ConVAE
 from pixelvae import PixelVAE
 from const import *
 import torch.nn.functional as F
@@ -25,14 +26,14 @@ def init_optimizer(opt_params, model):
     if optimizer == 'Adamax':
         optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     if optimizer == 'RMSProp':
-        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
+        optimizer = optim.RMSprop(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
     return optimizer
 
 
 def get_criterion(model_str):
     """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
-    if model_str == 'VAE' or model_str == 'CVAE' or model_str == 'PixelVAE':
-        return lambda input, output: F.binary_cross_entropy(output[0], input) - 0.5*t.sum(1 + input[2] - input[1].pow(2) - t.exp(input[2]))/(784*input.size(0))
+    if model_str == 'VAE' or model_str == 'CVAE' or model_str == 'PixelVAE' or model_str =='ConVAE':
+        return lambda target, output: F.binary_cross_entropy(output[0], target, size_average=False) - 0.5*t.sum(1 + output[2] - output[1].pow(2) - t.exp(output[2]))
     else:
         raise ValueError('This name is unknown: %s' % model_str)
 
@@ -71,10 +72,14 @@ def _get_kwargs(model_str, img, label):
     """
     if model_str == 'CVAE':
         return {'x': img, 'y': label}
-    if model_str == 'VAE':
+    elif model_str == 'VAE':
         return {'x': img}
-    if model_str == 'PixelVAE':
+    elif model_str == 'PixelVAE':
         return {'x': img}
+    elif model_str == 'ConVAE':
+        return {'x': img}
+    else:
+        raise ValueError('This name is unknown: %s' % model_str)
 
 
 def train(model_str,
@@ -137,11 +142,11 @@ def train(model_str,
         avg_loss = total_loss / count
 
         model.eval()
-        z = variable(np.random.normal(size=(9, model.latent_dim)), cuda=cuda)
+        z = variable(np.random.normal(size=(25, model.latent_dim)), cuda=cuda)
         if 'Pixel' in model_str:
-            generated_images = model.decode(variable(np.zeros((9, 1, 28, 28)), cuda=False), z).data.numpy().reshape((9, 28, 28))
+            generated_images = model.decode(variable(np.zeros((25, 1, 28, 28)), cuda=False), z).data.numpy().reshape((25, 28, 28))
         else:
-            generated_images = model.decode(z).data.numpy().reshape((9, 28, 28))
+            generated_images = model.decode(z).data.numpy().reshape((25, 28, 28))
         np.save('%s/generated_images_%d_steps' % (save_path, epoch), generated_images)
         model.train()
 
