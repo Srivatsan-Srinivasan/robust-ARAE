@@ -122,7 +122,8 @@ def train(model_str,
 
             # predict
             output = model(**kwargs)
-            loss = criterion(img, output) if 'Pixel' not in model_str else criterion(img.view(img.size(0), 28, 28), output)  # the PixelVAE outputs directly 28x28 pics
+            output = (output[0].view(batch_size, -1), output[1], output[2])
+            loss = criterion(img, output)
 
             # Compute gradients, clip, and backprop
             loss.backward()
