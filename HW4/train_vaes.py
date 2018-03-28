@@ -1,5 +1,6 @@
 from vae import VAE
 from cvae import CVAE
+from pixelvae import PixelVAE
 from const import *
 import torch.nn.functional as F
 import torch.optim as optim
@@ -70,6 +71,8 @@ def _get_kwargs(model_str, img, label):
         return {'x': img, 'y': label}
     if model_str == 'VAE':
         return {'x': img}
+    if model_str == 'PixelVAE':
+        return {'x': img}
 
 
 def train(model_str,
@@ -118,7 +121,7 @@ def train(model_str,
 
             # predict
             output = model(**kwargs)
-            loss = criterion(img, output)
+            loss = criterion(img, output) if 'Pixel' not in model_str else criterion(img.view(img.size(0), 28, 28), output)  # the PixelVAE outputs directly 28x28 pics
 
             # Compute gradients, clip, and backprop
             loss.backward()

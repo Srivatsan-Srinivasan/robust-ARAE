@@ -21,4 +21,5 @@ opt_params_args_map = {'optimizer': 'optimizer',
                        }
 
 train_params_args_map = {'n_ep': 'n_ep',
+                         'n_pretrain': 'n_pretrain'
                          }

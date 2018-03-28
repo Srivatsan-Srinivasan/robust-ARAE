@@ -32,6 +32,7 @@ parser.add_argument('--batchnorm', default=True, type=ast.literal_eval)
 parser.add_argument('--n_filters', default=20, type=int)
 parser.add_argument('--padding', default=1, type=int)
 parser.add_argument('--kernel_size', default=3, type=int)
+parser.add_argument('--batch_size', default=100, type=int)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
@@ -41,7 +42,7 @@ parser.add_argument('--l2_penalty', default=0, type=float)
 
 # TRAIN PARAMS
 parser.add_argument('--n_ep', default=30, type=int)
-parser.add_argument('--batch_size', default=100, type=int)
+parser.add_argument('--n_pretrain', default=3, type=int)
 
 # Actually Parse. After this , any argument could be accessed by args.<argument_name>.Also validate.
 args = parser.parse_args()
@@ -71,7 +72,6 @@ else:
     trained_model = train_gan(args.model,
                               train_iter,
                               cuda=args.cuda,
-                              save=args.save,
                               save_path=args.output_filename,
                               model_params=model_params,
                               train_params=train_params,

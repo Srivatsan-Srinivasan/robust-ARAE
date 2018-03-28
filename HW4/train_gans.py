@@ -80,9 +80,36 @@ def generate_fake_dataset(N):
     return variable(np.random.normal(size=(N, 784)))
 
 
-def pretrain_disc(D, train_iter, d_optimizer, epochs=10, cuda=CUDA_DEFAULT):
+def pretrain_disc(D, train_iter, epochs=10, cuda=CUDA_DEFAULT):
     """Pretrain the discriminator"""
+    d_optimizer = t.optim.Adam(filter(lambda p: p.requires_grad, D.parameters()), lr=5e-4, weight_decay=1e-2)
+
+    # Compute initial loss
+    total_loss = 0
+    count = 0
+    for batch in train_iter:
+        img, label = batch
+        label = one_hot(label)
+        img = img.view(img.size(0), -1)
+        img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
+        batch_size = img.size(0)
+
+        synthetic_data = generate_fake_dataset(batch_size)
+        x = t.cat([img, synthetic_data])
+        output = D(x).squeeze()
+
+        loss = t.sum(-output[:batch_size // 2]) + t.sum(output[batch_size // 2:])
+
+        count += batch_size
+        total_loss += t.sum(loss.data)  # .data so that you dont keep references
+
+    avg_loss = total_loss / count
+    print('After %d epochs, loss is %.4f' % (0, avg_loss))
+
+    # Train
     for _ in range(epochs):
+        total_loss = 0
+        count = 0
         for batch in train_iter:
             img, label = batch
             label = one_hot(label)
@@ -92,22 +119,50 @@ def pretrain_disc(D, train_iter, d_optimizer, epochs=10, cuda=CUDA_DEFAULT):
 
             synthetic_data = generate_fake_dataset(batch_size)
             x = t.cat([img, synthetic_data])
-            labels = np.zeros((2*batch_size, )).astype(int)
-            labels[:batch_size] = 1
-            labels = variable(labels, cuda=cuda, to_float=False)
-            output = D(x)
+            output = D(x).squeeze()
 
-            loss = F.binary_cross_entropy(output, labels)
+            loss = t.sum(-output[:batch_size//2]) + t.sum(output[batch_size//2:])
 
             loss.backward()
             d_optimizer.step()
 
             D.clip()
 
+            count += batch_size
+            total_loss += t.sum(loss.data)  # .data so that you dont keep references
+
+        avg_loss = total_loss / count
+        print('After %d epochs, loss is %.4f' % (_+1, avg_loss))
+
+    D.eval()
+    # Check if the discriminator is trained well enough
+    for batch in train_iter:
+        img, label = batch
+        label = one_hot(label)
+        img = img.view(img.size(0), -1)
+        img, label = variable(img, cuda=cuda), variable(label, to_float=False, cuda=cuda)
+        batch_size = img.size(0)
+
+        synthetic_data = generate_fake_dataset(batch_size)
+        x = t.cat([img, synthetic_data])
+        output = D(x).squeeze()
+        print('Scores (on one batch) for the real samples after %d epochs' % (_+1))
+        print(output[:batch_size // 2])
+        print('Scores (on one batch) for the synthetic samples after %d epochs' % (_+1))
+        print(output[batch_size // 2:])
+        print('Average score (on one batch) for the real samples after %d epochs' % (_+1))
+        print(t.mean(output[:batch_size//2]))
+        print('Average score (on one batch) for the synthetic samples after %d epochs' % (_+1))
+        print(t.mean(output[batch_size//2:]))
+
+        break
+    print('D.fc1.weight.data')
+    print(D.fc1.weight.data)
+    D.train()
+
 
 def train(model_str,
           train_iter,
-          save=False,
           save_path=None,
           model_params={},
           opt_params={},
@@ -121,7 +176,7 @@ def train(model_str,
     optimizers = {'g': g_optimizer, 'd': d_optimizer}
     models = {'g': G, 'd': D}
     losses = {'g': [], 'd': []}
-    pretrain_disc(D, d_optimizer, train_iter, cuda=cuda)
+    pretrain_disc(D, train_iter, cuda=cuda, epochs=train_params['n_pretrain'])
 
     print("All set. Actual Training begins")
     train_model = 'd'
@@ -189,8 +244,8 @@ def train(model_str,
                 break
 
         # monitoring
-        print("Average loss (past 100 values) after %d iters for %s is %.4f" % (_, 'Discr' if train_model == 'g' else 'Gen', np.mean(losses['d' if train_model == 'g' else 'g'][-100:])))
         if _ > log_freq + last_log:
+            print("Average loss (past 100 values) after %d iters for %s is %.4f" % (_, 'Discr' if train_model == 'g' else 'Gen', np.mean(losses['d' if train_model == 'g' else 'g'][-100:])))
             last_log = _ * 1
             G.eval()
             z = variable(np.random.normal(size=(9, G.latent_dim)), cuda=cuda)

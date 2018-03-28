@@ -63,7 +63,7 @@ class PixelCNN(t.nn.Module):
         if self.batchnorm:
             self.bn_final_conv = BN2d(1, eps=1e-5, momentum=.9)
 
-    def forward(self, x, z):
+    def forward(self, x, z, **kwargs):
         h_conv = x
         for k in range(1, self.n_layers+1):
             conv_a = getattr(self, 'conv%da'%k)

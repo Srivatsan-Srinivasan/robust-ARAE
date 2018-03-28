@@ -51,7 +51,8 @@ class Discriminator(nn.Module):
         self.model_str = 'WDisc'
 
         self.h_dim = params.get('hidden_dim', 100)
-        self.batchnorm = params.get('batchnorm', True)
+        self.batchnorm = False
+        # self.batchnorm = params.get('batchnorm', True)
 
         self.fc1 = fc(784, self.h_dim)
         self.fc2 = fc(self.h_dim, 1)
@@ -73,7 +74,7 @@ class Discriminator(nn.Module):
         else:
             return h
 
-    def clip(self, max_weight=1e-2):
+    def clip(self, max_weight=1.):
         assert max_weight > 0
         for p in self.parameters():
             p.data.clamp_(-max_weight, max_weight)
