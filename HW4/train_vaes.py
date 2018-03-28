@@ -138,7 +138,10 @@ def train(model_str,
 
         model.eval()
         z = variable(np.random.normal(size=(9, model.latent_dim)), cuda=cuda)
-        generated_images = model.decode(z).data.numpy().reshape((9, 28, 28))
+        if 'Pixel' in model_str:
+            generated_images = model.decode(variable(np.zeros((9, 1, 28, 28)), cuda=False), z).data.numpy().reshape((9, 28, 28))
+        else:
+            generated_images = model.decode(z).data.numpy().reshape((9, 28, 28))
         np.save('%s/generated_images_%d_steps' % (save_path, epoch), generated_images)
         model.train()
 
