@@ -59,7 +59,6 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
 
     if cuda:
         model = model.cuda()
-        criterion = criterion.cuda()
     return model, criterion, optimizer, scheduler
 
 
