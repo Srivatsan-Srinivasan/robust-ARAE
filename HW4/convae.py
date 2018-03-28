@@ -1,6 +1,6 @@
 from torch.nn import Linear as fc, BatchNorm2d as BN2d, BatchNorm1d as BN1d, Conv2d as conv, ConvTranspose2d as deconv
 from torch import nn
-from utils import variable
+from utils import variable, CUDA_DEFAULT
 import torch as t
 import numpy as np
 import torch.nn.functional as F
@@ -12,6 +12,7 @@ class ConVAE(nn.Module):
     def __init__(self, params):
         super(ConVAE, self).__init__()
         self.model_str = 'ConVAE'
+        self.is_cuda = False
 
         self.latent_dim = latent_dim = params.get('latent_dim', 2)
         self.hdim = hdim = params.get('hdim', 400)
@@ -64,7 +65,7 @@ class ConVAE(nn.Module):
     def reparameterize(self, mu, logvar):
         if self.training:
             std = t.exp(.5 * logvar)
-            eps = variable(np.random.normal(0, 1, (len(mu), self.latent_dim)))
+            eps = variable(np.random.normal(0, 1, (len(mu), self.latent_dim)), cuda=self.is_cuda)
             return mu + std * eps
         else:
             return mu
@@ -77,7 +78,7 @@ class ConVAE(nn.Module):
         h = F.sigmoid(self.bn_deconv3(self.deconv3(h))) if self.batchnorm else F.sigmoid(self.deconv3(h))
         return h
 
-    def forward(self, x, **kwargs):
+    def forward(self, x, cuda=CUDA_DEFAULT, **kwargs):
         mu, logvar = self.encode(x)
-        z = self.reparameterize(mu, logvar)
+        z = self.reparameterize(mu, logvar, cuda=cuda)
         return self.decode(z), mu, logvar

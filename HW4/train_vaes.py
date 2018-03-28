@@ -59,6 +59,8 @@ def _train_initialize_variables(model_str, model_params, opt_params, cuda):
 
     if cuda:
         model = model.cuda()
+        if 'VAE' in model_str:
+            model.is_cuda = True
     return model, criterion, optimizer, scheduler
 
 

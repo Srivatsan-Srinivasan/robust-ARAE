@@ -16,6 +16,7 @@ class PixelVAE(nn.Module):
     def __init__(self, params):
         super(PixelVAE, self).__init__()
         self.model_str = 'PixelVAE'
+        self.is_cuda = False
 
         self.latent_dim = latent_dim = params.get('latent_dim', 2)
         self.hdim = hdim = params.get('hdim', 400)
@@ -56,7 +57,7 @@ class PixelVAE(nn.Module):
     def reparameterize(self, mu, logvar):
         if self.training:
             std = t.exp(.5 * logvar)
-            eps = variable(np.random.normal(0, 1, (len(mu), self.latent_dim)))
+            eps = variable(np.random.normal(0, 1, (len(mu), self.latent_dim)), cuda=self.is_cuda)
             return mu + std * eps
         else:
             return mu
