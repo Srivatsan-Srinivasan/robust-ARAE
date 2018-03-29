@@ -20,7 +20,7 @@ parser.add_argument('--monitor', default=False, help='States if you need to pick
 parser.add_argument('--save', default=False, help='Save the model or not', type=ast.literal_eval)
 parser.add_argument('--output_filename', default=None, help='Where the model is saved', type=str)
 parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=ast.literal_eval)
-parser.add_argument('--shuffle', default=True, help='Whether to stop training once the validation error starts increasing', type=ast.literal_eval)
+parser.add_argument('--shuffle', default=True, type=ast.literal_eval)
 
 # MODEL PARAMS
 parser.add_argument('--model', default='VAE', help='state which model to use')
