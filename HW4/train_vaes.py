@@ -129,7 +129,6 @@ def train(model_str,
             # predict
             output = model(**kwargs)
             output = (output[0].view(batch_size, -1), output[1], output[2])
-            print(output[0].size(), img.size())
             loss = criterion(img, output)
 
             # Compute gradients, clip, and backprop
