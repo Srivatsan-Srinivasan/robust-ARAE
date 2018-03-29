@@ -1,4 +1,5 @@
 from wgan import Generator as WGen, Discriminator as WDisc
+from wdcgan import Generator as WDCGen, Discriminator as WDCDisc
 from const import *
 import torch.nn.functional as F
 import torch.optim as optim
@@ -29,11 +30,18 @@ def init_optimizer(opt_params, model):
 def _train_initialize_variables(model_str, model_params, opt_params, cuda):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
-    if model_str == 'WGAN':
+    if model_str == 'WGAN' :
         D = WDisc(model_params)
         G = WGen(model_params)
         D.train()
         G.train()
+    elif model_str == 'WDCGAN':
+        D = WDCDisc(model_params)
+        G = WDCGen(model_params)
+        D.train()
+        G.train()
+    else:
+        raise ValueError('Name unknown: %s' % model_str)
 
     d_optimizer = init_optimizer(opt_params, D)
     g_optimizer = init_optimizer(opt_params, G)
@@ -58,11 +66,12 @@ def _get_kwargs(model_str, train_model, z, img, label, G, D):
             x_gen = t.bernoulli(G(z).detach())
             x = t.cat([img, x_gen], 0)
             return {'y': label, 'x': x}
-    if model_str in ['GAN', 'WGAN']:
+    if model_str in ['GAN', 'WGAN', 'WDCGAN', 'DCGAN']:
         if train_model == 'g':
             return {'z': z}
         if train_model == 'd':
             x_gen = t.bernoulli(G(z).detach())
+            x_gen = x_gen.view(x_gen.size(0), -1)
             x = t.cat([img, x_gen], 0)
             return {'x': x}
 
@@ -82,6 +91,8 @@ def generate_fake_dataset(N):
 
 def pretrain_disc(D, train_iter, epochs=10, cuda=CUDA_DEFAULT):
     """Pretrain the discriminator"""
+    if epochs == 0:
+        return
     d_optimizer = t.optim.Adam(filter(lambda p: p.requires_grad, D.parameters()), lr=5e-4, weight_decay=1e-2)
 
     # Compute initial loss
@@ -228,12 +239,13 @@ def train(model_str,
             loss.backward()
             optimizer.step()
             if train_model == 'd':
-                model.clip()
+                model.clip(.01)
 
             # monitoring
             count += batch_size
             total_loss += t.sum(loss.data)  # .data so that you dont keep references
 
+            # Train the adversary if this model is trained enough
             if training_steps == 1 and train_model == 'g':
                 losses[train_model] += [total_loss]
                 train_model = 'd'
