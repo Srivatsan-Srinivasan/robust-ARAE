@@ -78,114 +78,11 @@ class VAE(nn.Module):
 
         result = self.fc3(h1)
         if self.batchnorm:
-            return sigmoid(self.bn_3(result))
+            return self.bn_3(result)
         else:
-            return sigmoid(result)
+            return result
 
     def forward(self, x, **kwargs):
         mu, logvar = self.encode(x)
         z = self.reparameterize(mu, logvar)
         return self.decode(z), mu, logvar
-
-
-def loss_function(x_dec, x, mu, logvar):
-    """VAE objective"""
-    batch_size = x_dec.size(0)
-    xent = F.binary_cross_entropy(x_dec, x, size_average=True)
-    kl_div = -0.5 * t.sum(1 + logvar - mu.pow(2) - t.exp(logvar))
-    kl_div /= batch_size * 784  # so that it is at the same scale as the xent
-    return xent, kl_div
-
-
-def train_one_epoch(model, train_dataset, epoch, batch_size, optimizer, log=100):
-    """
-    One pass over the training dataset
-    :param model:
-    :param train_dataset:
-    :param epoch:
-    :param batch_size:
-    :param optimizer:
-    :param log:
-    :return:
-    """
-    model.train()
-    train_loss = 0
-    train_dataset_ = shuffle(train_dataset)
-    for i in range(0, len(train_dataset), batch_size):
-        batch_idx = i // batch_size
-
-        # sample data
-        x = variable(t.cat(train_dataset_[i:i + batch_size], 0))
-        if len(x) != batch_size:
-            continue
-
-        # init grads
-        optimizer.zero_grad()
-
-        x_dec, mu, logvar = model(x)
-        xent, kl = loss_function(x_dec, x, mu, logvar)
-        loss = xent + kl
-
-        # compute grads
-        loss.backward()
-        train_loss += loss.data[0]
-
-        # update weights
-        optimizer.step()
-        if batch_idx % log == 0:
-            print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
-                epoch, batch_idx * len(x), len(train_dataset),
-                       100. * batch_idx / len(train_dataset),
-                       loss.data[0] / len(x)))
-
-    print('====> Epoch: {} Average loss: {:.4f}'.format(
-        epoch, train_loss * batch_size / len(train_dataset)))
-    return train_loss * batch_size / len(train_dataset_)
-
-
-def test_one_epoch(model, test_dataset, epoch, batch_size):
-    """
-    One pass over the test dataset
-    :param model:
-    :param test_dataset:
-    :param epoch:
-    :param batch_size:
-    :return:
-    """
-    model.eval()
-    test_loss = 0
-    test_dataset_ = shuffle(test_dataset)
-    for i in range(0, len(test_dataset), batch_size):
-        batch_idx = i // batch_size
-
-        # sample data
-        x = variable(t.cat(test_dataset_[i:i + batch_size], 0))
-        if len(x) != batch_size:
-            continue
-
-        x_dec, mu, logvar = model(x)
-        xent, kl = loss_function(x_dec, x, mu, logvar)
-        test_loss += (xent + kl).data.numpy()[0]
-        if batch_idx == 0:
-            n = min(test_dataset.size(0), 8)
-            comparison = t.cat([test_dataset[:n],
-                                x_dec.view(batch_size, 1, 28, 28)[:n]])
-            save_image(comparison.data.cpu(),
-                       'results/reconstruction_' + str(epoch) + '.png', nrow=n)
-
-    test_loss /= (len(test_dataset) / batch_size)
-    print('====> Test set loss: {:.4f}'.format(test_loss))
-
-    return test_loss
-
-
-def visualize_latent(model, train_dataset, train_labels, n=10000):
-    x, y = shuffle(train_dataset, train_labels)
-    x = variable(t.cat(x[:n]))
-    y = t.cat(y[:n]).numpy()
-    mu, logvar = model.encode(x)
-    z = mu.data.numpy()
-    for i in range(0, 10):
-        plt.scatter(z[y == i, 0], z[y == i, 1], label=str(i))
-    plt.legend(bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
-    plt.show()

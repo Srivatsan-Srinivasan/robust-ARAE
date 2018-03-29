@@ -33,7 +33,7 @@ def init_optimizer(opt_params, model):
 def get_criterion(model_str):
     """Different models have different losses (ex: VAE=recons+KL, GAN vs WGAN...)"""
     if model_str == 'VAE' or model_str == 'CVAE' or model_str == 'PixelVAE' or model_str =='ConVAE':
-        return lambda target, output: F.binary_cross_entropy(output[0], target, size_average=False) - 0.5*t.sum(1 + output[2] - output[1].pow(2) - t.exp(output[2]))
+        return lambda target, output: F.binary_cross_entropy_with_logits(output[0], target, size_average=False) - 0.5*t.sum(1 + output[2] - output[1].pow(2) - t.exp(output[2]))
     else:
         raise ValueError('This name is unknown: %s' % model_str)
 

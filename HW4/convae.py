@@ -75,7 +75,7 @@ class ConVAE(nn.Module):
         h = h.view(h.size(0), self.n_filters*4, 7, 7)
         h = F.leaky_relu(self.bn_deconv1(self.deconv1(h))) if self.batchnorm else F.leaky_relu(self.deconv1(h))
         h = F.leaky_relu(self.bn_deconv2(self.deconv2(h))) if self.batchnorm else F.leaky_relu(self.deconv2(h))
-        h = F.sigmoid(self.bn_deconv3(self.deconv3(h))) if self.batchnorm else F.sigmoid(self.deconv3(h))
+        h = self.bn_deconv3(self.deconv3(h)) if self.batchnorm else self.deconv3(h)
         return h
 
     def forward(self, x, cuda=CUDA_DEFAULT, **kwargs):

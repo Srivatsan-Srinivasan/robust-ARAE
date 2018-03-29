@@ -95,6 +95,6 @@ class PixelCNN(t.nn.Module):
 
         result = self.final_conv(h_conv)  # is it callable ?
         if self.batchnorm:
-            return F.sigmoid(self.bn_final_conv(result))
+            return self.bn_final_conv(result)
         else:
-            return F.sigmoid(result)
+            return result
