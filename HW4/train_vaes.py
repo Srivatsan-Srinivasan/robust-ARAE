@@ -201,6 +201,7 @@ def predict(model, test_iter, cuda=CUDA_DEFAULT):
         # predict
         kwargs = _get_kwargs(model.model_str, img, label)
         output = model.forward(**kwargs)
+        output = (output[0].view(batch_size, -1), output[1], output[2])
         loss = criterion(img, output)
 
         # monitoring
