@@ -261,7 +261,7 @@ def train(model_str,
             last_log = _ * 1
             G.eval()
             z = variable(np.random.normal(size=(9, G.latent_dim)), cuda=cuda)
-            generated_images = G(z).data.numpy().reshape((9, 28, 28))
+            generated_images = G(z).data.cpu().numpy().reshape((9, 28, 28))
             np.save('%s/generated_images_%d_steps' % (save_path, _), generated_images)
             G.train()
 
