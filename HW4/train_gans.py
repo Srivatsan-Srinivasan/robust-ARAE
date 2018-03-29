@@ -196,6 +196,8 @@ def train(model_str,
     max_training_iter = train_params.get('n_ep', 30) * len(train_iter)
     _ = 0
     last_log = 0
+    last_print_d = 0
+    last_print_g = 0
     while _ < max_training_iter:
         _ += 1
 
@@ -233,14 +235,26 @@ def train(model_str,
                 D_fake = D(fake)
                 D_real = D(img)
                 loss = D_fake - D_real
-            if train_model == 'g':
+                if _ > last_print_d + 1000:
+                    last_print_d = _ * 1
+                    print('D_fake')
+                    print(D_fake)
+                    print('D_real')
+                    print(D_real)
+            elif train_model == 'g':
                 loss = -D(G(z))
+                if _ > last_print_g + 1000:
+                    last_print_g = _ * 1
+                    print('G_loss')
+                    print(loss)
+            else:
+                raise ValueError('Unknown: %s' % train_model)
 
             # Compute gradients, clip, and backprop
             loss.backward()
             optimizer.step()
             if train_model == 'd':
-                model.clip(.01)
+                model.clip(.1)
 
             # monitoring
             count += batch_size
