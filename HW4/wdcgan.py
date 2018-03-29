@@ -60,6 +60,14 @@ class Discriminator(nn.Module):
             self.bn_fc1 = BN1d(self.hdim, eps=1e-5, momentum=.9)
             self.bn_fc2 = BN1d(1, eps=1e-5, momentum=.9)
 
+        self.make_weights_small()
+
+    def make_weights_small(self, val=100.):
+        self.conv1.weight.data = self.conv1.weight.data / val
+        self.conv2.weight.data = self.conv2.weight.data / val
+        self.fc1.weight.data = self.fc1.weight.data / val
+        self.fc2.weight.data = self.fc2.weight.data / val
+
     def forward(self, x, **kwargs):
         x = x.view(x.size(0), 1, 28, 28)
         h = F.leaky_relu(self.bn_conv1(self.conv1(x))) if self.batchnorm else F.leaky_relu(self.conv1(x))
@@ -69,9 +77,9 @@ class Discriminator(nn.Module):
         h = h.view(h.size(0), -1)
         h = F.leaky_relu(self.bn_fc1(self.fc1(h))) if self.batchnorm else F.leaky_relu(self.fc1(h))
         h = self.bn_fc2(self.fc2(h)) if self.batchnorm else self.fc2(h)
-        return h
+        return h.mean(0)  # PASS ONLY REAL OR ONLY FAKE SAMPLES AT A TIME
 
-    def clip(self, max_weight=1e-1):
+    def clip(self, max_weight=1e-2):
         assert max_weight > 0
         for p in self.parameters():
             p.data.clamp_(-max_weight, max_weight)

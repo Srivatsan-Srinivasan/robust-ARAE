@@ -220,20 +220,18 @@ def train(model_str,
 
             if cuda:
                 img = img.cuda()
-                label = label.cuda()
 
             # zero gradients
             optimizer.zero_grad()
             model.zero_grad()
 
-            kwargs = _get_kwargs(model_str, train_model, z, img, label, G, D)
-
-            # Predict
-            # If it is the discriminator its output has shape (2*batch size, )
-            # If it is the generator its output should be passed in the discriminator to get a value.
-            output = model(**kwargs)
-
-            loss = criterion(output, D, train_model)
+            if train_model == 'd':
+                fake = G(z)
+                D_fake = D(fake)
+                D_real = D(img)
+                loss = D_fake - D_real
+            if train_model == 'g':
+                loss = -D(G(z))
 
             # Compute gradients, clip, and backprop
             loss.backward()
