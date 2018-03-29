@@ -8,6 +8,8 @@ import json
 import numpy as np
 import os
 import torch as t
+import matplotlib
+matplotlib.use('Agg')
 from matplotlib import pyplot as plt
 os.chdir('../HW4')
 
@@ -225,6 +227,7 @@ def train(model_str,
             optimizer.zero_grad()
             model.zero_grad()
 
+            # loss
             if train_model == 'd':
                 fake = G(z)
                 D_fake = D(fake)
