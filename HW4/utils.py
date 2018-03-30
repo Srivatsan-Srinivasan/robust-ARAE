@@ -7,6 +7,20 @@ os.chdir('../HW4')  # so that there is not an import bug if the working director
 from const import *
 
 
+def flatten(x):
+    shape = x.shape
+    return x.reshape((np.prod(shape)))
+
+
+def moving_avg(x, window=250):
+    return np.array(window*[0.]+[np.mean(x[k:k+window]) for k in range(len(x)-window)])
+
+
+def freeze(model, is_frozen):
+    for p in model.parameters():
+        p.requires_grad = not is_frozen
+
+
 def one_hot_np(y):
     yy = np.zeros((y.shape[0], 10))
     yy[np.arange(y.shape[0]), y] = 1

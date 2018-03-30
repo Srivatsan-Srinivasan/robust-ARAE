@@ -14,6 +14,13 @@ from matplotlib import pyplot as plt
 os.chdir('../HW4')
 
 
+"""
+WARNING
+Using the .train() function here will not work
+It has to be adapted with the train_wdcgan() function from wdcgan.py (that works) 
+"""
+
+
 def init_optimizer(opt_params, model):
     optimizer = opt_params.get('optimizer', 'SGD')
     lr = opt_params.get('lr', 0.1)
@@ -65,14 +72,14 @@ def _get_kwargs(model_str, train_model, z, img, label, G, D):
         if train_model == 'g':
             return {'y': label, 'z': z}
         if train_model == 'd':
-            x_gen = t.bernoulli(G(z).detach())
+            x_gen = G(z).detach()
             x = t.cat([img, x_gen], 0)
             return {'y': label, 'x': x}
     if model_str in ['GAN', 'WGAN', 'WDCGAN', 'DCGAN']:
         if train_model == 'g':
             return {'z': z}
         if train_model == 'd':
-            x_gen = t.bernoulli(G(z).detach())
+            x_gen = G(z).detach()
             x_gen = x_gen.view(x_gen.size(0), -1)
             x = t.cat([img, x_gen], 0)
             return {'x': x}

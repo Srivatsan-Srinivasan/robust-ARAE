@@ -8,10 +8,10 @@ from sklearn.utils import shuffle
 from utils import one_hot
 
 
-# @todo: implement GAN
-
-relu = ReLU()
-sigmoid = Sigmoid()
+"""
+This version does not work
+See wdcgan.py for a working version
+"""
 
 
 class Generator(nn.Module):
