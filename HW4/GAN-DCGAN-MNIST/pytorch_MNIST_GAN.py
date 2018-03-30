@@ -36,9 +36,17 @@ class discriminator(nn.Module):
     def __init__(self, input_size=32, n_class=10):
         super(discriminator, self).__init__()
         self.fc1 = nn.Linear(input_size, 1024)
+        self.fc1.weight.data.normal_(0, 0.005)
+        self.fc1.bias.data.fill_(0)
         self.fc2 = nn.Linear(self.fc1.out_features, 512)
+        self.fc2.weight.data.normal_(0, 0.005)
+        self.fc2.bias.data.fill_(0)
         self.fc3 = nn.Linear(self.fc2.out_features, 256)
-        self.fc4 = nn.Linear(self.fc3.out_features, n_class)
+        self.fc3.weight.data.normal_(0, 0.005)
+        self.fc3.bias.data.fill_(0)
+        self.fc4 = nn.Linear(self.fc3.out_features, n_class)       
+        self.fc4.weight.data.normal_(0, 0.005)
+        self.fc4.bias.data.fill_(0)
 
     # forward method
     def forward(self, input):
@@ -119,9 +127,7 @@ def show_interpolated_result(num_epoch, G, show = False, save = False, path = 'r
 
     label = 'Epoch {0}'.format(num_epoch)
     fig.text(0.5, 0.04, label, ha='center')
-    plt.xlabel("Six different latent variable examples")
-    plt.ylabel("Interpolated Values from z1 to z2")
-    plt.title("Interpolated values (6 examples left to right) using simple GAN")
+    
     import pdb; pdb.set_trace()
     plt.savefig(path)
 
@@ -171,6 +177,7 @@ def train_GAN(expt_name = 'GAN1'):
     batch_size = 128
     lr = 0.0002
     train_epoch = 100
+    print("Total epochs to be run :, ", train_epoch)
     make_result_dirs()
     
     # data_loader

@@ -34,7 +34,8 @@ class generator(nn.Module):
         x = F.leaky_relu(self.fc1(input), 0.2)
         x = F.leaky_relu(self.fc2(x), 0.2)
         x = F.leaky_relu(self.fc3(x), 0.2)
-        x = F.tanh(self.fc4(x))
+        x = F.sigmoid(self.fc4(x))
+        #x = self.fc4(x)
 
         return x
 
@@ -43,20 +44,30 @@ class discriminator(nn.Module):
     def __init__(self, input_size=32, n_class=10):
         super(discriminator, self).__init__()
         self.fc1 = nn.Linear(input_size, 1024)
+        self.fc1.weight.data.normal_(0, 0.005)
+        self.fc1.bias.data.fill_(0)
         self.fc2 = nn.Linear(self.fc1.out_features, 512)
+        self.fc2.weight.data.normal_(0, 0.005)
+        self.fc2.bias.data.fill_(0)
         self.fc3 = nn.Linear(self.fc2.out_features, 256)
+        self.fc3.weight.data.normal_(0, 0.005)
+        self.fc3.bias.data.fill_(0)
         self.fc4 = nn.Linear(self.fc3.out_features, n_class)
+        self.fc4.weight.data.normal_(0, 0.005)
+        self.fc4.bias.data.fill_(0)
 
     # forward method
-    def forward(self, input):
+    def forward(self, input,sigmoid = False):
         x = F.leaky_relu(self.fc1(input), 0.2)
         x = F.dropout(x, 0.3)
         x = F.leaky_relu(self.fc2(x), 0.2)
         x = F.dropout(x, 0.3)
         x = F.leaky_relu(self.fc3(x), 0.2)
         x = F.dropout(x, 0.3)
-        x = F.sigmoid(self.fc4(x))
-
+        if sigmoid:
+            x = F.sigmoid(self.fc4(x))
+        else:
+            x = self.fc4(x)
         return x
 
 fixed_z_ = torch.randn((5 * 5, 100))    # fixed noise
@@ -200,8 +211,6 @@ def train_WGAN(expt_name = 'WGAN1'):
     G_optimizer = optim.Adam(G.parameters(), lr=lr)
     D_optimizer = optim.Adam(D.parameters(), lr=lr)
 
-   
-
     train_hist = {}
     train_hist['D_losses'] = []
     train_hist['G_losses'] = []
@@ -209,35 +218,41 @@ def train_WGAN(expt_name = 'WGAN1'):
         D_losses = []
         G_losses = []
         for x_, _ in train_loader:
-            # train discriminator D
-            D.zero_grad()
-
-            x_ = x_.view(-1, 28 * 28)
-
-            mini_batch = x_.size()[0]
-
-            y_real_ = torch.ones(mini_batch)
-            y_fake_ = torch.zeros(mini_batch)
-
-            x_, y_real_, y_fake_ = Variable(x_.cuda()), Variable(y_real_.cuda()), Variable(y_fake_.cuda())
-            D_result = D(x_)
-            D_real_loss = BCE_loss(D_result, y_real_)
+            x_ = Variable(x_.cuda())
             
-            z_ = torch.randn((mini_batch, 100))
-            z_ = Variable(z_.cuda())
-            G_result = G(z_)
+            #Train discriminator more than generator.
+            for n in range(5):        
+                # train discriminator D
+                D.zero_grad()
 
-            D_result = D(G_result)
-            D_fake_loss = BCE_loss(D_result, y_fake_)
-            
-            D_train_loss = D_real_loss + D_fake_loss
+                x_ = x_.view(-1, 28 * 28)
 
-            D_train_loss.backward()
-            D_optimizer.step()
-            
-            #Clamp critic weights to enforce K-Lipschitz constraint.
-            for p in D.parameters():
-                p.data.clamp_(-clip, clip)
+                mini_batch = x_.size()[0]
+
+                #y_real_ = torch.ones(mini_batch)
+                #y_fake_ = torch.zeros(mini_batch)
+
+                #x_, y_real_, y_fake_ = Variable(x_.cuda()), Variable(y_real_.cuda()), Variable(y_fake_.cuda())
+                D_result = D(x_)
+                #D_real_loss = BCE_loss(D_result, y_real_)
+                D_real_loss = -torch.mean(D_result)
+
+                z_ = torch.randn((mini_batch, 100))
+                z_ = Variable(z_.cuda())
+                G_result = G(z_)
+
+                D_result = D(G_result)
+                D_fake_loss = torch.mean(D_result)
+                #D_fake_loss = BCE_loss(D_result, y_fake_)
+
+                D_train_loss = (D_real_loss + D_fake_loss)
+
+                D_train_loss.backward()
+                D_optimizer.step()
+
+                #Clamp critic weights to enforce K-Lipschitz constraint.
+                for p in D.parameters():
+                    p.data.clamp_(-clip, clip)
 
             D_losses.append(D_train_loss.data[0])
 
@@ -250,7 +265,9 @@ def train_WGAN(expt_name = 'WGAN1'):
             z_, y_ = Variable(z_.cuda()), Variable(y_.cuda())
             G_result = G(z_)
             D_result = D(G_result)
-            G_train_loss = BCE_loss(D_result, y_)
+            G_train_loss = -torch.mean(D_result)
+            
+            #G_train_loss = BCE_loss(D_result, y_)
             G_train_loss.backward()
             G_optimizer.step()
 
