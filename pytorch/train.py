@@ -349,7 +349,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     masked_target = target.masked_select(mask)  # it flattens the output to n_examples x sentence_length
     # examples x ntokens
     # output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
-    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens, mask.size(1))
+    output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), ntokens)
 
     # output: batch x seq_len x ntokens
     output = autoencoder(source, lengths, noise=True)
@@ -357,7 +357,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     # output_size: batch_size, maxlen, self.ntokens
     # flattened_output = output.view(-1, ntokens)
     # masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems
-    masked_output = output.masked_select(output_mask.transpose(1, 2)).view(-1, ntokens)  # maybe no need of transposing
+    masked_output = output.masked_select(output_mask).view(-1, ntokens)
 
     loss = criterion_ce(masked_output/args.temp, masked_target)  # batch_size x max_len classification problems
     loss.backward()
