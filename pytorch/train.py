@@ -288,6 +288,7 @@ def evaluate_generator(noise, epoch):
             f.write("\n")
 
 
+# @todo: what is the purpose of this ?
 def train_lm(eval_path, save_path):
     # generate examples
     indices = []
@@ -336,6 +337,7 @@ def train_lm(eval_path, save_path):
     return ppl
 
 
+# @todo: is there a problem with the dimensions of the mask ?
 def train_ae(batch, total_loss_ae, start_time, i):
     autoencoder.train()
     autoencoder.zero_grad()

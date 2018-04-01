@@ -99,6 +99,8 @@ class MLP_G(nn.Module):
                 pass
 
 
+# @todo look in more details to this class (architecture and forward pass)
+# @todo: why is there a noise ?
 class Seq2Seq(nn.Module):
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
                  hidden_init=False, dropout=0, gpu=False):
@@ -164,6 +166,7 @@ class Seq2Seq(nn.Module):
         return to_gpu(self.gpu, zeros)
 
     def store_grad_norm(self, grad):
+        """Monitor gradient norm"""
         norm = torch.norm(grad, 2, 1)
         self.grad_norm = norm.detach().data.mean()
         return grad
