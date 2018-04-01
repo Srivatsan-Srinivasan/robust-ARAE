@@ -1,12 +1,38 @@
 import os
-import torch
 import numpy as np
 import random
+import torch as t
 
 
 def load_kenlm():
     global kenlm
     import kenlm
+
+
+def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
+    """Wrapper for t.autograd.Variable"""
+    if isinstance(array, np.ndarray):
+        vv = t.from_numpy(array)
+        vv = vv.cuda() if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
+    elif isinstance(array, list) or isinstance(array, tuple):
+        vv = t.from_numpy(np.array(array))
+        vv = vv.cuda() if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
+    elif isinstance(array, float) or isinstance(array, int):
+        vv = t.from_numpy(np.array([array]))
+        vv = vv.cuda() if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
+    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
+        v = t.autograd.Variable(array.cuda() if cuda else array, requires_grad=requires_grad, volatile=volatile)
+    elif isinstance(array, t.autograd.Variable):
+        v = array.cuda() if cuda else array
+    else:
+        raise ValueError("type(array): %s" % type(array))
+    if to_float:
+        return v.float()
+    else:
+        return v
 
 
 def to_gpu(gpu, var):
@@ -145,8 +171,8 @@ def batchify(data, bsz, shuffle=False, gpu=False):
             x += zeros
             y += zeros
 
-        source = torch.LongTensor(np.array(source))
-        target = torch.LongTensor(np.array(target)).view(-1)
+        source = t.LongTensor(np.array(source))
+        target = t.LongTensor(np.array(target)).view(-1)
 
         if gpu:
             source = source.cuda()
