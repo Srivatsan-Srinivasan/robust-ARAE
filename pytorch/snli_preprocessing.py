@@ -7,6 +7,8 @@ import argparse
 Transforms SNLI data into lines of text files
     (data format required for ARAE model).
 Gets rid of repeated premise sentences.
+
+Write files test.txt and train.txt in snli_lm/
 """
 
 
