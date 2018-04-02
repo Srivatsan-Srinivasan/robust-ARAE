@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
 parser.add_argument('--data_path', type=str, required=True,
                     help='location of the data corpus')
-parser.add_argument('--kenlm_path', type=str, default='../Data/kenlm',  # @todo: what is kenlm ?
+parser.add_argument('--kenlm_path', type=str, default='../Data/kenlm',
                     help='path to kenlm directory')
 parser.add_argument('--outf', type=str, default='example',
                     help='output directory name')
@@ -288,9 +288,9 @@ def evaluate_generator(noise, epoch):
             f.write("\n")
 
 
-# @todo: what is the purpose of this ?
 def train_lm(eval_path, save_path):
-    # generate examples
+    """Evaluate the performance of a simple language model that is trained on synthetic sentences"""
+    # generate 100000 examples
     indices = []
     noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)))
     for i in range(1000):
@@ -337,8 +337,12 @@ def train_lm(eval_path, save_path):
     return ppl
 
 
-# @todo: is there a problem with the dimensions of the mask ?
 def train_ae(batch, total_loss_ae, start_time, i):
+    """
+    Train autoencoder
+    :param batch: a 3-tuple (source_sentences, target_sentences, sentences_lengths)
+                  Note that the source and the target are the same, but with an SOS for source and EOS for target
+    """
     autoencoder.train()
     autoencoder.zero_grad()
 
@@ -346,35 +350,18 @@ def train_ae(batch, total_loss_ae, start_time, i):
     source = to_gpu(args.cuda, Variable(source))  # source has no end symbol
     target = to_gpu(args.cuda, Variable(target))  # target has no start symbol
 
-    print('target.size()')
-    print(target.size())
     # Create sentence length mask over padding
     mask = target.gt(0)  # gt: greater than. 0 is the padding idx. All other idx are greater than 0
-    print('mask.size()')
-    print(mask.size())
     masked_target = target.masked_select(mask)  # it flattens the output to n_examples x sentence_length
-    print('masked_target.size()')
-    print(masked_target.size())
-    # examples x ntokens
-    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
-    # output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), ntokens)
+    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
-    print('output_mask.size()')
-    print(output_mask.size())
-    # output: batch x seq_len x ntokens
+    # output: (batch_size, max_len, ntokens)
     output = autoencoder(source, lengths, noise=True)
 
-    print('output.size()')
-    print(output.size())
-    # output_size: batch_size, maxlen, self.ntokens
+    # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
-    print('flattened_output.size()')
-    print(flattened_output.size())
-    masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems
-    # masked_output = output.masked_select(output_mask).view(-1, ntokens)
+    masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems, without the padding
 
-    print('masked_output.size()')
-    print(masked_output.size())
     loss = criterion_ce(masked_output/args.temp, masked_target)  # batch_size x max_len classification problems
     loss.backward()
 
