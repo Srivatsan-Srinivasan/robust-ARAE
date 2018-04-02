@@ -172,6 +172,14 @@ class Seq2Seq(nn.Module):
         return grad
 
     def forward(self, indices, lengths, noise, encode_only=False):
+        """
+
+        :param indices: integer-encoded sentences. LongTensor
+        :param lengths: lengths of the sentences. LongTensor
+        :param noise: whether to add Gaussian noise to the code
+        :param encode_only: whether to only encode
+        :return:
+        """
         batch_size, maxlen = indices.size()
 
         hidden = self.encode(indices, lengths, noise)
@@ -188,6 +196,12 @@ class Seq2Seq(nn.Module):
         return decoded
 
     def encode(self, indices, lengths, noise):
+        """
+        :param indices: the integer-encoded sentences. It is a LongTensor
+        :param lengths: A LongTensor containing the lengths of sentences (they are padded, so the number of columns isn't the length)
+        :param noise: whether to add noise to the hidden representation
+        :return: a latent representation of the sentences, encoded on the unit-sphere
+        """
         embeddings = self.embedding(indices)
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
@@ -208,6 +222,7 @@ class Seq2Seq(nn.Module):
         # For newest version of PyTorch (as of 8/25) use this:
         hidden = torch.div(hidden, norms.unsqueeze(1).expand_as(hidden))
 
+        # @todo: why noise ?
         if noise and self.noise_radius > 0:
             gauss_noise = torch.normal(means=torch.zeros(hidden.size()),
                                        std=self.noise_radius)
@@ -225,6 +240,7 @@ class Seq2Seq(nn.Module):
         else:
             state = self.init_hidden(batch_size)
 
+        # @todo: exposure bias ?
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = torch.cat([embeddings, all_hidden], 2)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
@@ -241,7 +257,12 @@ class Seq2Seq(nn.Module):
         return decoded
 
     def generate(self, hidden, maxlen, sample=True, temp=1.0):
-        """Generate through decoder; no backprop"""
+        """
+        Generate through decoder; no backprop
+        :param hidden: latent code obtained by sampling
+        :param sample: whether to sample (vs greedy approach)
+        :param temp: temperature parameter in case you sample. The lower, the closer to argmax
+        """
 
         batch_size = hidden.size(0)
 
@@ -265,22 +286,19 @@ class Seq2Seq(nn.Module):
             overvocab = self.linear(output.squeeze(1))
 
             if not sample:
-                vals, indices = torch.max(overvocab, 1)
+                vals, indices = torch.max(overvocab, 1)  # this is not an error on newer PyTorch
             else:
                 # sampling
                 probs = F.softmax(overvocab/temp)
                 indices = torch.multinomial(probs, 1)
-            #print(torch.max(indices).data)
+
             all_indices.append(indices)
             embedding = self.embedding_decoder(indices)
-            #print(embedding.size(),hidden.size())
+
             if embedding.dim() == 2:
                 inputs = torch.cat([embedding.unsqueeze(1), hidden.unsqueeze(1)], 2)
             else:
                 inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
-            #print(embedding.size(),hidden.size())
-            #inputs = torch.cat([embedding.unsqueeze(1), hidden.unsqueeze(1)], 2)
-        #max_indices = torch.cat(all_indices, 1)
         max_indices = torch.stack(all_indices, 1)
         return max_indices
 

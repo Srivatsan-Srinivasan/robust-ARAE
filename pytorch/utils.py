@@ -6,7 +6,7 @@ import torch as t
 
 def load_kenlm():
     global kenlm
-    import kenlm
+    import kenlm  # @todo: what is this package ?
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
@@ -146,6 +146,14 @@ class Corpus(object):
 
 
 def batchify(data, bsz, shuffle=False, gpu=False):
+    """
+
+    :param data: A list of integer-encoded sentences
+    :param bsz: batch size
+    :param shuffle:
+    :param gpu: whether to load the data on gpu
+    :return: a list of 3-tuples of the form (source)
+    """
     if shuffle:
         random.shuffle(data)
     nbatch = len(data) // bsz

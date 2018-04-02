@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
 parser.add_argument('--data_path', type=str, required=True,
                     help='location of the data corpus')
-parser.add_argument('--kenlm_path', type=str, default='../Data/kenlm',
+parser.add_argument('--kenlm_path', type=str, default='../Data/kenlm',  # @todo: what is kenlm ?
                     help='path to kenlm directory')
 parser.add_argument('--outf', type=str, default='example',
                     help='output directory name')
@@ -512,13 +512,11 @@ for epoch in range(1, args.epochs+1):
 
     # loop through all batches in training data
     while niter < len(train_data):
-        #while niter < 10:
         # train autoencoder ----------------------------
         for i in range(args.niters_ae):
             if niter == len(train_data):
                 break  # end of epoch
-            total_loss_ae, start_time = \
-                train_ae(train_data[niter], total_loss_ae, start_time, niter)
+            total_loss_ae, start_time = train_ae(train_data[niter], total_loss_ae, start_time, niter)
             niter += 1
 
         # train gan ----------------------------------
@@ -527,8 +525,7 @@ for epoch in range(1, args.epochs+1):
             # train discriminator/critic
             for i in range(args.niters_gan_d):
                 # feed a seen sample within this epoch; good for early training
-                errD, errD_real, errD_fake = \
-                    train_gan_d(train_data[random.randint(0, len(train_data)-1)])
+                errD, errD_real, errD_fake = train_gan_d(train_data[random.randint(0, len(train_data)-1)])
 
             # train generator
             for i in range(args.niters_gan_g):
