@@ -342,7 +342,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     autoencoder.train()
     autoencoder.zero_grad()
 
-    source, target, lengths = batch
+    source, target, lengths = batch  # note that target is flattened
     source = to_gpu(args.cuda, Variable(source))  # source has no end symbol
     target = to_gpu(args.cuda, Variable(target))  # target has no start symbol
 
@@ -356,8 +356,8 @@ def train_ae(batch, total_loss_ae, start_time, i):
     print('masked_target.size()')
     print(masked_target.size())
     # examples x ntokens
-    # output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
-    output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), ntokens)
+    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
+    # output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), ntokens)
 
     print('output_mask.size()')
     print(output_mask.size())
@@ -367,9 +367,11 @@ def train_ae(batch, total_loss_ae, start_time, i):
     print('output.size()')
     print(output.size())
     # output_size: batch_size, maxlen, self.ntokens
-    # flattened_output = output.view(-1, ntokens)
-    # masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems
-    masked_output = output.masked_select(output_mask).view(-1, ntokens)
+    flattened_output = output.view(-1, ntokens)
+    print('flattened_output.size()')
+    print(flattened_output.size())
+    masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems
+    # masked_output = output.masked_select(output_mask).view(-1, ntokens)
 
     print('masked_output.size()')
     print(masked_output.size())

@@ -147,12 +147,16 @@ class Corpus(object):
 
 def batchify(data, bsz, shuffle=False, gpu=False):
     """
-
+    Transform a list of data into batched torch Tensors
     :param data: A list of integer-encoded sentences
     :param bsz: batch size
     :param shuffle:
     :param gpu: whether to load the data on gpu
-    :return: a list of 3-tuples of the form (source)
+    :return: a list of 3-tuples of the form (source_sentence, FLATTENED_target_sentence, length_of_sentence)
+             * All 3 are LongTensor
+             * the source and target are the same thing in itself, but the source starts with SOS and the target ends with EOS
+             * Note that `FLATTENED_target_sentence` is flattened (batch x n_words,), contrary to `source_sentence`,
+               which is (batch, n_words)
     """
     if shuffle:
         random.shuffle(data)
