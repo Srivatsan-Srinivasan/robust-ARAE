@@ -6,7 +6,7 @@ import torch as t
 
 def load_kenlm():
     global kenlm
-    import kenlm  # @todo: what is this package ?
+    import kenlm
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
