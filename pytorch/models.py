@@ -26,23 +26,23 @@ class MLP_D(nn.Module):
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
 
-        for i in range(len(layer_sizes)-1):
-            layer = nn.Linear(layer_sizes[i], layer_sizes[i+1])
+        for i in range(len(layer_sizes) - 1):
+            layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             self.layers.append(layer)
-            self.add_module("layer"+str(i+1), layer)
+            self.add_module("layer" + str(i + 1), layer)
 
             # No batch normalization after first layer
             if i != 0 and batchnorm:
-                bn = nn.BatchNorm1d(layer_sizes[i+1], eps=1e-05, momentum=0.1)
+                bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
                 self.layers.append(bn)
-                self.add_module("bn"+str(i+1), bn)
+                self.add_module("bn" + str(i + 1), bn)
 
             self.layers.append(activation)
-            self.add_module("activation"+str(i+1), activation)
+            self.add_module("activation" + str(i + 1), activation)
 
-        layer = nn.Linear(layer_sizes[-1]+int(std_minibatch), noutput)
+        layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
         self.layers.append(layer)
-        self.add_module("layer"+str(len(self.layers)), layer)
+        self.add_module("layer" + str(len(self.layers)), layer)
 
         self.init_weights(weight_init)
 
@@ -94,22 +94,22 @@ class MLP_G(nn.Module):
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
 
-        for i in range(len(layer_sizes)-1):
-            layer = nn.Linear(layer_sizes[i], layer_sizes[i+1])
+        for i in range(len(layer_sizes) - 1):
+            layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             self.layers.append(layer)
-            self.add_module("layer"+str(i+1), layer)
+            self.add_module("layer" + str(i + 1), layer)
 
             if batchnorm:
-                bn = nn.BatchNorm1d(layer_sizes[i+1], eps=1e-05, momentum=0.1)
+                bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
                 self.layers.append(bn)
-                self.add_module("bn"+str(i+1), bn)
+                self.add_module("bn" + str(i + 1), bn)
 
             self.layers.append(activation)
-            self.add_module("activation"+str(i+1), activation)
+            self.add_module("activation" + str(i + 1), activation)
 
         layer = nn.Linear(layer_sizes[-1], noutput)
         self.layers.append(layer)
-        self.add_module("layer"+str(len(self.layers)), layer)
+        self.add_module("layer" + str(len(self.layers)), layer)
 
         self.init_weights(weight_init)
 
@@ -164,7 +164,7 @@ class Seq2Seq(nn.Module):
                                dropout=dropout,
                                batch_first=True)
 
-        decoder_input_size = emsize+nhidden
+        decoder_input_size = emsize + nhidden
         self.decoder = nn.LSTM(input_size=decoder_input_size,
                                hidden_size=nhidden,
                                num_layers=1,
@@ -253,16 +253,15 @@ class Seq2Seq(nn.Module):
 
         # normalize to unit ball (l2 norm of 1) - p=2, dim=1
         norms = t.norm(hidden, 2, 1)
-        
+
         # For older versions of PyTorch use:
         # hidden = t.div(hidden, norms.expand_as(hidden))
         # For newest version of PyTorch (as of 8/25) use this:
         hidden = t.div(hidden, norms.unsqueeze(1).expand_as(hidden))
 
-        # @todo: why noise ?
-        if noise and self.noise_radius > 0:
+        if noise and self.noise_radius > 0:  # noise to make the task of the discriminator harder in the beginning of training
             gauss_noise = t.normal(means=t.zeros(hidden.size()),
-                                       std=self.noise_radius)
+                                   std=self.noise_radius)
             hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise))
 
         return hidden
@@ -326,7 +325,7 @@ class Seq2Seq(nn.Module):
                 vals, indices = t.max(overvocab, 1)  # this is not an error on newer PyTorch
             else:
                 # sampling
-                probs = F.softmax(overvocab/temp)
+                probs = F.softmax(overvocab / temp)
                 indices = t.multinomial(probs, 1)
 
             all_indices.append(indices)
@@ -357,7 +356,7 @@ def load_models(load_path):
                      noutput=1,
                      layers=model_args['arch_d'])
 
-    print('Loading models from'+load_path)
+    print('Loading models from' + load_path)
     ae_path = os.path.join(load_path, "autoencoder_model.pt")
     gen_path = os.path.join(load_path, "gan_gen_model.pt")
     disc_path = os.path.join(load_path, "gan_disc_model.pt")
