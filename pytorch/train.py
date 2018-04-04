@@ -122,7 +122,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi GPU instance
+parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi GPUs instance
                     help='The number of GPUs you want to use')
 
 args = parser.parse_args()
