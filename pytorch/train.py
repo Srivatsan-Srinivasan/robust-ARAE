@@ -13,7 +13,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl
+from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, activation_from_str
 from models import Seq2Seq, MLP_D, MLP_G
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
@@ -62,6 +62,17 @@ parser.add_argument('--gan_toenc', type=float, default=-0.01,
                     help='weight factor passing gradient from gan to encoder')
 parser.add_argument('--dropout', type=float, default=0.0,
                     help='dropout applied to layers (0 = no dropout)')
+parser.add_argument('--gan_weight_init', type=str, default='default',  # @todo: compare He initalization with default initialization
+                    help='What initializer you would like to use. `default` (Yoon\'s version) or `he` suppported')
+parser.add_argument('--gan_activation', default='lrelu', type='str',
+                    help='Activation to use in GAN')
+parser.add_argument('--std_minibatch', action='store_true',
+                    help="Whether to compute minibatch std in the discriminator as an additional feature")
+parser.add_argument('--bn_disc', action='store_true',  # @todo: compare without batchnorm
+                    help="Whether to use batchnorm in the discriminator")
+parser.add_argument('--bn_gen', action='store_true',
+                    help="Whether to use batchnorm in the generator")
+
 
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=15,
@@ -97,6 +108,7 @@ parser.add_argument('--clip', type=float, default=1,
 parser.add_argument('--gan_clamp', type=float, default=0.01,
                     help='WGAN clamp')
 
+
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
                     help='sample when decoding for generation')
@@ -110,6 +122,8 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
+parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi GPU instance
+                    help='The number of GPUs you want to use')
 
 args = parser.parse_args()
 print(vars(args))
@@ -173,9 +187,15 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
                       gpu=args.cuda)
+gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, batchnorm=args.bn_gen)
+gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc)
 
-gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d)
+if torch.cuda.device_count() > 1 and args.n_gpus > 1:  # @todo : test on a multi GPU instance
+    print("Let's use", args.n_gpus, "GPUs!")
+    gan_gen = nn.DataParallel(gan_gen)
+    gan_disc = nn.DataParallel(gan_disc)
+    autoencoder = nn.DataParallel(autoencoder)
+
 
 print(autoencoder)
 print(gan_gen)

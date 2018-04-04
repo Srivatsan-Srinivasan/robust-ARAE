@@ -9,6 +9,12 @@ def load_kenlm():
     import kenlm
 
 
+def activation_from_str(activation_str):
+    assert activation_str in ['relu', 'lrelu'], 'Not implemented'
+    activation = t.nn.ReLU() if activation_str == 'relu' else t.nn.LeakyReLU(.2)
+    return activation
+
+
 def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
     """Wrapper for t.autograd.Variable"""
     if isinstance(array, np.ndarray):

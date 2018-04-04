@@ -1,9 +1,8 @@
-import torch
+import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-
 from utils import to_gpu
 import json
 import os
@@ -11,11 +10,18 @@ import numpy as np
 
 
 class MLP_D(nn.Module):
-    def __init__(self, ninput, noutput, layers,
-                 activation=nn.LeakyReLU(0.2), gpu=False):
+    def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
+                 std_minibatch=True, batchnorm=False):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
+        self.std_minibatch = std_minibatch
+        if isinstance(activation, t.nn.ReLU):
+            self.negative_slope = 0
+        elif isinstance(activation, t.nn.LeakyReLU):
+            self.negative_slope = activation.negative_slope
+        else:
+            raise ValueError('Not implemented')
 
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.layers = []
@@ -26,7 +32,74 @@ class MLP_D(nn.Module):
             self.add_module("layer"+str(i+1), layer)
 
             # No batch normalization after first layer
-            if i != 0:
+            if i != 0 and batchnorm:
+                bn = nn.BatchNorm1d(layer_sizes[i+1], eps=1e-05, momentum=0.1)
+                self.layers.append(bn)
+                self.add_module("bn"+str(i+1), bn)
+
+            self.layers.append(activation)
+            self.add_module("activation"+str(i+1), activation)
+
+        layer = nn.Linear(layer_sizes[-1]+int(std_minibatch), noutput)
+        self.layers.append(layer)
+        self.add_module("layer"+str(len(self.layers)), layer)
+
+        self.init_weights(weight_init)
+
+    def forward(self, x):
+        for i, layer in enumerate(self.layers[:-1]):
+            x = layer(x)
+        layer = self.layers[-1]
+
+        if self.std_minibatch:
+            x_std_feature = t.mean(t.std(x, 0))
+            x = t.cat([x, x_std_feature], 1)
+
+        x = layer(x)
+        x = t.mean(x)
+        return x
+
+    def init_weights(self, weight_init='default'):
+        if weight_init == 'default':
+            init_std = 0.02
+            for layer in self.layers:
+                try:
+                    layer.weight.data.normal_(0, init_std)
+                    layer.bias.data.fill_(0)
+                except:
+                    pass
+        elif weight_init == 'he':
+            for layer in self.layers:
+                try:
+                    t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
+                    layer.bias.data.fill_(0)
+                except:
+                    pass
+        else:
+            raise NotImplementedError
+
+
+class MLP_G(nn.Module):
+    def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, weight_init='default', batchnorm=True):
+        super(MLP_G, self).__init__()
+        self.ninput = ninput
+        self.noutput = noutput
+        if isinstance(activation, t.nn.ReLU):
+            self.negative_slope = 0
+        elif isinstance(activation, t.nn.LeakyReLU):
+            self.negative_slope = activation.negative_slope
+        else:
+            raise ValueError('Not implemented')
+
+        layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
+        self.layers = []
+
+        for i in range(len(layer_sizes)-1):
+            layer = nn.Linear(layer_sizes[i], layer_sizes[i+1])
+            self.layers.append(layer)
+            self.add_module("layer"+str(i+1), layer)
+
+            if batchnorm:
                 bn = nn.BatchNorm1d(layer_sizes[i+1], eps=1e-05, momentum=0.1)
                 self.layers.append(bn)
                 self.add_module("bn"+str(i+1), bn)
@@ -38,69 +111,33 @@ class MLP_D(nn.Module):
         self.layers.append(layer)
         self.add_module("layer"+str(len(self.layers)), layer)
 
-        self.init_weights()
-
-    def forward(self, x):
-        for i, layer in enumerate(self.layers):
-            x = layer(x)
-        x = torch.mean(x)
-        return x
-
-    def init_weights(self):
-        init_std = 0.02
-        for layer in self.layers:
-            try:
-                layer.weight.data.normal_(0, init_std)
-                layer.bias.data.fill_(0)
-            except:
-                pass
-
-
-class MLP_G(nn.Module):
-    def __init__(self, ninput, noutput, layers,
-                 activation=nn.ReLU(), gpu=False):
-        super(MLP_G, self).__init__()
-        self.ninput = ninput
-        self.noutput = noutput
-
-        layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
-        self.layers = []
-
-        for i in range(len(layer_sizes)-1):
-            layer = nn.Linear(layer_sizes[i], layer_sizes[i+1])
-            self.layers.append(layer)
-            self.add_module("layer"+str(i+1), layer)
-
-            bn = nn.BatchNorm1d(layer_sizes[i+1], eps=1e-05, momentum=0.1)
-            self.layers.append(bn)
-            self.add_module("bn"+str(i+1), bn)
-
-            self.layers.append(activation)
-            self.add_module("activation"+str(i+1), activation)
-
-        layer = nn.Linear(layer_sizes[-1], noutput)
-        self.layers.append(layer)
-        self.add_module("layer"+str(len(self.layers)), layer)
-
-        self.init_weights()
+        self.init_weights(weight_init)
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
             x = layer(x)
         return x
 
-    def init_weights(self):
-        init_std = 0.02
-        for layer in self.layers:
-            try:
-                layer.weight.data.normal_(0, init_std)
-                layer.bias.data.fill_(0)
-            except:
-                pass
+    def init_weights(self, weight_init='default'):
+        if weight_init == 'default':
+            init_std = 0.02
+            for layer in self.layers:
+                try:
+                    layer.weight.data.normal_(0, init_std)
+                    layer.bias.data.fill_(0)
+                except:
+                    pass
+        elif weight_init == 'he':
+            for layer in self.layers:
+                try:
+                    t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
+                    layer.bias.data.fill_(0)
+                except:
+                    pass
+        else:
+            raise NotImplementedError('Not implemented')
 
 
-# @todo look in more details to this class (architecture and forward pass)
-# @todo: why is there a noise ?
 class Seq2Seq(nn.Module):
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
                  hidden_init=False, dropout=0, gpu=False):
@@ -114,7 +151,7 @@ class Seq2Seq(nn.Module):
         self.dropout = dropout
         self.gpu = gpu
 
-        self.start_symbols = to_gpu(gpu, Variable(torch.ones(10, 1).long()))
+        self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()))
 
         # Vocabulary embedding
         self.embedding = nn.Embedding(ntokens, emsize)
@@ -157,17 +194,17 @@ class Seq2Seq(nn.Module):
         self.linear.bias.data.fill_(0)
 
     def init_hidden(self, bsz):
-        zeros1 = Variable(torch.zeros(self.nlayers, bsz, self.nhidden))
-        zeros2 = Variable(torch.zeros(self.nlayers, bsz, self.nhidden))
+        zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
+        zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
         return (to_gpu(self.gpu, zeros1), to_gpu(self.gpu, zeros2))
 
     def init_state(self, bsz):
-        zeros = Variable(torch.zeros(self.nlayers, bsz, self.nhidden))
+        zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
         return to_gpu(self.gpu, zeros)
 
     def store_grad_norm(self, grad):
         """Monitor gradient norm"""
-        norm = torch.norm(grad, 2, 1)
+        norm = t.norm(grad, 2, 1)
         self.grad_norm = norm.detach().data.mean()
         return grad
 
@@ -215,16 +252,16 @@ class Seq2Seq(nn.Module):
         hidden = hidden[-1]  # get hidden state of last layer of encoder
 
         # normalize to unit ball (l2 norm of 1) - p=2, dim=1
-        norms = torch.norm(hidden, 2, 1)
+        norms = t.norm(hidden, 2, 1)
         
         # For older versions of PyTorch use:
-        # hidden = torch.div(hidden, norms.expand_as(hidden))
+        # hidden = t.div(hidden, norms.expand_as(hidden))
         # For newest version of PyTorch (as of 8/25) use this:
-        hidden = torch.div(hidden, norms.unsqueeze(1).expand_as(hidden))
+        hidden = t.div(hidden, norms.unsqueeze(1).expand_as(hidden))
 
         # @todo: why noise ?
         if noise and self.noise_radius > 0:
-            gauss_noise = torch.normal(means=torch.zeros(hidden.size()),
+            gauss_noise = t.normal(means=t.zeros(hidden.size()),
                                        std=self.noise_radius)
             hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise))
 
@@ -242,7 +279,7 @@ class Seq2Seq(nn.Module):
 
         # @todo: exposure bias ?
         embeddings = self.embedding_decoder(indices)
-        augmented_embeddings = torch.cat([embeddings, all_hidden], 2)
+        augmented_embeddings = t.cat([embeddings, all_hidden], 2)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
@@ -277,7 +314,7 @@ class Seq2Seq(nn.Module):
         self.start_symbols.data.fill_(1)
 
         embedding = self.embedding_decoder(self.start_symbols)
-        inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
+        inputs = t.cat([embedding, hidden.unsqueeze(1)], 2)
 
         # unroll
         all_indices = []
@@ -286,20 +323,20 @@ class Seq2Seq(nn.Module):
             overvocab = self.linear(output.squeeze(1))
 
             if not sample:
-                vals, indices = torch.max(overvocab, 1)  # this is not an error on newer PyTorch
+                vals, indices = t.max(overvocab, 1)  # this is not an error on newer PyTorch
             else:
                 # sampling
                 probs = F.softmax(overvocab/temp)
-                indices = torch.multinomial(probs, 1)
+                indices = t.multinomial(probs, 1)
 
             all_indices.append(indices)
             embedding = self.embedding_decoder(indices)
 
             if embedding.dim() == 2:
-                inputs = torch.cat([embedding.unsqueeze(1), hidden.unsqueeze(1)], 2)
+                inputs = t.cat([embedding.unsqueeze(1), hidden.unsqueeze(1)], 2)
             else:
-                inputs = torch.cat([embedding, hidden.unsqueeze(1)], 2)
-        max_indices = torch.stack(all_indices, 1)
+                inputs = t.cat([embedding, hidden.unsqueeze(1)], 2)
+        max_indices = t.stack(all_indices, 1)
         return max_indices
 
 
@@ -325,9 +362,9 @@ def load_models(load_path):
     gen_path = os.path.join(load_path, "gan_gen_model.pt")
     disc_path = os.path.join(load_path, "gan_disc_model.pt")
 
-    autoencoder.load_state_dict(torch.load(ae_path))
-    gan_gen.load_state_dict(torch.load(gen_path))
-    gan_disc.load_state_dict(torch.load(disc_path))
+    autoencoder.load_state_dict(t.load(ae_path))
+    gan_gen.load_state_dict(t.load(gen_path))
+    gan_disc.load_state_dict(t.load(disc_path))
     return model_args, idx2word, autoencoder, gan_gen, gan_disc
 
 
@@ -337,10 +374,10 @@ def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
     """
     if type(z) == Variable:
         noise = z
-    elif type(z) == torch.FloatTensor or type(z) == torch.cuda.FloatTensor:
+    elif type(z) == t.FloatTensor or type(z) == t.cuda.FloatTensor:
         noise = Variable(z, volatile=True)
     elif type(z) == np.ndarray:
-        noise = Variable(torch.from_numpy(z).float(), volatile=True)
+        noise = Variable(t.from_numpy(z).float(), volatile=True)
     else:
         raise ValueError("Unsupported input type (noise): {}".format(type(z)))
 
