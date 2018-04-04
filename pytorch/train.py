@@ -107,6 +107,8 @@ parser.add_argument('--clip', type=float, default=1,
                     help='gradient clipping, max norm')
 parser.add_argument('--gan_clamp', type=float, default=0.01,
                     help='WGAN clamp')
+parser.add_argument('--gradient_penalty', action='store_true',
+                    help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
 
 
 # Evaluation Arguments
@@ -453,8 +455,9 @@ def grad_hook(grad):
 
 def train_gan_d(batch):
     # clamp parameters to a cube
-    for p in gan_disc.parameters():
-        p.data.clamp_(-args.gan_clamp, args.gan_clamp)
+    if not args.gradient_penalty:
+        for p in gan_disc.parameters():
+            p.data.clamp_(-args.gan_clamp, args.gan_clamp)
 
     autoencoder.train()
     autoencoder.zero_grad()
@@ -473,7 +476,7 @@ def train_gan_d(batch):
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
-    errD_real.backward(one)
+    errD_real.backward(one)  # @todo : shouldnt it be `mone` instead of `one` ?
 
     # negative samples ----------------------------
     # generate fake codes
@@ -484,7 +487,10 @@ def train_gan_d(batch):
     # loss / backprop
     fake_hidden = gan_gen(noise)
     errD_fake = gan_disc(fake_hidden.detach())
-    errD_fake.backward(mone)
+    errD_fake.backward(mone)  # @todo : shouldnt it be `one` instead of `mone` ?
+    if args.gradient_penalty:
+        errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
+        errD_grad.backward(mone)  # @todo : shouldnt it be `one` instead of `mone` ?
 
     # `clip_grad_norm` to prvent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)

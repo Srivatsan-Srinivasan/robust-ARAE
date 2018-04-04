@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from utils import to_gpu
+from utils import to_gpu, variable
 import json
 import os
 import numpy as np
@@ -16,6 +16,7 @@ class MLP_D(nn.Module):
         self.ninput = ninput
         self.noutput = noutput
         self.std_minibatch = std_minibatch
+        self.gpu = gpu
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -77,6 +78,27 @@ class MLP_D(nn.Module):
                     pass
         else:
             raise NotImplementedError
+
+    def _input_gradient(self, x, x_synth):
+        """
+        Compute gradients with regard to the input
+        The input is chosen to be a random image in between the true and synthetic images
+        """
+        # build the input the gradients should be computed
+        u = variable(np.random.uniform(size=(x.size(0), self.ninput)), cuda=self.gpu)
+        xx = t.autograd.Variable((x_synth * u + x * (1 - u)).data.cuda(), requires_grad=True)
+        D_xx = self.forward(xx)
+
+        # compute gradients
+        gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
+                                    grad_outputs=t.ones(D_xx.size()).cuda(),
+                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
+        return gradients
+
+    def gradient_penalty(self, x, x_synth, lambd=10):
+        gradients = self._input_gradient(x, x_synth)
+        gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambd
+        return gp
 
 
 class MLP_G(nn.Module):
