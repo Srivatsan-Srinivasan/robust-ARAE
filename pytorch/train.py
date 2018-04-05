@@ -422,6 +422,16 @@ def train_ae(batch, total_loss_ae, start_time, i):
 
 
 def train_gan_g():
+    """
+    Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
+    consistency between G and D, AND between the two parts of the loss of D
+
+    It is because f is 1-Lipschitz iff -f also is
+
+    See the comment of martinarjovsky on:
+        * https://github.com/martinarjovsky/WassersteinGAN/issues/9
+        * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
+    """
     gan_gen.train()
     gan_gen.zero_grad()
 
@@ -454,6 +464,16 @@ def grad_hook(grad):
 
 
 def train_gan_d(batch):
+    """
+    Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
+    consistency between G and D, AND between the two parts of the loss of D
+
+    It is because f is 1-Lipschitz iff -f also is
+
+    See the comment of martinarjovsky on:
+        * https://github.com/martinarjovsky/WassersteinGAN/issues/9
+        * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
+    """
     # clamp parameters to a cube
     if not args.gradient_penalty:
         for p in gan_disc.parameters():
@@ -476,7 +496,7 @@ def train_gan_d(batch):
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
-    errD_real.backward(one)  # @todo : shouldnt it be `mone` instead of `one` ?
+    errD_real.backward(one)
 
     # negative samples ----------------------------
     # generate fake codes
@@ -487,12 +507,12 @@ def train_gan_d(batch):
     # loss / backprop
     fake_hidden = gan_gen(noise)
     errD_fake = gan_disc(fake_hidden.detach())
-    errD_fake.backward(mone)  # @todo : shouldnt it be `one` instead of `mone` ?
+    errD_fake.backward(mone)
     if args.gradient_penalty:
         errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
-        errD_grad.backward(mone)  # @todo : shouldnt it be `one` instead of `mone` ?
+        errD_grad.backward(one)
 
-    # `clip_grad_norm` to prvent exploding gradient problem in RNNs / LSTMs
+    # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
 
     optimizer_gan_d.step()
