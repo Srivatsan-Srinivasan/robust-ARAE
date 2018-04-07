@@ -65,7 +65,7 @@ parser.add_argument('--dropout', type=float, default=0.0,
                     help='dropout applied to layers (0 = no dropout)')
 parser.add_argument('--gan_weight_init', type=str, default='default',  # @todo: compare He initalization with default initialization
                     help='What initializer you would like to use. `default` (Yoon\'s version) or `he` suppported')
-parser.add_argument('--gan_activation', default='lrelu', type='str',
+parser.add_argument('--gan_activation', default='lrelu', type=str,
                     help='Activation to use in GAN')
 parser.add_argument('--std_minibatch', action='store_true',
                     help="Whether to compute minibatch std in the discriminator as an additional feature")
