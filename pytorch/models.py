@@ -54,6 +54,10 @@ class MLP_D(nn.Module):
 
         if self.std_minibatch:
             x_std_feature = t.mean(t.std(x, 0))
+            print('x.size()')
+            print(x.size())
+            print('x_std_feature.size()')
+            print(x_std_feature.size())
             x = t.cat([x, x_std_feature], 1)
 
         x = layer(x)
