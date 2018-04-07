@@ -100,6 +100,14 @@ class MLP_D(nn.Module):
         gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambd
         return gp
 
+    def tensorboard(self, writer, n_iter):
+        k = 0
+        for layer in self.layers:
+            if isinstance(layer, t.nn.Linear):
+                writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter)
+                writer.add_histogram('Disc_fc_grad_%d' % k, layer.weight.grad.cpu().numpy(), n_iter)
+                k += 1
+
 
 class MLP_G(nn.Module):
     def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, weight_init='default', batchnorm=True):
@@ -158,6 +166,14 @@ class MLP_G(nn.Module):
                     pass
         else:
             raise NotImplementedError('Not implemented')
+
+    def tensorboard(self, writer, n_iter):
+        k = 0
+        for layer in self.layers:
+            if isinstance(layer, t.nn.Linear):
+                writer.add_histogram('Gen_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter)
+                writer.add_histogram('Gen_fc_grad_%d' % k, layer.weight.grad.cpu().numpy(), n_iter)
+                k += 1
 
 
 class Seq2Seq(nn.Module):
@@ -359,6 +375,21 @@ class Seq2Seq(nn.Module):
                 inputs = t.cat([embedding, hidden.unsqueeze(1)], 2)
         max_indices = t.stack(all_indices, 1)
         return max_indices
+
+    def tensorboard(self, writer, n_iter):
+        for l in range(self.encoder.num_layers):
+            writer.add_histogram('Enc_ih_w_%d' % l, getattr(self.encoder, 'weight_ih_l%d' % l).data.cpu().numpy(), n_iter)
+            writer.add_histogram('Enc_ih_grad_%d' % l, getattr(self.encoder, 'weight_ih_l%d' % l).grad.cpu().numpy(), n_iter)
+            writer.add_histogram('Enc_hh_w_%d' % l, getattr(self.encoder, 'weight_hh_l%d' % l).data.cpu().numpy(), n_iter)
+            writer.add_histogram('Enc_hh_grad_%d' % l, getattr(self.encoder, 'weight_hh_l%d' % l).grad.cpu().numpy(), n_iter)
+        for l in range(self.decoder.num_layers):
+            writer.add_histogram('Dec_ih_w_%d' % l, getattr(self.decoder, 'weight_ih_l%d' % l).data.cpu().numpy(), n_iter)
+            writer.add_histogram('Dec_ih_grad_%d' % l, getattr(self.decoder, 'weight_ih_l%d' % l).grad.cpu().numpy(), n_iter)
+            writer.add_histogram('Dec_hh_w_%d' % l, getattr(self.decoder, 'weight_hh_l%d' % l).data.cpu().numpy(), n_iter)
+            writer.add_histogram('Dec_hh_grad_%d' % l, getattr(self.decoder, 'weight_hh_l%d' % l).grad.cpu().numpy(), n_iter)
+
+        writer.add_histogram('Dec_fc_w', self.linear.weight.data.cpu().numpy(), n_iter)
+        writer.add_histogram('Dec_fc_grad', self.linear.weight.grad.cpu().numpy(), n_iter)
 
 
 def load_models(load_path):

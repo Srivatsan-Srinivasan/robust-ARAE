@@ -7,13 +7,14 @@ import random
 import sys
 import json
 
+from tensorboardX import SummaryWriter
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, activation_from_str
+from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, activation_from_str, tensorboard
 from models import Seq2Seq, MLP_D, MLP_G
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
@@ -110,7 +111,6 @@ parser.add_argument('--gan_clamp', type=float, default=0.01,
 parser.add_argument('--gradient_penalty', action='store_true',
                     help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
 
-
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
                     help='sample when decoding for generation')
@@ -126,6 +126,13 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi GPUs instance
                     help='The number of GPUs you want to use')
+parser.add_argument('--tensorboard', action='store_true',
+                    help='Whether to use tensorboard or not')
+parser.add_argument('--tensorboard_freq', type=int, default=100,
+                    help='logging frequency')
+parser.add_argument('--tensorboard_logdir', type=str, default='tensorboard/',
+                    help='logging directory')
+
 
 args = parser.parse_args()
 print(vars(args))
@@ -181,6 +188,7 @@ print("Loaded data!")
 ###############################################################################
 
 ntokens = len(corpus.dictionary.word2idx)
+writer = SummaryWriter(log_dir=args.tensorboard_logdir) if args.tensorboard else None
 autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=ntokens,
@@ -449,20 +457,6 @@ def train_gan_g():
     return errG
 
 
-def grad_hook(grad):
-    # Gradient norm: regularize to be same
-    # code_grad_gan * code_grad_ae / norm(code_grad_gan)
-    if args.enc_grad_norm:
-        gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
-        normed_grad = grad * autoencoder.grad_norm / gan_norm
-    else:
-        normed_grad = grad
-
-    # weight factor and sign flip
-    normed_grad *= -math.fabs(args.gan_toenc)
-    return normed_grad
-
-
 def train_gan_d(batch):
     """
     Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
@@ -522,6 +516,20 @@ def train_gan_d(batch):
     return errD, errD_real, errD_fake
 
 
+def grad_hook(grad):
+    # Gradient norm: regularize to be same
+    # code_grad_gan * code_grad_ae / norm(code_grad_gan)
+    if args.enc_grad_norm:
+        gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
+        normed_grad = grad * autoencoder.grad_norm / gan_norm
+    else:
+        normed_grad = grad
+
+    # weight factor and sign flip
+    normed_grad *= -math.fabs(args.gan_toenc)
+    return normed_grad
+
+
 print("Training...")
 with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
     f.write('Training...\n')
@@ -579,6 +587,8 @@ for epoch in range(1, args.epochs+1):
                 errG = train_gan_g()
 
         niter_global += 1
+
+        tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq)  # @todo: solve this - as it is now, the autoencoder has its gradients erased just before the call of the function
         if niter_global % 100 == 0:
             print('[%d/%d][%d/%d] Loss_D: %.8f (Loss_D_real: %.8f '
                   'Loss_D_fake: %.8f) Loss_G: %.8f'

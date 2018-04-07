@@ -9,6 +9,16 @@ def load_kenlm():
     import kenlm
 
 
+def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
+    if writer is None:
+        return
+    else:
+        if niter_global % log_freq == 0:
+            gan_gen.tensorboard(writer, niter_global)
+            gan_disc.tensorboard(writer, niter_global)
+            # autoencoder.tensorboard(writer, niter_global)  # @todo: solve this - as it is now, the autoencoder has its gradients erased just before the call of the function
+
+
 def activation_from_str(activation_str):
     assert activation_str in ['relu', 'lrelu'], 'Not implemented'
     activation = t.nn.ReLU() if activation_str == 'relu' else t.nn.LeakyReLU(.2)
