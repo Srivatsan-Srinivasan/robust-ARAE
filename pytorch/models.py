@@ -86,12 +86,6 @@ class MLP_D(nn.Module):
         """
         # build the input the gradients should be computed
         u = variable(np.random.uniform(size=(x.size(0), self.ninput)), cuda=self.gpu)
-        print('x')
-        print(x)
-        print('x_synth')
-        print(x_synth)
-        print('u')
-        print(u)
         xx = t.autograd.Variable((x_synth * u + x * (1 - u)).data.cuda(), requires_grad=True)
         D_xx = self.forward(xx)
 
