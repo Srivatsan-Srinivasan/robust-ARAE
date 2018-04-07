@@ -1,3 +1,5 @@
+#### EXAMPLE contains a sample for all - scalars, images, text, distributions, histograms etc.
+
 STEP 1 : pip install tensorboardX
 
 #### HOW TO WORK WITH TENSORBOARD IN LOCAL MACHINE ONLY ?
@@ -14,3 +16,4 @@ run the following command line argument <b>tensorboard --logfile runs</b>
 2. Then on the local machine, ssh -N -L localhost:8888:\<tensorboard link on remote machine\> user@host_name
   
 #### NOTE : Periodically keep deleting stuff from the runs file, the logs are heavy.
+
