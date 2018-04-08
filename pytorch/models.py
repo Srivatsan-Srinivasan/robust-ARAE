@@ -273,20 +273,20 @@ class Seq2Seq(nn.Module):
     def encode(self, indices, lengths, noise):
         """
         :param indices: the integer-encoded sentences. It is a LongTensor
-        :param lengths: A LongTensor containing the lengths of sentences (they are padded, so the number of columns isn't the length)
+        :param lengths: A list containing the lengths of sentences (they are padded, so the number of columns isn't the length)
+                        Note that it could also be a Variable. It actually should be a Variable when you are using multiple GPUs,
+                        because pytorch only splits the Variable
         :param noise: whether to add noise to the hidden representation
         :return: a latent representation of the sentences, encoded on the unit-sphere
         """
+        # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
+        # among the GPUs you are using
         if isinstance(lengths, t.autograd.Variable):
             lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
         elif isinstance(lengths, list):
             lengths_ = lengths[:]
         else:
             raise ValueError("Should be either variable or list")
-        print('indices.size()')
-        print(indices.size())
-        print('len(lengths)')
-        print(len(lengths_))
         embeddings = self.embedding(indices)
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths_,
@@ -315,6 +315,15 @@ class Seq2Seq(nn.Module):
         return hidden
 
     def decode(self, hidden, batch_size, maxlen, indices=None, lengths=None):
+        # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
+        # among the GPUs you are using
+        if isinstance(lengths, t.autograd.Variable):
+            lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
+        elif isinstance(lengths, list):
+            lengths_ = lengths[:]
+        else:
+            raise ValueError("Should be either variable or list")
+
         # batch x hidden
         all_hidden = hidden.unsqueeze(1).repeat(1, maxlen, 1)
 
@@ -328,11 +337,11 @@ class Seq2Seq(nn.Module):
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
-                                                 lengths=lengths,
+                                                 lengths=lengths_,
                                                  batch_first=True)
 
         packed_output, state = self.decoder(packed_embeddings, state)
-        output, lengths = pad_packed_sequence(packed_output, batch_first=True)
+        output, _ = pad_packed_sequence(packed_output, batch_first=True)
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))
