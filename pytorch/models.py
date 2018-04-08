@@ -277,15 +277,19 @@ class Seq2Seq(nn.Module):
         :param noise: whether to add noise to the hidden representation
         :return: a latent representation of the sentences, encoded on the unit-sphere
         """
+        if isinstance(lengths, t.autograd.Variable):
+            lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
+        elif isinstance(lengths, list):
+            lengths_ = lengths[:]
+        else:
+            raise ValueError("Should be either variable or list")
         print('indices.size()')
         print(indices.size())
         print('len(lengths)')
-        print(len(lengths))
-        print('noise.size()')
-        print(noise.size())
+        print(len(lengths_))
         embeddings = self.embedding(indices)
         packed_embeddings = pack_padded_sequence(input=embeddings,
-                                                 lengths=lengths,
+                                                 lengths=lengths_,
                                                  batch_first=True)
 
         # Encode

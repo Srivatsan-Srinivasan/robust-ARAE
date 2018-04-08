@@ -14,7 +14,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 
-from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, activation_from_str, tensorboard
+from utils import to_gpu, Corpus, batchify, train_ngram_lm, get_ppl, activation_from_str, tensorboard, variable
 from models import Seq2Seq, MLP_D, MLP_G
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
@@ -386,7 +386,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
     # output: (batch_size, max_len, ntokens)
-    output = autoencoder(source, lengths, noise=True)
+    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True)
 
     # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
