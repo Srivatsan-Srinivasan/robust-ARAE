@@ -346,6 +346,7 @@ class Seq2Seq(nn.Module):
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))
+        print(decoded.size())
         decoded = decoded.view(batch_size, maxlen, self.ntokens)
 
         return decoded
