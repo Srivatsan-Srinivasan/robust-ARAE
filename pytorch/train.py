@@ -251,6 +251,7 @@ def evaluate_autoencoder(data_source, epoch):
     bcnt = 0
     for i, batch in enumerate(data_source):
         source, target, lengths = batch
+        print(lengths)
         source = to_gpu(args.cuda, Variable(source, volatile=True))
         target = to_gpu(args.cuda, Variable(target, volatile=True))
 
