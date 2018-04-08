@@ -404,7 +404,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     accuracy = None
     if i % args.log_interval == 0 and i > 0:
         # accuracy
-        probs = F.softmax(masked_output)
+        probs = F.softmax(masked_output, 1)
         max_vals, max_indices = torch.max(probs, 1)
         accuracy = torch.mean(max_indices.eq(masked_target).float()).data[0]
 
