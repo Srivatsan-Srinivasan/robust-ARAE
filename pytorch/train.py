@@ -377,7 +377,6 @@ def train_ae(batch, total_loss_ae, start_time, i):
     autoencoder.zero_grad()
 
     source, target, lengths = batch  # note that target is flattened
-    print(len(lengths), source.size(), target.size())
     source = to_gpu(args.cuda, Variable(source))  # source has no end symbol
     target = to_gpu(args.cuda, Variable(target))  # target has no start symbol
 

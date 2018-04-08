@@ -201,12 +201,10 @@ def batchify(data, bsz, shuffle=False, gpu=False):
 
         source = t.LongTensor(np.array(source))
         target = t.LongTensor(np.array(target)).view(-1)
-        lengths = t.LongTensor(np.array(lengths))
 
         if gpu:
             source = source.cuda()
             target = target.cuda()
-            lengths = lengths.cuda()
 
         batches.append((source, target, lengths))
 
