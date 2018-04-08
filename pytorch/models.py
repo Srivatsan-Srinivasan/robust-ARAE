@@ -335,6 +335,7 @@ class Seq2Seq(nn.Module):
             state = self.init_hidden(batch_size)
 
         # @todo: exposure bias ?
+        print('indices.size()', indices.size())
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
