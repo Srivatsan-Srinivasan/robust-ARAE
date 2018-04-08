@@ -277,6 +277,12 @@ class Seq2Seq(nn.Module):
         :param noise: whether to add noise to the hidden representation
         :return: a latent representation of the sentences, encoded on the unit-sphere
         """
+        print('indices.size()')
+        print(indices.size())
+        print('lengths.size()')
+        print(lengths.size())
+        print('noise.size()')
+        print(noise.size())
         embeddings = self.embedding(indices)
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
