@@ -335,10 +335,10 @@ class Seq2Seq(nn.Module):
             state = self.init_hidden(batch_size)
 
         # @todo: exposure bias ?
-        print('indices.size()', indices.size())
+        # print('indices.size()', indices.size())
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
-        print('augmented_embeddings.size()', augmented_embeddings.size())
+        # print('augmented_embeddings.size()', augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
@@ -346,10 +346,9 @@ class Seq2Seq(nn.Module):
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
 
-        print(output.size())
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))
-        decoded = decoded.view(batch_size, maxlen, self.ntokens)
+        decoded = decoded.view(batch_size, output.size(1), self.ntokens)
 
         return decoded
 
