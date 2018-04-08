@@ -128,7 +128,7 @@ parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi 
                     help='The number of GPUs you want to use')
 parser.add_argument('--tensorboard', action='store_true',
                     help='Whether to use tensorboard or not')
-parser.add_argument('--tensorboard_freq', type=int, default=100,
+parser.add_argument('--tensorboard_freq', type=int, default=300,
                     help='logging frequency')
 parser.add_argument('--tensorboard_logdir', type=str, default='tensorboard/',
                     help='logging directory')
