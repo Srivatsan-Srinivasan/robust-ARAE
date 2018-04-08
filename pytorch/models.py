@@ -256,6 +256,7 @@ class Seq2Seq(nn.Module):
         :return:
         """
         batch_size, maxlen = indices.size()
+        print(batch_size, maxlen)
 
         hidden = self.encode(indices, lengths, noise)
 
