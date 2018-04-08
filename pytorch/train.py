@@ -251,7 +251,6 @@ def evaluate_autoencoder(data_source, epoch):
     bcnt = 0
     for i, batch in enumerate(data_source):
         source, target, lengths = batch
-        print(lengths)
         source = to_gpu(args.cuda, Variable(source, volatile=True))
         target = to_gpu(args.cuda, Variable(target, volatile=True))
 
@@ -378,7 +377,7 @@ def train_ae(batch, total_loss_ae, start_time, i):
     autoencoder.zero_grad()
 
     source, target, lengths = batch  # note that target is flattened
-    print(lengths)
+    print(len(lengths), source.size(), target.size())
     source = to_gpu(args.cuda, Variable(source))  # source has no end symbol
     target = to_gpu(args.cuda, Variable(target))  # target has no start symbol
 
