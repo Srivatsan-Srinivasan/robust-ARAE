@@ -342,7 +342,6 @@ class Seq2Seq(nn.Module):
                                                  batch_first=True)
 
         packed_output, state = self.decoder(packed_embeddings, state)
-        print('packed_output.size()', packed_output.size())
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
         print('output.size()', output.size())
 
