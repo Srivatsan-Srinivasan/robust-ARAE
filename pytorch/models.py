@@ -342,11 +342,13 @@ class Seq2Seq(nn.Module):
                                                  batch_first=True)
 
         packed_output, state = self.decoder(packed_embeddings, state)
+        print('packed_output.size()', packed_output.size())
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
+        print('output.size()', output.size())
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))
-        print(decoded.size())
+        print('decoded.size()', decoded.size())
         decoded = decoded.view(batch_size, maxlen, self.ntokens)
 
         return decoded
