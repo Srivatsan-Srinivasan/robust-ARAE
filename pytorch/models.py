@@ -338,17 +338,17 @@ class Seq2Seq(nn.Module):
         print('indices.size()', indices.size())
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
+        print('augmented_embeddings.size()', augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
 
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True)
-        print('output.size()', output.size())
 
+        print(output.size())
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))
-        print('decoded.size()', decoded.size())
         decoded = decoded.view(batch_size, maxlen, self.ntokens)
 
         return decoded
