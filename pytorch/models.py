@@ -48,9 +48,8 @@ class MLP_D(nn.Module):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d'%i)
             activation = getattr(self, 'activation%d'%i)
-            if self.batchnorm:
-                bn = getattr(self, 'bn%d'%i)
-            x = activation(bn(layer(x))) if self.batchnorm else activation(layer(x))
+            bn = getattr(self, 'bn%d'%i) if self.batchnorm and i > 1 else None
+            x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
 
         layer = getattr(self, 'layer%d' % self.n_layers)
 
@@ -152,7 +151,7 @@ class MLP_G(nn.Module):
                 return layer(x)
             activation = getattr(self, 'activation&d'%i)
             bn = getattr(self, 'bn%d'%i) if self.batchnorm else None
-            x = activation(bn(layer(x))) if self.batchnorm else activation(layer(x))
+            x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
         return x
 
     def init_weights(self, weight_init='default'):
