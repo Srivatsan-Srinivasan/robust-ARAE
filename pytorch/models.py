@@ -178,7 +178,7 @@ class MLP_G(nn.Module):
 
 class Seq2Seq(nn.Module):
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
-                 hidden_init=False, dropout=0, gpu=False):
+                 hidden_init=False, dropout=0, gpu=False, ngpus=1):
         super(Seq2Seq, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
@@ -188,6 +188,7 @@ class Seq2Seq(nn.Module):
         self.hidden_init = hidden_init
         self.dropout = dropout
         self.gpu = gpu
+        self.ngpus = ngpus
 
         self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()))
 
@@ -341,7 +342,7 @@ class Seq2Seq(nn.Module):
                                                  batch_first=True)
 
         packed_output, state = self.decoder(packed_embeddings, state)
-        output, _ = pad_packed_sequence(packed_output, batch_first=True)
+        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
         decoded = self.linear(output.contiguous().view(-1, self.nhidden))

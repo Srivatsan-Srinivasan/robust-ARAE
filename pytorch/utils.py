@@ -25,7 +25,7 @@ def activation_from_str(activation_str):
     return activation
 
 
-def pad_packed_sequence(sequence, batch_first=False):
+def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     """Pads a packed batch of variable length sequences.
 
     It is an inverse operation to :func:`pack_padded_sequence`.
@@ -47,9 +47,7 @@ def pad_packed_sequence(sequence, batch_first=False):
     """
     var_data, batch_sizes = sequence
     max_batch_size = batch_sizes[0]
-    output = var_data.data.new(len(batch_sizes), max_batch_size, *var_data.size()[1:]).zero_()
-    print('output.size()', output.size())
-    print('*var_data.size()[1:]', *var_data.size()[1:])
+    output = var_data.data.new(len(batch_sizes) if maxlen is None else maxlen, max_batch_size, *var_data.size()[1:]).zero_()
     output = t.autograd.Variable(output)
 
     lengths = []
