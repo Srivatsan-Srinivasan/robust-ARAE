@@ -334,6 +334,8 @@ class Seq2Seq(nn.Module):
         # among the GPUs you are using
         if isinstance(lengths, t.autograd.Variable):
             lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
+            if isinstance(lengths_, int):
+                lengths_ = [lengths_]
         elif isinstance(lengths, list):
             lengths_ = lengths[:]
         else:
