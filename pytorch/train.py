@@ -201,6 +201,14 @@ autoencoder = Seq2Seq(emsize=args.emsize,
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda)
 gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, gpu=args.cuda)
 
+criterion_ce = nn.CrossEntropyLoss()
+
+if args.cuda:
+    autoencoder = autoencoder.cuda()
+    gan_gen = gan_gen.cuda()
+    gan_disc = gan_disc.cuda()
+    criterion_ce = criterion_ce.cuda()
+
 if torch.cuda.device_count() > 1 and args.n_gpus > 1:  # @todo : test on a multi GPU instance
     print("Let's use", args.n_gpus, "GPUs!")
     gan_gen = nn.DataParallel(gan_gen)
@@ -220,13 +228,6 @@ optimizer_gan_d = optim.Adam(gan_disc.parameters(),
                              lr=args.lr_gan_d,
                              betas=(args.beta1, 0.999))
 
-criterion_ce = nn.CrossEntropyLoss()
-
-if args.cuda:
-    autoencoder = autoencoder.cuda()
-    gan_gen = gan_gen.cuda()
-    gan_disc = gan_disc.cuda()
-    criterion_ce = criterion_ce.cuda()
 
 ###############################################################################
 # Training code
@@ -521,7 +522,8 @@ def grad_hook(grad):
     # code_grad_gan * code_grad_ae / norm(code_grad_gan)
     if args.enc_grad_norm:
         gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
-        normed_grad = grad * autoencoder.grad_norm / gan_norm
+        grad_norm = autoencoder.grad_norm if args.n_gpus == 1 else autoencoder.module.grad_norm
+        normed_grad = grad * grad_norm / gan_norm
     else:
         normed_grad = grad
 
