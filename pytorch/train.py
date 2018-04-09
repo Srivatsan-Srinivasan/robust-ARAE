@@ -490,7 +490,6 @@ def train_gan_d(batch):
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
-    print('errD_real.size()', errD_real.size())
     errD_real.backward(one)
 
     # negative samples ----------------------------
@@ -545,7 +544,7 @@ niter_gan = 1
 fixed_noise = to_gpu(args.cuda,
                      Variable(torch.ones(args.batch_size, args.z_size)))
 fixed_noise.data.normal_(0, 1)
-one = to_gpu(args.cuda, torch.FloatTensor([1]))
+one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus*[1]))
 mone = one * -1
 
 best_ppl = None
