@@ -522,8 +522,12 @@ def grad_hook(grad):
     # code_grad_gan * code_grad_ae / norm(code_grad_gan)
     if args.enc_grad_norm:
         gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
-        grad_norm = autoencoder.grad_norm if args.n_gpus == 1 else autoencoder.module.grad_norm
-        normed_grad = grad * grad_norm / gan_norm
+        try:
+            grad_norm = autoencoder.grad_norm if args.n_gpus == 1 else autoencoder.module.grad_norm
+            normed_grad = grad * grad_norm / gan_norm
+        except AttributeError:
+            print("grad_norm was undefined...")
+            normed_grad = grad
     else:
         normed_grad = grad
 
