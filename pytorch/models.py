@@ -17,6 +17,7 @@ class MLP_D(nn.Module):
         self.noutput = noutput
         self.std_minibatch = std_minibatch
         self.gpu = gpu
+        self.batchnorm = batchnorm
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -25,36 +26,33 @@ class MLP_D(nn.Module):
             raise ValueError('Not implemented')
 
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
-        self.layers = []
+        self.n_layers = len(layer_sizes)
 
         for i in range(len(layer_sizes) - 1):
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-            self.layers.append(layer)
-            self.add_module("layer" + str(i + 1), layer)
+            setattr(self, 'layer'+str(i+1), layer)
 
             # No batch normalization after first layer
             if i != 0 and batchnorm:
                 bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
-                self.layers.append(bn)
-                self.add_module("bn" + str(i + 1), bn)
+                setattr(self, 'bn'+str(i+1), bn)
 
-            self.layers.append(activation)
-            self.add_module("activation" + str(i + 1), activation)
+            setattr(self, 'activation'+str(i+1), activation)
 
         layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
-        self.layers.append(layer)
-        self.add_module("layer" + str(len(self.layers)), layer)
+        setattr(self, 'layer'+str(self.n_layers), layer)
 
         self.init_weights(weight_init)
 
-    def get_layer(self, layer):
-        return getattr(self, 'layer{}'.format(layer))
-
     def forward(self, x):
-        for i in range(1, len(self.layers)+1):
-            layer = self.get_layer(i)
-            x = layer(x)
-        layer = self.get_layer(len(self.layers))
+        for i in range(1, self.n_layers):
+            layer = getattr(self, 'layer%d'%i)
+            activation = getattr(self, 'activation%d'%i)
+            if self.batchnorm:
+                bn = getattr(self, 'bn%d'%i)
+            x = activation(bn(layer(x))) if self.batchnorm else activation(layer(x))
+
+        layer = getattr(self, 'layer%d' % self.n_layers)
 
         if self.std_minibatch:
             x_std_feature = t.mean(t.std(x, 0)).unsqueeze(1).expand(x.size(0), 1)
@@ -67,15 +65,17 @@ class MLP_D(nn.Module):
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':
             init_std = 0.02
-            for layer in self.layers:
+            for i in range(1, self.n_layers):
                 try:
+                    layer = getattr(self, 'layer'+str(i))
                     layer.weight.data.normal_(0, init_std)
                     layer.bias.data.fill_(0)
                 except:
                     pass
         elif weight_init == 'he':
-            for layer in self.layers:
+            for i in range(1, self.n_layers):
                 try:
+                    layer = getattr(self, 'layer'+str(i))
                     t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
                     layer.bias.data.fill_(0)
                 except:
@@ -106,7 +106,8 @@ class MLP_D(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
-        for layer in self.layers:
+        for i in range(self.n_layers):
+            layer = getattr(self, 'layer%d'%i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Disc_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
@@ -118,6 +119,7 @@ class MLP_G(nn.Module):
         super(MLP_G, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
+        self.batchnorm = batchnorm
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -126,48 +128,47 @@ class MLP_G(nn.Module):
             raise ValueError('Not implemented')
 
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
-        self.layers = []
+        self.n_layers = len(layer_sizes)
 
         for i in range(len(layer_sizes) - 1):
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-            self.layers.append(layer)
-            self.add_module("layer" + str(i + 1), layer)
+            setattr(self, 'layer'+str(i+1), layer)
 
             if batchnorm:
                 bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
-                self.layers.append(bn)
-                self.add_module("bn" + str(i + 1), bn)
+                setattr(self, 'bn' + str(i + 1), bn)
 
-            self.layers.append(activation)
-            self.add_module("activation" + str(i + 1), activation)
+            setattr(self, 'activation' + str(i + 1), activation)
 
         layer = nn.Linear(layer_sizes[-1], noutput)
-        self.layers.append(layer)
-        self.add_module("layer" + str(len(self.layers)), layer)
+        setattr(self, 'layer'+str(len(layer_sizes)), layer)
 
         self.init_weights(weight_init)
 
-    def get_layer(self, layer):
-        return getattr(self, 'layer{}'.format(layer))
-
     def forward(self, x):
-        for i in range(1, len(self.layers) + 1):
-            layer = self.get_layer(i)
-            x = layer(x)
+        for i in range(1, self.n_layers + 1):
+            layer = getattr(self, 'layer&d'%i)
+            if i == self.n_layers:
+                return layer(x)
+            activation = getattr(self, 'activation&d'%i)
+            bn = getattr(self, 'bn%d'%i) if self.batchnorm else None
+            x = activation(bn(layer(x))) if self.batchnorm else activation(layer(x))
         return x
 
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':
             init_std = 0.02
-            for layer in self.layers:
+            for i in range(1, self.n_layers+1):
                 try:
+                    layer = getattr(self, 'layer%d' % i)
                     layer.weight.data.normal_(0, init_std)
                     layer.bias.data.fill_(0)
                 except:
                     pass
         elif weight_init == 'he':
-            for layer in self.layers:
+            for i in range(1, self.n_layers+1):
                 try:
+                    layer = getattr(self, 'layer%d' % i)
                     t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
                     layer.bias.data.fill_(0)
                 except:
@@ -177,7 +178,8 @@ class MLP_G(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
-        for layer in self.layers:
+        for i in range(1, self.n_layers+1):
+            layer = getattr(self, 'layer%d'%i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Gen_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Gen_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
