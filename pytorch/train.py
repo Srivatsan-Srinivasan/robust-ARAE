@@ -526,7 +526,6 @@ def grad_hook(grad):
             grad_norm = autoencoder.grad_norm if args.n_gpus == 1 else autoencoder.module.grad_norm
             normed_grad = grad * grad_norm / gan_norm
         except AttributeError:
-            print("grad_norm was undefined...")
             normed_grad = grad
     else:
         normed_grad = grad
