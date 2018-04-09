@@ -606,7 +606,10 @@ for epoch in range(1, args.epochs+1):
                            errD_fake.data[0], errG.data[0]))
 
             # exponentially decaying noise on autoencoder
-            autoencoder.noise_radius = autoencoder.noise_radius*args.noise_anneal
+            if args.n_gpus == 1:
+                autoencoder.noise_radius = autoencoder.noise_radius*args.noise_anneal
+            else:  # in that case `autoencoder` is a DataParallel object, and we have to access its module
+                autoencoder.module.noise_radius = autoencoder.module.noise_radius*args.noise_anneal
 
             if niter_global % 3000 == 0:
                 evaluate_generator(fixed_noise, "epoch{}_step{}".
