@@ -49,10 +49,10 @@ class MLP_D(nn.Module):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers[:-1]):
-            layer.flatten_parameters()
+            # layer.flatten_parameters()
             x = layer(x)
         layer = self.layers[-1]
-        layer.flatten_parameters()
+        # layer.flatten_parameters()
 
         if self.std_minibatch:
             x_std_feature = t.mean(t.std(x, 0)).unsqueeze(1).expand(x.size(0), 1)
@@ -147,7 +147,7 @@ class MLP_G(nn.Module):
 
     def forward(self, x):
         for i, layer in enumerate(self.layers):
-            layer.flatten_parameters()
+            # layer.flatten_parameters()
             x = layer(x)
         return x
 
