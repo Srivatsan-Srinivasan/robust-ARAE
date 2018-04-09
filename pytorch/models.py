@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
-from utils import to_gpu, variable
+from utils import to_gpu, variable, pad_packed_sequence
 import json
 import os
 import numpy as np
@@ -256,7 +256,6 @@ class Seq2Seq(nn.Module):
         :return:
         """
         batch_size, maxlen = indices.size()
-        print(batch_size, maxlen)
 
         hidden = self.encode(indices, lengths, noise)
 
@@ -335,10 +334,8 @@ class Seq2Seq(nn.Module):
             state = self.init_hidden(batch_size)
 
         # @todo: exposure bias ?
-        # print('indices.size()', indices.size())
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
-        # print('augmented_embeddings.size()', augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
