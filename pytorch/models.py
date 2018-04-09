@@ -294,6 +294,7 @@ class Seq2Seq(nn.Module):
                                                  batch_first=True)
 
         # Encode
+        self.encoder.flatten_parameters()
         packed_output, state = self.encoder(packed_embeddings)
 
         hidden, cell = state
@@ -341,6 +342,7 @@ class Seq2Seq(nn.Module):
                                                  lengths=lengths_,
                                                  batch_first=True)
 
+        self.decoder.flatten_parameters()
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
