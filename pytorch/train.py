@@ -490,6 +490,7 @@ def train_gan_d(batch):
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
+    print('errD_real.size()', errD_real.size())
     errD_real.backward(one)
 
     # negative samples ----------------------------
