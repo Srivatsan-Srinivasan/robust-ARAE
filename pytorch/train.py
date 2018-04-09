@@ -262,6 +262,8 @@ def evaluate_autoencoder(data_source, epoch):
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
         # output: batch x seq_len x ntokens
+        print(source)
+        print(variable(lengths, cuda=args.cuda, to_float=False).long())
         output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True)  # output = autoencoder(source, lengths, noise=True)
         flattened_output = output.view(-1, ntokens)
 
