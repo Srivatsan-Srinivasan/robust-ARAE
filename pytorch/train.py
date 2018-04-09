@@ -297,7 +297,8 @@ def evaluate_generator(noise, epoch):
 
     # generate from fixed random noise
     fake_hidden = gan_gen(noise)
-    max_indices = autoencoder.generate(fake_hidden, args.maxlen, sample=args.sample)
+    autoencoder_ = autoencoder if args.n_gpus == 1 else autoencoder.module
+    max_indices = autoencoder_.generate(fake_hidden, args.maxlen, sample=args.sample)
 
     with open("./output/%s/%s_generated.txt" % (args.outf, epoch), "w") as f:
         max_indices = max_indices.data.cpu().numpy()
