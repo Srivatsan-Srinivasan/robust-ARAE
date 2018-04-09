@@ -44,16 +44,17 @@ class MLP_D(nn.Module):
         layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
         self.layers.append(layer)
         self.add_module("layer" + str(len(self.layers)), layer)
-        self.layers = t.nn.ModuleList(self.layers)
 
         self.init_weights(weight_init)
 
+    def get_layer(self, layer):
+        return getattr(self, 'layer{}'.format(layer))
+
     def forward(self, x):
-        for i, layer in enumerate(self.layers[:-1]):
-            # layer.flatten_parameters()
+        for i in range(1, len(self.layers)+1):
+            layer = self.get_layer(i)
             x = layer(x)
-        layer = self.layers[-1]
-        # layer.flatten_parameters()
+        layer = self.get_layer(len(self.layers))
 
         if self.std_minibatch:
             x_std_feature = t.mean(t.std(x, 0)).unsqueeze(1).expand(x.size(0), 1)
@@ -143,13 +144,15 @@ class MLP_G(nn.Module):
         layer = nn.Linear(layer_sizes[-1], noutput)
         self.layers.append(layer)
         self.add_module("layer" + str(len(self.layers)), layer)
-        self.layers = t.nn.ModuleList(self.layers)
 
         self.init_weights(weight_init)
 
+    def get_layer(self, layer):
+        return getattr(self, 'layer{}'.format(layer))
+
     def forward(self, x):
-        for i, layer in enumerate(self.layers):
-            # layer.flatten_parameters()
+        for i in range(1, len(self.layers) + 1):
+            layer = self.get_layer(i)
             x = layer(x)
         return x
 
