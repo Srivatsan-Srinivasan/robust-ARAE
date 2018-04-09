@@ -262,24 +262,21 @@ def evaluate_autoencoder(data_source, epoch):
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
         # output: batch x seq_len x ntokens
-        output = autoencoder(source, lengths, noise=True)
+        output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True)  # output = autoencoder(source, lengths, noise=True)
         flattened_output = output.view(-1, ntokens)
 
-        masked_output = \
-            flattened_output.masked_select(output_mask).view(-1, ntokens)
+        masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)
         total_loss += criterion_ce(masked_output/args.temp, masked_target).data
 
         # accuracy
         max_vals, max_indices = torch.max(masked_output, 1)
-        all_accuracies += \
-            torch.mean(max_indices.eq(masked_target).float()).data[0]
+        all_accuracies += torch.mean(max_indices.eq(masked_target).float()).data[0]
         bcnt += 1
 
         aeoutf = "./output/%s/%d_autoencoder.txt" % (args.outf, epoch)
         with open(aeoutf, "a") as f:
             max_values, max_indices = torch.max(output, 2)
-            max_indices = \
-                max_indices.view(output.size(0), -1).data.cpu().numpy()
+            max_indices = max_indices.view(output.size(0), -1).data.cpu().numpy()
             target = target.view(output.size(0), -1).data.cpu().numpy()
             for t, idx in zip(target, max_indices):
                 # real sentence
