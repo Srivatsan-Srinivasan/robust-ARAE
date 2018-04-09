@@ -146,11 +146,11 @@ class MLP_G(nn.Module):
 
     def forward(self, x):
         for i in range(1, self.n_layers + 1):
-            layer = getattr(self, 'layer'+ str(i))
+            layer = getattr(self, 'layer'+str(i))
             if i == self.n_layers:
                 return layer(x)
-            activation = getattr(self, 'activation&d'%i)
-            bn = getattr(self, 'bn%d'%i) if self.batchnorm else None
+            activation = getattr(self, 'activation'+str(i))
+            bn = getattr(self, 'bn'+str(i)) if self.batchnorm else None
             x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
         return x
 
@@ -159,7 +159,7 @@ class MLP_G(nn.Module):
             init_std = 0.02
             for i in range(1, self.n_layers+1):
                 try:
-                    layer = getattr(self, 'layer%d' % i)
+                    layer = getattr(self, 'layer'+str(i))
                     layer.weight.data.normal_(0, init_std)
                     layer.bias.data.fill_(0)
                 except:
@@ -167,7 +167,7 @@ class MLP_G(nn.Module):
         elif weight_init == 'he':
             for i in range(1, self.n_layers+1):
                 try:
-                    layer = getattr(self, 'layer%d' % i)
+                    layer = getattr(self, 'layer'+str(i))
                     t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
                     layer.bias.data.fill_(0)
                 except:
