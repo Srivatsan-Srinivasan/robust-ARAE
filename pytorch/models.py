@@ -30,25 +30,25 @@ class MLP_D(nn.Module):
 
         for i in range(len(layer_sizes) - 1):
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-            setattr(self, 'layer'+str(i+1), layer)
+            setattr(self, 'layer' + str(i + 1), layer)
 
             # No batch normalization after first layer
             if i != 0 and batchnorm:
                 bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
-                setattr(self, 'bn'+str(i+1), bn)
+                setattr(self, 'bn' + str(i + 1), bn)
 
-            setattr(self, 'activation'+str(i+1), activation)
+            setattr(self, 'activation' + str(i + 1), activation)
 
         layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
-        setattr(self, 'layer'+str(self.n_layers), layer)
+        setattr(self, 'layer' + str(self.n_layers), layer)
 
         self.init_weights(weight_init)
 
     def forward(self, x):
         for i in range(1, self.n_layers):
-            layer = getattr(self, 'layer%d'%i)
-            activation = getattr(self, 'activation%d'%i)
-            bn = getattr(self, 'bn%d'%i) if self.batchnorm and i > 1 else None
+            layer = getattr(self, 'layer%d' % i)
+            activation = getattr(self, 'activation%d' % i)
+            bn = getattr(self, 'bn%d' % i) if self.batchnorm and i > 1 else None
             x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
 
         layer = getattr(self, 'layer%d' % self.n_layers)
@@ -66,7 +66,7 @@ class MLP_D(nn.Module):
             init_std = 0.02
             for i in range(1, self.n_layers):
                 try:
-                    layer = getattr(self, 'layer'+str(i))
+                    layer = getattr(self, 'layer' + str(i))
                     layer.weight.data.normal_(0, init_std)
                     layer.bias.data.fill_(0)
                 except:
@@ -74,7 +74,7 @@ class MLP_D(nn.Module):
         elif weight_init == 'he':
             for i in range(1, self.n_layers):
                 try:
-                    layer = getattr(self, 'layer'+str(i))
+                    layer = getattr(self, 'layer' + str(i))
                     t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
                     layer.bias.data.fill_(0)
                 except:
@@ -106,7 +106,7 @@ class MLP_D(nn.Module):
     def tensorboard(self, writer, n_iter):
         k = 0
         for i in range(self.n_layers):
-            layer = getattr(self, 'layer%d'%i)
+            layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Disc_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
@@ -131,7 +131,7 @@ class MLP_G(nn.Module):
 
         for i in range(len(layer_sizes) - 1):
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
-            setattr(self, 'layer'+str(i+1), layer)
+            setattr(self, 'layer' + str(i + 1), layer)
 
             if batchnorm:
                 bn = nn.BatchNorm1d(layer_sizes[i + 1], eps=1e-05, momentum=0.1)
@@ -140,34 +140,34 @@ class MLP_G(nn.Module):
             setattr(self, 'activation' + str(i + 1), activation)
 
         layer = nn.Linear(layer_sizes[-1], noutput)
-        setattr(self, 'layer'+str(self.n_layers), layer)
+        setattr(self, 'layer' + str(self.n_layers), layer)
 
         self.init_weights(weight_init)
 
     def forward(self, x):
         for i in range(1, self.n_layers + 1):
-            layer = getattr(self, 'layer'+str(i))
+            layer = getattr(self, 'layer' + str(i))
             if i == self.n_layers:
                 return layer(x)
-            activation = getattr(self, 'activation'+str(i))
-            bn = getattr(self, 'bn'+str(i)) if self.batchnorm else None
+            activation = getattr(self, 'activation' + str(i))
+            bn = getattr(self, 'bn' + str(i)) if self.batchnorm else None
             x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
         return x
 
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':
             init_std = 0.02
-            for i in range(1, self.n_layers+1):
+            for i in range(1, self.n_layers + 1):
                 try:
-                    layer = getattr(self, 'layer'+str(i))
+                    layer = getattr(self, 'layer' + str(i))
                     layer.weight.data.normal_(0, init_std)
                     layer.bias.data.fill_(0)
                 except:
                     pass
         elif weight_init == 'he':
-            for i in range(1, self.n_layers+1):
+            for i in range(1, self.n_layers + 1):
                 try:
-                    layer = getattr(self, 'layer'+str(i))
+                    layer = getattr(self, 'layer' + str(i))
                     t.nn.init.kaiming_normal_(layer.weight.data, a=self.negative_slope)
                     layer.bias.data.fill_(0)
                 except:
@@ -177,8 +177,8 @@ class MLP_G(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
-        for i in range(1, self.n_layers+1):
-            layer = getattr(self, 'layer%d'%i)
+        for i in range(1, self.n_layers + 1):
+            layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Gen_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Gen_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
@@ -295,20 +295,16 @@ class Seq2Seq(nn.Module):
         # among the GPUs you are using
         if isinstance(lengths, t.autograd.Variable):
             lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
+            if isinstance(lengths_, int):
+                lengths_ = [lengths_]
         elif isinstance(lengths, list):
             lengths_ = lengths[:]
         else:
             raise ValueError("Should be either variable or list")
         embeddings = self.embedding(indices)
-        try:
-            packed_embeddings = pack_padded_sequence(input=embeddings,
-                                                     lengths=lengths_,
-                                                     batch_first=True)
-        except TypeError:
-            print(lengths)
-            print(lengths_)
-            print(embeddings.size())
-            raise TypeError('Bug in `pack_padded_sequence`')
+        packed_embeddings = pack_padded_sequence(input=embeddings,
+                                                 lengths=lengths_,
+                                                 batch_first=True)
 
         # Encode
         self.encoder.flatten_parameters()
