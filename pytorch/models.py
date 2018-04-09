@@ -389,6 +389,7 @@ class Seq2Seq(nn.Module):
         # unroll
         all_indices = []
         for i in range(maxlen):
+            self.decoder.flatten_parameters()
             output, state = self.decoder(inputs, state)
             overvocab = self.linear(output.squeeze(1))
 
