@@ -487,7 +487,7 @@ def train_gan_d(batch):
 
     # batch_size x nhidden
     real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=False, encode_only=True)
-    real_hidden.register_hook(grad_hook)
+    real_hidden.register_hook(lambda grad: grad_hook(grad, autoencoder.module.grad_norm if args.n_gpus > 1 else autoencoder.grad_norm))
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
@@ -517,13 +517,12 @@ def train_gan_d(batch):
     return errD, errD_real, errD_fake
 
 
-def grad_hook(grad):
+def grad_hook(grad, grad_norm):
     # Gradient norm: regularize to be same
     # code_grad_gan * code_grad_ae / norm(code_grad_gan)
     if args.enc_grad_norm:
         gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
-        grad_norm = autoencoder.module.grad_norm
-        print(grad_norm)
+        # grad_norm = autoencoder.module.grad_norm
         normed_grad = grad * grad_norm / gan_norm
     else:
         normed_grad = grad
