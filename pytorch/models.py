@@ -252,7 +252,6 @@ class Seq2Seq(nn.Module):
 
     def store_grad_norm(self, grad):
         """Monitor gradient norm"""
-        print('HEP HEP')
         norm = t.norm(grad, 2, 1)
         self.grad_norm = norm.detach().data.mean()
         return grad
