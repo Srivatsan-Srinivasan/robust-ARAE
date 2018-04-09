@@ -105,7 +105,7 @@ class MLP_D(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
-        for i in range(self.n_layers):
+        for i in range(1, self.n_layers+1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
