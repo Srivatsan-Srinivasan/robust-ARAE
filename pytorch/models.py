@@ -140,13 +140,13 @@ class MLP_G(nn.Module):
             setattr(self, 'activation' + str(i + 1), activation)
 
         layer = nn.Linear(layer_sizes[-1], noutput)
-        setattr(self, 'layer'+str(len(layer_sizes)), layer)
+        setattr(self, 'layer'+str(self.n_layers), layer)
 
         self.init_weights(weight_init)
 
     def forward(self, x):
         for i in range(1, self.n_layers + 1):
-            layer = getattr(self, 'layer&d'%i)
+            layer = getattr(self, 'layer'+ str(i))
             if i == self.n_layers:
                 return layer(x)
             activation = getattr(self, 'activation&d'%i)
