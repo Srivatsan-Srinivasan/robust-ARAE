@@ -486,7 +486,7 @@ def train_gan_d(batch):
     target = to_gpu(args.cuda, Variable(target))
 
     # batch_size x nhidden
-    real_hidden = autoencoder(source, lengths, noise=False, encode_only=True)
+    real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=False, encode_only=True)
     real_hidden.register_hook(grad_hook)
 
     # loss / backprop
