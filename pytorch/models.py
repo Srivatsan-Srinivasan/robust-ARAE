@@ -289,6 +289,7 @@ class Seq2Seq(nn.Module):
         else:
             raise ValueError("Should be either variable or list")
         embeddings = self.embedding(indices)
+        print(lengths_.size())
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
