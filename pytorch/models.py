@@ -44,6 +44,7 @@ class MLP_D(nn.Module):
         layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
         self.layers.append(layer)
         self.add_module("layer" + str(len(self.layers)), layer)
+        self.layers = t.nn.ModuleList(self.layers)
 
         self.init_weights(weight_init)
 
@@ -142,6 +143,7 @@ class MLP_G(nn.Module):
         layer = nn.Linear(layer_sizes[-1], noutput)
         self.layers.append(layer)
         self.add_module("layer" + str(len(self.layers)), layer)
+        self.layers = t.nn.ModuleList(self.layers)
 
         self.init_weights(weight_init)
 
