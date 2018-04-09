@@ -186,6 +186,8 @@ class MLP_G(nn.Module):
 
 
 class Seq2Seq(nn.Module):
+    grad_norm = {}
+
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
                  hidden_init=False, dropout=0, gpu=False, ngpus=1):
         super(Seq2Seq, self).__init__()
@@ -253,8 +255,7 @@ class Seq2Seq(nn.Module):
     def store_grad_norm(self, grad):
         """Monitor gradient norm"""
         norm = t.norm(grad, 2, 1)
-        print('HEPHEPHEP')
-        self.grad_norm = norm.detach().data.mean()
+        Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
         return grad
 
     def forward(self, indices, lengths, noise, encode_only=False):

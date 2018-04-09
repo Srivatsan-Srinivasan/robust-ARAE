@@ -487,7 +487,8 @@ def train_gan_d(batch):
 
     # batch_size x nhidden
     real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=False, encode_only=True)
-    real_hidden.register_hook(lambda grad: grad_hook(grad, autoencoder.module.grad_norm if args.n_gpus > 1 else autoencoder.grad_norm))
+    grad_norm = sum(list(Seq2Seq.grad_norm.values()))
+    real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm))
 
     # loss / backprop
     errD_real = gan_disc(real_hidden)
@@ -522,7 +523,7 @@ def grad_hook(grad, grad_norm):
     # code_grad_gan * code_grad_ae / norm(code_grad_gan)
     if args.enc_grad_norm:
         gan_norm = torch.norm(grad, 2, 1).detach().data.mean()
-        # grad_norm = autoencoder.module.grad_norm
+        # grad_norm = autoencoder.grad_norm
         normed_grad = grad * grad_norm / gan_norm
     else:
         normed_grad = grad
@@ -605,8 +606,7 @@ for epoch in range(1, args.epochs+1):
                            errD_fake.data[0], errG.data[0]))
 
             # exponentially decaying noise on autoencoder
-            autoencoder.noise_radius = \
-                autoencoder.noise_radius*args.noise_anneal
+            autoencoder.noise_radius = autoencoder.noise_radius*args.noise_anneal
 
             if niter_global % 3000 == 0:
                 evaluate_generator(fixed_noise, "epoch{}_step{}".
