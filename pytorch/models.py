@@ -401,6 +401,8 @@ class Seq2Seq(nn.Module):
                 vals, indices = t.max(overvocab, 1)  # this is not an error on newer PyTorch
             else:
                 # sampling
+                print('overvocab.size(). YOU NEED THIS TO PUT AN ARGUMENT IN THE SOFTMAX')
+                print(overvocab.size())
                 probs = F.softmax(overvocab / temp)
                 indices = t.multinomial(probs, 1)
 
