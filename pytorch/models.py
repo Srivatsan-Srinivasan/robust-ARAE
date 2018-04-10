@@ -88,8 +88,13 @@ class MLP_D(nn.Module):
         The input is chosen to be a random image in between the true and synthetic images
         """
         # build the input the gradients should be computed
-        u = variable(np.random.uniform(size=(x.size(0), self.ninput)), cuda=self.gpu)
-        xx = t.autograd.Variable((x_synth * u + x * (1 - u)).data.cuda(), requires_grad=True)
+        u = t.rand(x.size(0), 1)
+        u = u.expand(x.size())
+        u = u.cuda() if self.gpu else u
+        x_data = x.data
+        x_synth_data = x_synth.data
+
+        xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).data.cuda(), requires_grad=True)
         D_xx = self.forward(xx)
 
         # compute gradients

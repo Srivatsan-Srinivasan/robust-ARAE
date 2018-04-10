@@ -122,7 +122,7 @@ parser.add_argument('--seed', type=int, default=1111,
                     help='random seed')
 parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
-parser.add_argument('--n_gpus', type=int, default=1,  # @todo : test on a multi GPUs instance
+parser.add_argument('--n_gpus', type=int, default=1,  # @todo : no speedup even though GPUs are used (see https://discuss.pytorch.org/t/debugging-dataparallel-no-speedup-and-uneven-memory-allocation/1100/14)
                     help='The number of GPUs you want to use')
 parser.add_argument('--tensorboard', action='store_true',
                     help='Whether to use tensorboard or not')
@@ -207,7 +207,7 @@ if args.cuda:
     gan_disc = gan_disc.cuda()
     criterion_ce = criterion_ce.cuda()
 
-if torch.cuda.device_count() > 1 and args.n_gpus > 1:  # @todo : test on a multi GPU instance
+if torch.cuda.device_count() > 1 and args.n_gpus > 1:
     print("Let's use", args.n_gpus, "GPUs!")
     gan_gen = nn.DataParallel(gan_gen)
     gan_disc = nn.DataParallel(gan_disc)
@@ -286,7 +286,7 @@ for epoch in range(1, args.epochs+1):
 
         niter_global += 1
 
-        tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, gan_gen.module, gan_disc.module, autoencoder.module, args.tensorboard_freq) # @todo: solve this - as it is now, the autoencoder has its gradients erased just before the call of the function
+        tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, gan_gen.module, gan_disc.module, autoencoder.module, args.tensorboard_freq)
         if niter_global % 100 == 0:
             print('[%d/%d][%d/%d] Loss_D: %.8f (Loss_D_real: %.8f '
                   'Loss_D_fake: %.8f) Loss_G: %.8f'
