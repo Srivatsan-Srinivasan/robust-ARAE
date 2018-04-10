@@ -94,7 +94,7 @@ class MLP_D(nn.Module):
         x_data = x.data
         x_synth_data = x_synth.data
 
-        xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).data.cuda(), requires_grad=True)
+        xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).cuda(), requires_grad=True)
         D_xx = self.forward(xx)
 
         # compute gradients
