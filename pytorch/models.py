@@ -395,15 +395,13 @@ class Seq2Seq(nn.Module):
         for i in range(maxlen):
             self.decoder.flatten_parameters()
             output, state = self.decoder(inputs, state)
-            overvocab = self.linear(output.squeeze(1))
+            overvocab = self.linear(output.squeeze(1))  # batch x |V|
 
             if not sample:
                 vals, indices = t.max(overvocab, 1)  # this is not an error on newer PyTorch
             else:
                 # sampling
-                print('overvocab.size(). YOU NEED THIS TO PUT AN ARGUMENT IN THE SOFTMAX')
-                print(overvocab.size())
-                probs = F.softmax(overvocab / temp)
+                probs = F.softmax(overvocab / temp, dim=1)
                 indices = t.multinomial(probs, 1)
 
             all_indices.append(indices)
