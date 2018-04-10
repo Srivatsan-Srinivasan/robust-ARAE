@@ -375,7 +375,7 @@ for epoch in range(1, args.epochs+1):
             print("New best ppl {}\n".format(best_ppl))
             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                 f.write("New best ppl {}\n".format(best_ppl))
-            save_model()
+            save_model(autoencoder, gan_gen, gan_disc, args)
         else:
             impatience += 1
             # end training
