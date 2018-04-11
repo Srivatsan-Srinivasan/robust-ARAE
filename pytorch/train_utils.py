@@ -247,7 +247,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]))
     mone = one * -1
     # clamp parameters to a cube
-    if not args.gradient_penalty:
+    if not args.gradient_penalty and not args.spectralnorm:
         for p in gan_disc.parameters():
             p.data.clamp_(-args.gan_clamp, args.gan_clamp)
 

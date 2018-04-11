@@ -108,6 +108,8 @@ parser.add_argument('--gan_clamp', type=float, default=0.01,
                     help='WGAN clamp')
 parser.add_argument('--gradient_penalty', action='store_true',
                     help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
+parser.add_argument('--spectralnorm', type= bool, default = False,
+                    help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
 
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
@@ -197,7 +199,7 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       gpu=args.cuda,
                       ngpus=args.n_gpus)
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, gpu=args.cuda)
+gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, spectralnorm = args.spectralnorm, gpu=args.cuda)
 
 criterion_ce = nn.CrossEntropyLoss()
 

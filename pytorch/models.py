@@ -7,11 +7,12 @@ from utils import to_gpu, variable, pad_packed_sequence
 import json
 import os
 import numpy as np
+from spectral_normalization import SpectralNorm
 
 
 class MLP_D(nn.Module):
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False):
+                 std_minibatch=True, batchnorm=False, spectralnorm = True):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
@@ -28,7 +29,10 @@ class MLP_D(nn.Module):
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.n_layers = len(layer_sizes)
 
-        for i in range(len(layer_sizes) - 1):
+        for i in range(len(layer_sizes) - 1):                
+            if spectralnorm:
+                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+                
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             setattr(self, 'layer' + str(i + 1), layer)
 
@@ -38,8 +42,12 @@ class MLP_D(nn.Module):
                 setattr(self, 'bn' + str(i + 1), bn)
 
             setattr(self, 'activation' + str(i + 1), activation)
-
-        layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
+            
+        if spectralnorm:
+            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput))
+        else:
+            layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
+            
         setattr(self, 'layer' + str(self.n_layers), layer)
 
         self.init_weights(weight_init)
