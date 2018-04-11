@@ -17,23 +17,31 @@ class SpectralNorm(nn.Module):
         self.module = module
         self.name = name
         self.power_iterations = power_iterations
+        self.update_count = 0
         if not self._made_params():
             self._make_params()
-
-    def _update_u_v(self):
-        u = getattr(self.module, self.name + "_u")
-        v = getattr(self.module, self.name + "_v")
-        w = getattr(self.module, self.name + "_bar")
-
-        height = w.data.shape[0]
+            
+    def calc_spectral_norm(self, u,v,w,height):
         for _ in range(self.power_iterations):
             v.data = l2normalize(torch.mv(torch.t(w.view(height,-1).data), u.data))
             u.data = l2normalize(torch.mv(w.view(height,-1).data, v.data))
 
         sigma = u.dot(w.view(height, -1).mv(v))
-        
+        return sigma, w / sigma.expand_as(w)
+
+    def _update_u_v(self, writer = None):
+        u = getattr(self.module, self.name + "_u")
+        v = getattr(self.module, self.name + "_v")
+        w = getattr(self.module, self.name + "_bar")
+
+        height = w.data.shape[0]
+        sigma, norm_weights = self.calc_spectral_norm(u,v,w,height)
+        norm_recomputed = self.calc_spectral_norm(u,v,norm_weights,height)
+                
+        writer.add_scalar('data/scalar1', norm_recomputed, self.update_count)
+        self.update_count += 1
         #Setting the weight seen by the module(in this case MLP) as spectral-normalized.
-        setattr(self.module, self.name, w / sigma.expand_as(w))
+        setattr(self.module, self.name, norm_weights )
 
     def _made_params(self):
         try:
@@ -67,8 +75,8 @@ class SpectralNorm(nn.Module):
         self.module.register_parameter(self.name + "_bar", w_bar)
 
 
-    def forward(self, *args):
-        self._update_u_v()
+    def forward(self, *args, writer=None):
+        self._update_u_v(writer=writer)
         
         #Forward gets computed using weight of the module which is defined in
         #update u_v as spectral normalized weights(check last line). 

@@ -280,7 +280,7 @@ for epoch in range(1, args.epochs+1):
             # train discriminator/critic
             for i in range(args.niters_gan_d):
                 # feed a seen sample within this epoch; good for early training
-                errD, errD_real, errD_fake = train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args)
+                errD, errD_real, errD_fake = train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer = writer)
 
             # train generator
             for i in range(args.niters_gan_g):

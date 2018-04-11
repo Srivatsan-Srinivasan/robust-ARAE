@@ -52,12 +52,12 @@ class MLP_D(nn.Module):
 
         self.init_weights(weight_init)
 
-    def forward(self, x):
+    def forward(self, x, writer = writer):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
             bn = getattr(self, 'bn%d' % i) if self.batchnorm and i > 1 else None
-            x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
+            x = activation(bn(layer(x, writer=writer))) if bn is not None else activation(layer(x, writer=writer))
 
         layer = getattr(self, 'layer%d' % self.n_layers)
 

@@ -233,7 +233,7 @@ def train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args):
     return errG
 
 
-def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, batch, args):
+def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, batch, args, writer = None):
     """
     Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
     consistency between G and D, AND between the two parts of the loss of D
@@ -268,7 +268,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
 
     # loss / backprop
-    errD_real = gan_disc(real_hidden)
+    errD_real = gan_disc(real_hidden,writer=writer)
     errD_real.backward(one)
 
     # negative samples ----------------------------
