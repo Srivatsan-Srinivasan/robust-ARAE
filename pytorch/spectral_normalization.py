@@ -19,8 +19,8 @@ class SpectralNorm(nn.Module):
         self.power_iterations = power_iterations
         self.update_count = 0
         self.writer = writer
-	if not self._made_params():
-		self._make_params()
+        if not self._made_params():
+            self.make_params()
             
     def calc_spectral_norm(self, u,v,w,height):
         for _ in range(self.power_iterations):
@@ -77,7 +77,7 @@ class SpectralNorm(nn.Module):
 
 
     def forward(self, *args):
-	self._update_u_v()        
+        self._update_u_v()        
         #Forward gets computed using weight of the module which is defined in
         #update u_v as spectral normalized weights(check last line). 
         #Optimization(SGD) happens with respect to weight_bar.
