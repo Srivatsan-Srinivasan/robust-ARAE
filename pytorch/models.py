@@ -12,7 +12,7 @@ from spectral_normalization import SpectralNorm
 
 class MLP_D(nn.Module):
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm = True):
+                 std_minibatch=True, batchnorm=False, spectralnorm = True, writer = None):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
@@ -31,7 +31,7 @@ class MLP_D(nn.Module):
 
         for i in range(len(layer_sizes) - 1):                
             if spectralnorm:
-                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]))
+                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer = writer)
                 
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             setattr(self, 'layer' + str(i + 1), layer)
@@ -44,7 +44,7 @@ class MLP_D(nn.Module):
             setattr(self, 'activation' + str(i + 1), activation)
             
         if spectralnorm:
-            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput))
+            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput), writer = writer)
         else:
             layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
             
@@ -57,7 +57,7 @@ class MLP_D(nn.Module):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
             bn = getattr(self, 'bn%d' % i) if self.batchnorm and i > 1 else None
-            x = activation(bn(layer(x, writer=writer))) if bn is not None else activation(layer(x, writer=writer))
+            x = activation(bn(layer(x))) if bn is not None else activation(layer(x))
 
         layer = getattr(self, 'layer%d' % self.n_layers)
 
