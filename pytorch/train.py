@@ -199,7 +199,7 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       gpu=args.cuda,
                       ngpus=args.n_gpus)
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, spectralnorm = args.spectralnorm, gpu=args.cuda)
+gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, spectralnorm = args.spectralnorm, gpu=args.cuda, writer = writer)
 
 criterion_ce = nn.CrossEntropyLoss()
 
@@ -224,7 +224,8 @@ optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
 optimizer_gan_g = optim.Adam(gan_gen.parameters(),
                              lr=args.lr_gan_g,
                              betas=(args.beta1, 0.999))
-optimizer_gan_d = optim.Adam(gan_disc.parameters(),
+import pdb; pdb.set_trace()
+optimizer_gan_d = optim.Adam(filter(lambda p: p.requires_grad, gan_disc.parameters()),
                              lr=args.lr_gan_d,
                              betas=(args.beta1, 0.999))
 
