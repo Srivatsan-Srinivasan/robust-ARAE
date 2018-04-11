@@ -52,7 +52,7 @@ class MLP_D(nn.Module):
 
         self.init_weights(weight_init)
 
-    def forward(self, x, writer = writer):
+    def forward(self, x, writer = None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
