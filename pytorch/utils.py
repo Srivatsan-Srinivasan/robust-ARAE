@@ -23,6 +23,8 @@ def check_args(args):
 def select_gpu(gpu_id):
     if gpu_id is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
+        print("os.environ['CUDA_VISIBLE_DEVICES']")
+        print(os.environ['CUDA_VISIBLE_DEVICES'])
 
 
 def create_tensorboard_dir(logdir):
