@@ -9,6 +9,11 @@ def load_kenlm():
     import kenlm
 
 
+def create_tensorboard_dir(logdir):
+    if logdir not in os.listdir('tensorboard/'+logdir):
+        os.makedirs('tensorboard/'+logdir)
+
+
 # @todo: improve this so that it can efficiently process batch of sentences of different lengths (it should not swap padding with characters)
 def noisy_sentence(sentence, k):
     """
