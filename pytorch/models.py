@@ -134,12 +134,13 @@ class MLP_D(nn.Module):
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
-    def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, weight_init='default', batchnorm=True):
+    def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, gpu_id=None, weight_init='default', batchnorm=True):
         super(MLP_G, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
         self.batchnorm = batchnorm
         self.gpu = gpu
+        self.gpu_id = gpu_id
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -208,7 +209,7 @@ class MLP_G(nn.Module):
 
         # Distributional properties of the generated codes
         # l2 norm
-        z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu)
+        z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu, gpu_id=self.gpu_id)
         c = self.forward(z)
         l2norm = t.mean(t.sum(c**2, 1))
         writer.add_scalar('l2_norm_gen', l2norm, n_iter)

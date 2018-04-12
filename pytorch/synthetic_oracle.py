@@ -32,8 +32,8 @@ class Oracle(t.nn.Module):
         self.start_symbols = to_gpu(gpu, variable(t.ones(10, 1).long(), to_float=False, cuda=False, volatile=False), gpu_id=gpu_id)
 
     def init_hidden(self, bsz):
-        zeros1 = variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        zeros2 = variable(t.zeros(self.nlayers, bsz, self.nhidden))
+        zeros1 = variable(t.zeros(self.nlayers, bsz, self.nhidden), gpu_id=self.gpu_id, cuda=self.gpu)
+        zeros2 = variable(t.zeros(self.nlayers, bsz, self.nhidden), gpu_id=self.gpu_id, cuda=self.gpu)
         return (to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id))
 
     def forward(self, indices, lengths):
@@ -77,7 +77,7 @@ class Oracle(t.nn.Module):
         return max_indices.squeeze() + 4  # avoid the 3 first tokens that are used for padding/start/end. Note that there is no OOV
 
 
-def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu,
+def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu, gpu_id=None,
                                add_eos=True, add_sos=True, oracle=None, n_per_batch=500, oov_proportion=0):
     """
     :param lengths: a dict {sentence_length: #sentences_of_that_length}
@@ -85,13 +85,13 @@ def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu,
     """
     # Init
     if oracle is None:
-        oracle = Oracle(emsize, nhidden, ntokens, nlayers, gpu)
+        oracle = Oracle(emsize, nhidden, ntokens, nlayers, gpu, gpu_id=gpu_id)
     dataset = {}
 
     for length, how_many in lengths.items():
 
         # Init
-        dataset[length] = variable(t.zeros(how_many, length), to_float=False)
+        dataset[length] = variable(t.zeros(how_many, length), to_float=False, gpu_id=oracle.gpu_id, cuda=gpu)
 
         # Generate sentences, one batch at a time
         for i in range(0, how_many, n_per_batch):
@@ -102,18 +102,18 @@ def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu,
                 dataset[length][i:i + n_per_batch, :] = generated
 
         # Add OOV words
-        dataset[length] = introduce_oov(dataset[length], oov_proportion, gpu)
+        dataset[length] = introduce_oov(dataset[length], oov_proportion, gpu, gpu_id=gpu_id)
 
         # Add EOS and SOS tokens
         if add_sos:
-            dataset[length] = t.cat([variable(t.ones(how_many, 1), to_float=False, cuda=gpu).long(), dataset[length]], 1)
+            dataset[length] = t.cat([variable(t.ones(how_many, 1), to_float=False, cuda=gpu, gpu_id=oracle.gpu_id).long(), dataset[length]], 1)
         if add_eos:
-            dataset[length] = t.cat([dataset[length], variable(2*t.ones(how_many, 1), to_float=False, cuda=gpu).long()], 1)
+            dataset[length] = t.cat([dataset[length], variable(2*t.ones(how_many, 1), to_float=False, cuda=gpu, gpu_id=oracle.gpu_id).long()], 1)
 
     return dataset, oracle
 
 
-def introduce_oov(dataset, proportion, gpu):
+def introduce_oov(dataset, proportion, gpu, gpu_id=None):
     """
     :param dataset: a variable representing N sentences of length L
     :param proportion: the proportion of OOV to add
@@ -123,6 +123,6 @@ def introduce_oov(dataset, proportion, gpu):
     if proportion == 0:
         return dataset
     else:
-        bernoullis = variable(t.bernoulli(proportion*t.ones(*dataset.size())).long(), to_float=False, cuda=gpu)
+        bernoullis = variable(t.bernoulli(proportion*t.ones(*dataset.size())).long(), to_float=False, cuda=gpu, gpu_id=gpu_id)
         new_dataset = dataset.long() + (3 - dataset.long())*bernoullis
         return new_dataset
