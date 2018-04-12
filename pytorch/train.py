@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, select_gpu
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, select_gpu, check_args
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -21,7 +21,7 @@ parser.add_argument('--data_path', type=str, required=True,
                     help='location of the data corpus')
 parser.add_argument('--kenlm_path', type=str, default='../Data/kenlm',
                     help='path to kenlm directory')
-parser.add_argument('--outf', type=str, default='example',
+parser.add_argument('--outf', type=str, required=True,
                     help='output directory name')
 
 # Data Processing Arguments
@@ -138,6 +138,7 @@ parser.add_argument('--tensorboard_logdir', type=str, default=None,  # by defaul
 
 args = parser.parse_args()
 print(vars(args))
+check_args(args)
 
 select_gpu(args.gpu_id)  # If you have several GPUs but want to use one in particular
 
