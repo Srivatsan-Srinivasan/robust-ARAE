@@ -293,6 +293,7 @@ def train_ngram_lm(kenlm_path, data_path, output_path, N):
     #
     command = "bin/lmplz -o "+str(N)+" <"+os.path.join(curdir, data_path) + \
               " >"+os.path.join(curdir, output_path)
+    command = command.replace("./ ", "") + " --discount_fallback"
     os.system("cd "+os.path.join(kenlm_path, 'build')+" && "+command)
 
     load_kenlm()
