@@ -129,7 +129,7 @@ parser.add_argument('--tensorboard', action='store_true',
 parser.add_argument('--tensorboard_freq', type=int, default=300,
                     help='logging frequency')
 parser.add_argument('--tensorboard_logdir', type=str, default='/',  # by default tensorboard/ (just add the relative path from tensorboard/)
-                    help='logging directory')
+                    help='Tensorboard logging directory. It will be a subdirectory of `tensorboard/`, so don\'t had the prefix before your name!')
 
 
 args = parser.parse_args()
