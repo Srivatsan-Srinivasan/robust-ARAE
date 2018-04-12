@@ -10,7 +10,7 @@ def load_kenlm():
 
 
 def create_tensorboard_dir(logdir):
-    if logdir not in os.listdir('tensorboard/'+logdir):
+    if logdir not in os.listdir('tensorboard/'):
         os.makedirs('tensorboard/'+logdir)
 
 
