@@ -22,6 +22,7 @@ def check_args(args):
 
 def select_gpu(gpu_id):
     if gpu_id is not None:
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
         os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
         print("os.environ['CUDA_VISIBLE_DEVICES']")
         print(os.environ['CUDA_VISIBLE_DEVICES'])
