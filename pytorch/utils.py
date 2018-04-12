@@ -27,6 +27,7 @@ def noisy_sentence(sentence, k):
 
 
 def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
+    """Log gradients, weights, and some distributional features of the latent code"""
     if writer is None:
         return
     else:
@@ -37,6 +38,7 @@ def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
 
 
 def activation_from_str(activation_str):
+    """Returns a PyTorch activation from its lowercase str name"""
     assert activation_str in ['relu', 'lrelu'], 'Not implemented'
     activation = t.nn.ReLU() if activation_str == 'relu' else t.nn.LeakyReLU(.2)
     return activation

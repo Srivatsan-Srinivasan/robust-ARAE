@@ -2,7 +2,7 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-from torch.nn.utils.rnn import pack_padded_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
 from utils import to_gpu, variable, pad_packed_sequence
 import json
 import os
