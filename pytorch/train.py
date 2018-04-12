@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -130,8 +130,8 @@ parser.add_argument('--tensorboard', action='store_true',
                     help='Whether to use tensorboard or not')
 parser.add_argument('--tensorboard_freq', type=int, default=300,
                     help='logging frequency')
-parser.add_argument('--tensorboard_logdir', type=str, default='tensorboard/',
-                    help='logging directory')
+parser.add_argument('--tensorboard_logdir', type=str, default='/',  # by default tensorboard/ (just add the relative path from tensorboard/)
+                    help='Tensorboard logging directory. It will be a subdirectory of `tensorboard/`, so don\'t had the prefix before your name!')
 
 
 args = parser.parse_args()
@@ -182,13 +182,15 @@ test_data = batchify(corpus.test, eval_batch_size, shuffle=False)
 train_data = batchify(corpus.train, args.batch_size, shuffle=True)
 
 print("Loaded data!")
+print('Train data has %d batches' % len(train_data))
 
 ###############################################################################
 # Build the models
 ###############################################################################
 
 ntokens = len(corpus.dictionary.word2idx)
-writer = SummaryWriter(log_dir=args.tensorboard_logdir) if args.tensorboard else None
+create_tensorboard_dir(args.tensorboard_logdir)
+writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.tensorboard else None
 autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=ntokens,
@@ -328,8 +330,7 @@ for epoch in range(1, args.epochs+1):
                         impatience = 0
                         best_ppl = ppl
                         print("New best ppl {}\n".format(best_ppl))
-                        with open("./output/{}/logs.txt".
-                                  format(args.outf), 'a') as f:
+                        with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                             f.write("New best ppl {}\n".format(best_ppl))
                         save_model(autoencoder, gan_gen, gan_disc, args)
                     else:

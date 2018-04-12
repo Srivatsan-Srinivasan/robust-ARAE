@@ -9,22 +9,49 @@ def load_kenlm():
     import kenlm
 
 
+def create_tensorboard_dir(logdir):
+    if logdir not in os.listdir('tensorboard/'):
+        os.makedirs('tensorboard/'+logdir)
+
+
+# @todo: improve this so that it can efficiently process batch of sentences of different lengths (it should not swap padding with characters)
+def noisy_sentence(sentence, k):
+    """
+    Swap word in a sentence
+    :param sentence: a variable containing a LongTensor with dim `length`
+    :param k: number of swaps to operate
+    :return: swapped sentence
+    """
+    noisy_s = sentence.data
+    for _ in range(k):
+        i, j = np.random.randint(0, sentence.size(0), size=2)
+        tmp = noisy_s[i]*1.
+        noisy_s[i] = noisy_s[j]*1.
+        noisy_s[j] = tmp*1.
+    return sentence
+
+
 def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
+    """Log gradients, weights, and some distributional features of the latent code"""
     if writer is None:
+        print('writer is None')
         return
     else:
         if niter_global % log_freq == 0:
+            print('Writting tensorboard')
             gan_gen.tensorboard(writer, niter_global)
             gan_disc.tensorboard(writer, niter_global)
-            # autoencoder.tensorboard(writer, niter_global)  # @todo: solve this - as it is now, the autoencoder has its gradients erased just before the call of the function
+            autoencoder.tensorboard(writer, niter_global)
 
 
 def activation_from_str(activation_str):
+    """Returns a PyTorch activation from its lowercase str name"""
     assert activation_str in ['relu', 'lrelu'], 'Not implemented'
     activation = t.nn.ReLU() if activation_str == 'relu' else t.nn.LeakyReLU(.2)
     return activation
 
 
+# modification of the PyTorch version to add a `maxlen` argument
 def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     """Pads a packed batch of variable length sequences.
 
@@ -67,7 +94,6 @@ def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     if batch_first:
         output = output.transpose(0, 1)
     return output, lengths
-
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
@@ -274,6 +300,7 @@ def train_ngram_lm(kenlm_path, data_path, output_path, N):
     #
     command = "bin/lmplz -o "+str(N)+" <"+os.path.join(curdir, data_path) + \
               " >"+os.path.join(curdir, output_path)
+    command = command.replace("./ ", "") + " --discount_fallback"
     os.system("cd "+os.path.join(kenlm_path, 'build')+" && "+command)
 
     load_kenlm()
