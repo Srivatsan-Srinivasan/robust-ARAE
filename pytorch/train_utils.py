@@ -27,8 +27,8 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
     bcnt = 0
     for i, batch in enumerate(data_source):
         source, target, lengths = batch
-        source = to_gpu(args.cuda, Variable(source, volatile=True))
-        target = to_gpu(args.cuda, Variable(target, volatile=True))
+        source = to_gpu(args.cuda, Variable(source, volatile=True), gpu_id=args.gpu_id)
+        target = to_gpu(args.cuda, Variable(target, volatile=True), gpu_id=args.gpu_id)
 
         mask = target.gt(0)
         masked_target = target.masked_select(mask)
@@ -36,7 +36,7 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
         # output: batch x seq_len x ntokens
-        output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True)  # output = autoencoder(source, lengths, noise=True)
+        output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True)  # output = autoencoder(source, lengths, noise=True)
         flattened_output = output.view(-1, ntokens)
 
         masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)
@@ -95,7 +95,7 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
     """Evaluate the performance of a simple language model that is trained on synthetic sentences"""
     # generate 100000 examples
     indices = []
-    noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)))
+    noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
     for i in range(1000):
         noise.data.normal_(0, 1)
 
@@ -150,8 +150,8 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     autoencoder.zero_grad()
 
     source, target, lengths = batch  # note that target is flattened
-    source = to_gpu(args.cuda, Variable(source))  # source has no end symbol
-    target = to_gpu(args.cuda, Variable(target))  # target has no start symbol
+    source = to_gpu(args.cuda, Variable(source), gpu_id=args.gpu_id)  # source has no end symbol
+    target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)  # target has no start symbol
 
     # Create sentence length mask over padding
     mask = target.gt(0)  # gt: greater than. 0 is the padding idx. All other idx are greater than 0
@@ -159,7 +159,7 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
     # output: (batch_size, max_len, ntokens)
-    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True, keep_hidden=(i==(args.niters_ae-1)) and args.tensorboard)
+    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, keep_hidden=(i==(args.niters_ae-1)) and args.tensorboard)
 
     # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
@@ -216,14 +216,13 @@ def train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args):
         * https://github.com/martinarjovsky/WassersteinGAN/issues/9
         * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
     """
-    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]))
+    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]), gpu_id=args.gpu_id)
     mone = one * -1
 
     gan_gen.train()
     gan_gen.zero_grad()
 
-    noise = to_gpu(args.cuda,
-                   Variable(torch.ones(args.batch_size, args.z_size)))
+    noise = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
     noise.data.normal_(0, 1)
 
     fake_hidden = gan_gen(noise)
@@ -247,7 +246,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
         * https://github.com/martinarjovsky/WassersteinGAN/issues/9
         * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
     """
-    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]))
+    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]), gpu_id=args.gpu_id)
     mone = one * -1
     # clamp parameters to a cube
     if not args.gradient_penalty and not args.spectralnorm:
@@ -262,11 +261,11 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     # positive samples ----------------------------
     # generate real codes
     source, target, lengths = batch
-    source = to_gpu(args.cuda, Variable(source))
-    target = to_gpu(args.cuda, Variable(target))
+    source = to_gpu(args.cuda, Variable(source), gpu_id=args.gpu_id)
+    target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)
 
     # batch_size x nhidden
-    real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=False, encode_only=True)
+    real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=False, encode_only=True)
     grad_norm = sum(list(Seq2Seq.grad_norm.values()))
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
 
@@ -276,8 +275,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
 
     # negative samples ----------------------------
     # generate fake codes
-    noise = to_gpu(args.cuda,
-                   Variable(torch.ones(args.batch_size, args.z_size)))
+    noise = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
     noise.data.normal_(0, 1)
 
     # loss / backprop

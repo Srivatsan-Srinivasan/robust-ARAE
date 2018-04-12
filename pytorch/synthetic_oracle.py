@@ -11,7 +11,7 @@ from utils import variable, to_gpu
 
 
 class Oracle(t.nn.Module):
-    def __init__(self, emsize, nhidden, ntokens, nlayers, gpu=False):
+    def __init__(self, emsize, nhidden, ntokens, nlayers, gpu=False, gpu_id=None):
         """
         :param emsize: !!! DON'T INCLUDE THE EOS TOKEN
         """
@@ -20,6 +20,7 @@ class Oracle(t.nn.Module):
         self.nhidden = nhidden
         self.ntokens = ntokens
         self.nlayers = nlayers
+        self.gpu_id = gpu_id
 
         self.lstm = t.nn.LSTM(input_size=emsize,
                               hidden_size=nhidden,
@@ -28,12 +29,12 @@ class Oracle(t.nn.Module):
         self.gpu = gpu
         self.embedding = t.nn.Embedding(ntokens, emsize)
         self.linear = t.nn.Linear(nhidden, ntokens)
-        self.start_symbols = to_gpu(gpu, variable(t.ones(10, 1).long(), to_float=False, cuda=False, volatile=False))
+        self.start_symbols = to_gpu(gpu, variable(t.ones(10, 1).long(), to_float=False, cuda=False, volatile=False), gpu_id=gpu_id)
 
     def init_hidden(self, bsz):
         zeros1 = variable(t.zeros(self.nlayers, bsz, self.nhidden))
         zeros2 = variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        return (to_gpu(self.gpu, zeros1), to_gpu(self.gpu, zeros2))
+        return (to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id))
 
     def forward(self, indices, lengths):
         embeddings = self.embedding(indices)

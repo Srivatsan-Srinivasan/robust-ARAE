@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, select_gpu, check_args
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -140,7 +140,6 @@ args = parser.parse_args()
 print(vars(args))
 check_args(args)
 
-select_gpu(args.gpu_id)  # If you have several GPUs but want to use one in particular
 
 # make output directory if it doesn't already exist
 if not os.path.isdir('./output'):
@@ -183,8 +182,8 @@ with open("./output/{}/logs.txt".format(args.outf), 'w') as f:
     f.write("\n\n")
 
 eval_batch_size = 10
-test_data = batchify(corpus.test, eval_batch_size, shuffle=False)
-train_data = batchify(corpus.train, args.batch_size, shuffle=True)
+test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
+train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
 
 print("Loaded data!")
 print('Train data has %d batches' % len(train_data))
@@ -204,17 +203,22 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
                       gpu=args.cuda,
-                      ngpus=args.n_gpus)
-gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation), weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, spectralnorm = args.spectralnorm, gpu=args.cuda, writer = writer)
+                      ngpus=args.n_gpus,
+                      gpu_id=args.gpu_id)
+gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
+                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda)
+gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
+                 weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
+                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id)
 
 criterion_ce = nn.CrossEntropyLoss()
 
 if args.cuda:
-    autoencoder = autoencoder.cuda()
-    gan_gen = gan_gen.cuda()
-    gan_disc = gan_disc.cuda()
-    criterion_ce = criterion_ce.cuda()
+    autoencoder = autoencoder.cuda(args.gpu_id)
+    gan_gen = gan_gen.cuda(args.gpu_id)
+    gan_disc = gan_disc.cuda(args.gpu_id)
+    criterion_ce = criterion_ce.cuda(args.gpu_id)
+
 
 if torch.cuda.device_count() > 1 and args.n_gpus > 1:
     print("Let's use", args.n_gpus, "GPUs!")
@@ -252,7 +256,8 @@ else:
 niter_gan = 1
 
 fixed_noise = to_gpu(args.cuda,
-                     Variable(torch.ones(args.batch_size, args.z_size)))
+                     Variable(torch.ones(args.batch_size, args.z_size)),
+                     args.gpu_id)
 fixed_noise.data.normal_(0, 1)
 
 best_ppl = None
@@ -395,4 +400,4 @@ for epoch in range(1, args.epochs+1):
                 sys.exit()
 
     # shuffle between epochs
-    train_data = batchify(corpus.train, args.batch_size, shuffle=True)
+    train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)

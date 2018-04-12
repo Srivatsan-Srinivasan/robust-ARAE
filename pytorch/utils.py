@@ -20,14 +20,6 @@ def check_args(args):
         raise ValueError("If you decide to use a specific GPU (args.gpu_id is not None), you cannot also choose to use all of them (args.n_gpus > 1)")
 
 
-def select_gpu(gpu_id):
-    if gpu_id is not None:
-        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-        os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-        print("os.environ['CUDA_VISIBLE_DEVICES']")
-        print(os.environ['CUDA_VISIBLE_DEVICES'])
-
-
 def create_tensorboard_dir(logdir):
     if logdir not in os.listdir('tensorboard/'):
         os.makedirs('tensorboard/'+logdir)
@@ -113,24 +105,24 @@ def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     return output, lengths
 
 
-def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):
+def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False, gpu_id=None):
     """Wrapper for t.autograd.Variable"""
     if isinstance(array, np.ndarray):
         vv = t.from_numpy(array)
-        vv = vv.cuda() if cuda else vv
+        vv = vv.cuda(gpu_id) if cuda else vv
         v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, list) or isinstance(array, tuple):
         vv = t.from_numpy(np.array(array))
-        vv = vv.cuda() if cuda else vv
+        vv = vv.cuda(gpu_id) if cuda else vv
         v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, float) or isinstance(array, int):
         vv = t.from_numpy(np.array([array]))
-        vv = vv.cuda() if cuda else vv
+        vv = vv.cuda(gpu_id) if cuda else vv
         v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
-        v = t.autograd.Variable(array.cuda() if cuda else array, requires_grad=requires_grad, volatile=volatile)
+        v = t.autograd.Variable(array.cuda(gpu_id) if cuda else array, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, t.autograd.Variable):
-        v = array.cuda() if cuda else array
+        v = array.cuda(gpu_id) if cuda else array
     else:
         raise ValueError("type(array): %s" % type(array))
     if to_float:
@@ -139,9 +131,9 @@ def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=Fals
         return v
 
 
-def to_gpu(gpu, var):
+def to_gpu(gpu, var, gpu_id=None):
     if gpu:
-        return var.cuda()
+        return var.cuda(gpu_id)
     return var
 
 
@@ -249,7 +241,7 @@ class Corpus(object):
         return lines
 
 
-def batchify(data, bsz, shuffle=False, gpu=False):
+def batchify(data, bsz, shuffle=False, gpu=False, gpu_id=None):
     """
     Transform a list of data into batched torch Tensors
     :param data: A list of integer-encoded sentences
@@ -291,8 +283,8 @@ def batchify(data, bsz, shuffle=False, gpu=False):
         target = t.LongTensor(np.array(target)).view(-1)
 
         if gpu:
-            source = source.cuda()
-            target = target.cuda()
+            source = source.cuda(gpu_id)
+            target = target.cuda(gpu_id)
 
         batches.append((source, target, lengths))
 

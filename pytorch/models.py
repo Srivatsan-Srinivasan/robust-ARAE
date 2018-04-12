@@ -13,12 +13,13 @@ from spectral_normalization import SpectralNorm
 class MLP_D(nn.Module):
     """Discriminator whose architecture is a MLP"""
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm = True, writer = None):
+                 std_minibatch=True, batchnorm=False, spectralnorm = True, writer=None, gpu_id=None):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
         self.std_minibatch = std_minibatch
         self.gpu = gpu
+        self.gpu_id = gpu_id
         self.batchnorm = batchnorm
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
@@ -96,21 +97,38 @@ class MLP_D(nn.Module):
         Compute gradients with regard to the input
         The input is chosen to be a random image in between the true and synthetic images
         """
-        # build the input the gradients should be computed
-        u = t.rand(x.size(0), 1)
-        u = u.expand(x.size())
-        u = u.cuda() if self.gpu else u
-        x_data = x.data
-        x_synth_data = x_synth.data
+        if self.gpu:
+            with t.cuda.device(self.gpu_id if self.gpu_id is not None else 0):
+                # build the input the gradients should be computed
+                u = t.rand(x.size(0), 1)
+                u = u.expand(x.size())
+                u = u.cuda()
+                x_data = x.data
+                x_synth_data = x_synth.data
 
-        xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).cuda(), requires_grad=True)
-        D_xx = self.forward(xx)
+                xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).cuda(), requires_grad=True)
+                D_xx = self.forward(xx)
 
-        # compute gradients
-        gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
-                                    grad_outputs=t.ones(D_xx.size()).cuda(),
-                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
-        return gradients
+                # compute gradients
+                gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
+                                            grad_outputs=t.ones(D_xx.size()).cuda(),
+                                            create_graph=True, retain_graph=True, only_inputs=True)[0]
+                return gradients
+        else:
+            # build the input the gradients should be computed
+            u = t.rand(x.size(0), 1)
+            u = u.expand(x.size())
+            x_data = x.data
+            x_synth_data = x_synth.data
+
+            xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)), requires_grad=True)
+            D_xx = self.forward(xx)
+
+            # compute gradients
+            gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
+                                        grad_outputs=t.ones(D_xx.size()),
+                                        create_graph=True, retain_graph=True, only_inputs=True)[0]
+            return gradients
 
     def gradient_penalty(self, x, x_synth, lambd=10):
         gradients = self._input_gradient(x, x_synth)
@@ -217,7 +235,7 @@ class Seq2Seq(nn.Module):
     grad_norm = {}
 
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
-                 hidden_init=False, dropout=0, gpu=False, ngpus=1):
+                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None):
         super(Seq2Seq, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
@@ -227,9 +245,10 @@ class Seq2Seq(nn.Module):
         self.hidden_init = hidden_init
         self.dropout = dropout
         self.gpu = gpu
+        self.gpu_id = gpu_id
         self.ngpus = ngpus
 
-        self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()))
+        self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()), gpu_id=gpu_id)
 
         # Vocabulary embedding
         self.embedding = nn.Embedding(ntokens, emsize)
@@ -274,11 +293,11 @@ class Seq2Seq(nn.Module):
     def init_hidden(self, bsz):
         zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
         zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        return (to_gpu(self.gpu, zeros1), to_gpu(self.gpu, zeros2))
+        return (to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id))
 
     def init_state(self, bsz):
         zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        return to_gpu(self.gpu, zeros)
+        return to_gpu(self.gpu, zeros, gpu_id=self.gpu_id)
 
     def store_grad_norm(self, grad):
         """
@@ -358,7 +377,7 @@ class Seq2Seq(nn.Module):
         if noise and self.noise_radius > 0:  # noise to make the task of the discriminator harder in the beginning of training
             gauss_noise = t.normal(means=t.zeros(hidden.size()),
                                    std=self.noise_radius)
-            hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise))
+            hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise), gpu_id=self.gpu_id)
 
         if keep_hidden:
             self.hidden = hidden
