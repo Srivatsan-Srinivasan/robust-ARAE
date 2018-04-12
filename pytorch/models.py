@@ -278,7 +278,7 @@ class Seq2Seq(nn.Module):
         Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
         return grad
 
-    def forward(self, indices, lengths, noise, encode_only=False):
+    def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False):
         """
 
         :param indices: integer-encoded sentences. LongTensor
@@ -289,7 +289,7 @@ class Seq2Seq(nn.Module):
         """
         batch_size, maxlen = indices.size()
 
-        hidden = self.encode(indices, lengths, noise)
+        hidden = self.encode(indices, lengths, noise, keep_hidden=keep_hidden)
 
         if encode_only:
             return hidden
