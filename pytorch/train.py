@@ -132,7 +132,7 @@ parser.add_argument('--tensorboard', action='store_true',
                     help='Whether to use tensorboard or not')
 parser.add_argument('--tensorboard_freq', type=int, default=300,
                     help='logging frequency')
-parser.add_argument('--tensorboard_logdir', type=str, default='/',  # by default tensorboard/ (just add the relative path from tensorboard/)
+parser.add_argument('--tensorboard_logdir', type=str, default=None,  # by default tensorboard/ (just add the relative path from tensorboard/)
                     help='Tensorboard logging directory. It will be a subdirectory of `tensorboard/`, so don\'t had the prefix before your name!')
 
 
@@ -193,7 +193,7 @@ print('Train data has %d batches' % len(train_data))
 ###############################################################################
 
 ntokens = len(corpus.dictionary.word2idx)
-create_tensorboard_dir(args.tensorboard_logdir)
+create_tensorboard_dir(args.tensorboard_logdir) if args.tensorboard else None
 writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.tensorboard else None
 autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden=args.nhidden,
