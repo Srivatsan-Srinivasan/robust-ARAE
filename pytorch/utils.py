@@ -9,6 +9,22 @@ def load_kenlm():
     import kenlm
 
 
+def noisy_sentence(sentence, k):
+    """
+    Swap word in a sentence
+    :param sentence: a variable containing a LongTensor with dim `length`
+    :param k: number of swaps to operate
+    :return: swapped sentence
+    """
+    noisy_s = sentence.data
+    for _ in range(k):
+        i, j = np.random.randint(0, sentence.size(0), size=2)
+        tmp = noisy_s[i]*1.
+        noisy_s[i] = noisy_s[j]*1.
+        noisy_s[j] = tmp*1.
+    return sentence
+
+
 def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
     if writer is None:
         return
@@ -16,7 +32,7 @@ def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
         if niter_global % log_freq == 0:
             gan_gen.tensorboard(writer, niter_global)
             gan_disc.tensorboard(writer, niter_global)
-            # autoencoder.tensorboard(writer, niter_global)  # @todo: solve this - as it is now, the autoencoder has its gradients erased just before the call of the function
+            autoencoder.tensorboard(writer, niter_global)
 
 
 def activation_from_str(activation_str):
@@ -25,6 +41,7 @@ def activation_from_str(activation_str):
     return activation
 
 
+# modification of the PyTorch version to add a `maxlen` argument
 def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     """Pads a packed batch of variable length sequences.
 
@@ -67,7 +84,6 @@ def pad_packed_sequence(sequence, batch_first=False, maxlen=None):
     if batch_first:
         output = output.transpose(0, 1)
     return output, lengths
-
 
 
 def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False):

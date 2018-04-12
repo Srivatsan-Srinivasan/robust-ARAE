@@ -124,6 +124,7 @@ class MLP_G(nn.Module):
         self.ninput = ninput
         self.noutput = noutput
         self.batchnorm = batchnorm
+        self.gpu = gpu
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -182,12 +183,23 @@ class MLP_G(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
+        # layers
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Gen_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Gen_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
                 k += 1
+
+        # Distributional properties of the generated codes
+        # l2 norm
+        z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu)
+        c = self.forward(z)
+        l2norm = t.mean(t.sum(c**2, 1))
+        writer.add_scalar('l2_norm_gen', l2norm, n_iter)
+        # sum of variances
+        trace_cov = np.trace(np.cov(c.data.cpu().numpy()))
+        writer.add_scalar('trace_cov_gen', trace_cov, n_iter)
 
 
 class Seq2Seq(nn.Module):
@@ -287,7 +299,7 @@ class Seq2Seq(nn.Module):
 
         return decoded
 
-    def encode(self, indices, lengths, noise):
+    def encode(self, indices, lengths, noise, keep_hidden=False):
         """
         :param indices: the integer-encoded sentences. It is a LongTensor
         :param lengths: A list containing the lengths of sentences (they are padded, so the number of columns isn't the length)
@@ -332,6 +344,8 @@ class Seq2Seq(nn.Module):
                                    std=self.noise_radius)
             hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise))
 
+        if keep_hidden:
+            self.hidden = hidden
         return hidden
 
     def decode(self, hidden, batch_size, maxlen, indices=None, lengths=None):
@@ -419,20 +433,35 @@ class Seq2Seq(nn.Module):
         max_indices = t.stack(all_indices, 1)
         return max_indices
 
+    def keep_gradients(self):
+        self.gradients = {}
+        for l in range(self.encoder.num_layers):
+            self.gradients['Enc_ih_%d' % l] = getattr(self.encoder, 'weight_ih_l%d' % l).grad.cpu().data.numpy()
+            self.gradients['Enc_hh_%d' % l] = getattr(self.encoder, 'weight_hh_l%d' % l).grad.cpu().data.numpy()
+        for l in range(self.decoder.num_layers):
+            self.gradients['Dec_ih_%d' % l] = getattr(self.decoder, 'weight_ih_l%d' % l).grad.cpu().data.numpy()
+            self.gradients['Dec_hh_%d' % l] = getattr(self.decoder, 'weight_hh_l%d' % l).grad.cpu().data.numpy()
+        self.gradients['Dec_fc'] = self.linear.weight.grad.cpu().data.numpy()
+
     def tensorboard(self, writer, n_iter):
+        # Weights and gradients
         for l in range(self.encoder.num_layers):
             writer.add_histogram('Enc_ih_w_%d' % l, getattr(self.encoder, 'weight_ih_l%d' % l).data.cpu().numpy(), n_iter, bins='doane')
-            writer.add_histogram('Enc_ih_grad_%d' % l, getattr(self.encoder, 'weight_ih_l%d' % l).grad.cpu().data.numpy(), n_iter, bins='doane')
+            writer.add_histogram('Enc_ih_grad_%d' % l, self.gradients['Enc_ih_%d' % l], n_iter, bins='doane')
             writer.add_histogram('Enc_hh_w_%d' % l, getattr(self.encoder, 'weight_hh_l%d' % l).data.cpu().numpy(), n_iter, bins='doane')
-            writer.add_histogram('Enc_hh_grad_%d' % l, getattr(self.encoder, 'weight_hh_l%d' % l).grad.cpu().data.numpy(), n_iter, bins='doane')
+            writer.add_histogram('Enc_hh_grad_%d' % l, self.gradients['Enc_hh_%d' % l], n_iter, bins='doane')
         for l in range(self.decoder.num_layers):
             writer.add_histogram('Dec_ih_w_%d' % l, getattr(self.decoder, 'weight_ih_l%d' % l).data.cpu().numpy(), n_iter, bins='doane')
-            writer.add_histogram('Dec_ih_grad_%d' % l, getattr(self.decoder, 'weight_ih_l%d' % l).grad.cpu().data.numpy(), n_iter, bins='doane')
+            writer.add_histogram('Dec_ih_grad_%d' % l, self.gradients['Dec_ih_%d' % l], n_iter, bins='doane')
             writer.add_histogram('Dec_hh_w_%d' % l, getattr(self.decoder, 'weight_hh_l%d' % l).data.cpu().numpy(), n_iter, bins='doane')
-            writer.add_histogram('Dec_hh_grad_%d' % l, getattr(self.decoder, 'weight_hh_l%d' % l).grad.cpu().data.numpy(), n_iter, bins='doane')
-
+            writer.add_histogram('Dec_hh_grad_%d' % l, self.gradients['Dec_hh_%d' % l], n_iter, bins='doane')
         writer.add_histogram('Dec_fc_w', self.linear.weight.data.cpu().numpy(), n_iter, bins='doane')
         writer.add_histogram('Dec_fc_grad', self.linear.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
+        writer.add_histogram('Dec_fc_grad', self.gradients['Dec_fc'], n_iter, bins='doane')
+
+        # Distributional properties of codes
+        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy()))
+        writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
 
 
 def load_models(load_path):
