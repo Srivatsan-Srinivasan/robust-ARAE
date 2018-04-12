@@ -10,6 +10,7 @@ import numpy as np
 
 
 class MLP_D(nn.Module):
+    """Discriminator whose architecture is a MLP"""
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
                  std_minibatch=True, batchnorm=False):
         super(MLP_D, self).__init__()
@@ -119,6 +120,7 @@ class MLP_D(nn.Module):
 
 
 class MLP_G(nn.Module):
+    """Generator whose architecture is a MLP"""
     def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, weight_init='default', batchnorm=True):
         super(MLP_G, self).__init__()
         self.ninput = ninput
@@ -203,6 +205,7 @@ class MLP_G(nn.Module):
 
 
 class Seq2Seq(nn.Module):
+    """Autoencoder of sentences"""
     grad_norm = {}
 
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
