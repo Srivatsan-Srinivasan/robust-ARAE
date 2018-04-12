@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, select_gpu
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -108,8 +108,8 @@ parser.add_argument('--gan_clamp', type=float, default=0.01,
                     help='WGAN clamp')
 parser.add_argument('--gradient_penalty', action='store_true',
                     help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
-parser.add_argument('--spectralnorm', type= bool, default = False,
-                    help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
+parser.add_argument('--spectralnorm', action='store_true',
+                    help='Whether to use a spectral normalization in the discriminator loss')
 
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
@@ -126,6 +126,8 @@ parser.add_argument('--cuda', action='store_true',
                     help='use CUDA')
 parser.add_argument('--n_gpus', type=int, default=1,  # @todo : no speedup even though GPUs are used (see https://discuss.pytorch.org/t/debugging-dataparallel-no-speedup-and-uneven-memory-allocation/1100/14)
                     help='The number of GPUs you want to use')
+parser.add_argument('--gpu_id', type=int, default=None,
+                    help='If you have several GPUs but want to use one in particular, specify the ID here')
 parser.add_argument('--tensorboard', action='store_true',
                     help='Whether to use tensorboard or not')
 parser.add_argument('--tensorboard_freq', type=int, default=300,
@@ -136,6 +138,8 @@ parser.add_argument('--tensorboard_logdir', type=str, default='/',  # by default
 
 args = parser.parse_args()
 print(vars(args))
+
+select_gpu(args.gpu_id)  # If you have several GPUs but want to use one in particular
 
 # make output directory if it doesn't already exist
 if not os.path.isdir('./output'):
