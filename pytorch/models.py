@@ -281,7 +281,10 @@ class Seq2Seq(nn.Module):
         return to_gpu(self.gpu, zeros)
 
     def store_grad_norm(self, grad):
-        """Monitor gradient norm"""
+        """
+        Monitor gradient norm
+        This quantity is used to scale the gradients of the GAN (see train_utils.train_gan_d)
+        """
         norm = t.norm(grad, 2, 1)
         Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
         return grad
@@ -293,6 +296,7 @@ class Seq2Seq(nn.Module):
         :param lengths: lengths of the sentences. LongTensor
         :param noise: whether to add Gaussian noise to the code
         :param encode_only: whether to only encode
+        :param keep_hidden: whether to store the latent representation to plot its distributional properties in tensorboard
         :return:
         """
         batch_size, maxlen = indices.size()
@@ -317,6 +321,7 @@ class Seq2Seq(nn.Module):
                         Note that it could also be a Variable. It actually should be a Variable when you are using multiple GPUs,
                         because pytorch only splits the Variable
         :param noise: whether to add noise to the hidden representation
+        :param keep_hidden: whether to store the latent representation to plot its distributional properties in tensorboard
         :return: a latent representation of the sentences, encoded on the unit-sphere
         """
         # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
@@ -445,6 +450,10 @@ class Seq2Seq(nn.Module):
         return max_indices
 
     def keep_gradients(self):
+        """
+        Store the gradients to plot them in tensorboard. Need to store them because they are erased before training
+        the GAN
+        """
         self.gradients = {}
         for l in range(self.encoder.num_layers):
             self.gradients['Enc_ih_%d' % l] = getattr(self.encoder, 'weight_ih_l%d' % l).grad.cpu().data.numpy()

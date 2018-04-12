@@ -159,7 +159,7 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
     # output: (batch_size, max_len, ntokens)
-    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True, keep_hidden=i==(args.niters_ae-1))
+    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False).long(), noise=True, keep_hidden=(i==(args.niters_ae-1)) and args.tensorboard)
 
     # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
@@ -199,7 +199,7 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
         total_loss_ae = 0
         start_time = time.time()
 
-    if i == (args.niters_ae - 1):  # keep gradients
+    if (i == (args.niters_ae - 1)) and args.tensorboard:  # keep gradients
         autoencoder.keep_gradients()
 
     return total_loss_ae, start_time
