@@ -11,7 +11,7 @@ def load_kenlm():
 
 def select_gpu(gpu_id):
     if gpu_id is not None:
-        os.environ['CUDA_VISIBLE_DEVICES'] = gpu_id
+        os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
         # to prevent opencv from initializing CUDA in workers
         t.randn(8).cuda()
         os.environ['CUDA_VISIBLE_DEVICES'] = ''
