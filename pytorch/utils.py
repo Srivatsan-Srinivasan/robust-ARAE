@@ -23,14 +23,9 @@ def check_args(args):
 def select_gpu(gpu_id):
     if gpu_id is not None:
         os.environ['CUDA_VISIBLE_DEVICES'] = str(gpu_id)
-        # to prevent opencv from initializing CUDA in workers
-        t.randn(8).cuda()
-        os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 
 def create_tensorboard_dir(logdir):
-
-    #import pdb; pdb.set_trace()
     if logdir not in os.listdir('tensorboard/'):
         os.makedirs('tensorboard/'+logdir)
 
