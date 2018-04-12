@@ -29,9 +29,11 @@ def noisy_sentence(sentence, k):
 def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
     """Log gradients, weights, and some distributional features of the latent code"""
     if writer is None:
+        print('writer is None')
         return
     else:
         if niter_global % log_freq == 0:
+            print('Writting tensorboard')
             gan_gen.tensorboard(writer, niter_global)
             gan_disc.tensorboard(writer, niter_global)
             autoencoder.tensorboard(writer, niter_global)

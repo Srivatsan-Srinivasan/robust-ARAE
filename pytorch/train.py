@@ -180,6 +180,7 @@ test_data = batchify(corpus.test, eval_batch_size, shuffle=False)
 train_data = batchify(corpus.train, args.batch_size, shuffle=True)
 
 print("Loaded data!")
+print('Train data has %d batches' % len(train_data))
 
 ###############################################################################
 # Build the models
@@ -325,8 +326,7 @@ for epoch in range(1, args.epochs+1):
                         impatience = 0
                         best_ppl = ppl
                         print("New best ppl {}\n".format(best_ppl))
-                        with open("./output/{}/logs.txt".
-                                  format(args.outf), 'a') as f:
+                        with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                             f.write("New best ppl {}\n".format(best_ppl))
                         save_model(autoencoder, gan_gen, gan_disc, args)
                     else:
