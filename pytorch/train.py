@@ -226,7 +226,7 @@ optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
 optimizer_gan_g = optim.Adam(gan_gen.parameters(),
                              lr=args.lr_gan_g,
                              betas=(args.beta1, 0.999))
-import pdb; pdb.set_trace()
+
 optimizer_gan_d = optim.Adam(filter(lambda p: p.requires_grad, gan_disc.parameters()),
                              lr=args.lr_gan_d,
                              betas=(args.beta1, 0.999))

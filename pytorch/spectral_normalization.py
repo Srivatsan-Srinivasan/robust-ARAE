@@ -20,7 +20,7 @@ class SpectralNorm(nn.Module):
         self.update_count = 0
         self.writer = writer
         if not self._made_params():
-            self.make_params()
+            self._make_params()
             
     def calc_spectral_norm(self, u,v,w,height):
         for _ in range(self.power_iterations):
@@ -37,7 +37,7 @@ class SpectralNorm(nn.Module):
 
         height = w.data.shape[0]
         sigma, norm_weights = self.calc_spectral_norm(u,v,w,height)
-        norm_recomputed = self.calc_spectral_norm(u,v,norm_weights,height)
+        norm_recomputed,weights = self.calc_spectral_norm(u,v,norm_weights,height)
                 
         self.writer.add_scalar('data/scalar1', norm_recomputed, self.update_count)
         self.update_count += 1

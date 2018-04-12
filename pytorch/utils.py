@@ -10,6 +10,8 @@ def load_kenlm():
 
 
 def create_tensorboard_dir(logdir):
+
+    #import pdb; pdb.set_trace()
     if logdir not in os.listdir('tensorboard/'):
         os.makedirs('tensorboard/'+logdir)
 
