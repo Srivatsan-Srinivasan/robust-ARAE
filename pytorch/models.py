@@ -97,38 +97,25 @@ class MLP_D(nn.Module):
         Compute gradients with regard to the input
         The input is chosen to be a random image in between the true and synthetic images
         """
-        if self.gpu:
-            with t.cuda.device(self.gpu_id if self.gpu_id is not None else 0):
-                # build the input the gradients should be computed
-                u = t.rand(x.size(0), 1)
-                u = u.expand(x.size())
-                u = u.cuda()
-                x_data = x.data
-                x_synth_data = x_synth.data
+        # build the input the gradients should be computed
+        u = t.rand(x.size(0), 1)
+        u = u.expand(x.size())
+        u = u.cuda(self.gpu_id)
+        x_data = x.data
+        x_synth_data = x_synth.data
 
-                xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)).cuda(), requires_grad=True)
-                D_xx = self.forward(xx)
+        interpolate = (x_synth_data * u + x_data * (1 - u))
+        interpolate = interpolate.cuda(self.gpu_id) if self.gpu else interpolate
+        xx = t.autograd.Variable(interpolate, requires_grad=True)
+        D_xx = self.forward(xx)
 
-                # compute gradients
-                gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
-                                            grad_outputs=t.ones(D_xx.size()).cuda(),
-                                            create_graph=True, retain_graph=True, only_inputs=True)[0]
-                return gradients
-        else:
-            # build the input the gradients should be computed
-            u = t.rand(x.size(0), 1)
-            u = u.expand(x.size())
-            x_data = x.data
-            x_synth_data = x_synth.data
-
-            xx = t.autograd.Variable((x_synth_data * u + x_data * (1 - u)), requires_grad=True)
-            D_xx = self.forward(xx)
-
-            # compute gradients
-            gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
-                                        grad_outputs=t.ones(D_xx.size()),
-                                        create_graph=True, retain_graph=True, only_inputs=True)[0]
-            return gradients
+        # compute gradients
+        grad_outputs = t.ones(D_xx.size())
+        grad_outputs = grad_outputs.cuda(self.gpu_id) if self.gpu else grad_outputs
+        gradients = t.autograd.grad(outputs=D_xx, inputs=xx,
+                                    grad_outputs=grad_outputs,
+                                    create_graph=True, retain_graph=True, only_inputs=True)[0]
+        return gradients
 
     def gradient_penalty(self, x, x_synth, lambd=10):
         gradients = self._input_gradient(x, x_synth)
