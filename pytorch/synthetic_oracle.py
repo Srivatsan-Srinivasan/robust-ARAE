@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from utils import variable, to_gpu
 
 
+# @todo: add a function eval_ppl
 class Oracle(t.nn.Module):
     def __init__(self, emsize, nhidden, ntokens, nlayers, gpu=False, gpu_id=None):
         """
