@@ -132,6 +132,9 @@ class MLP_D(nn.Module):
         return gp
 
     def tensorboard(self, writer, n_iter):
+        """
+        Note that tensorboard default binning (for histograms) is buggy, prefer `doane` instead
+        """
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
@@ -211,6 +214,9 @@ class MLP_G(nn.Module):
             raise NotImplementedError('Not implemented')
 
     def tensorboard(self, writer, n_iter):
+        """
+        Note that tensorboard default binning (for histograms) is buggy, prefer `doane` instead
+        """
         # layers
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
@@ -220,7 +226,7 @@ class MLP_G(nn.Module):
 
         # Distributional properties of the generated codes
         # l2 norm
-        z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu, gpu_id=self.gpu_id)
+        z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu, gpu_id=self.gpu_id)  # @todo: use a bigger number than 500 ?
         c = self.forward(z)
         l2norm = t.mean(t.sum(c ** 2, 1))
         writer.add_scalar('l2_norm_gen', l2norm, n_iter)
@@ -482,6 +488,9 @@ class Seq2Seq(nn.Module):
         self.gradients['Dec_fc'] = self.linear.weight.grad.cpu().data.numpy()
 
     def tensorboard(self, writer, n_iter):
+        """
+        Note that tensorboard default binning (for histograms) is buggy, prefer `doane` instead
+        """
         # Weights and gradients
         for l in range(self.encoder.num_layers):
             writer.add_histogram('Enc_ih_w_%d' % l, getattr(self.encoder, 'weight_ih_l%d' % l).data.cpu().numpy(), n_iter, bins='doane')
@@ -498,7 +507,7 @@ class Seq2Seq(nn.Module):
         writer.add_histogram('Dec_fc_grad', self.gradients['Dec_fc'], n_iter, bins='doane')
 
         # Distributional properties of codes
-        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy()))
+        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy()))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
 
 
