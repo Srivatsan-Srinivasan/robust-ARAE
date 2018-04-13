@@ -35,8 +35,8 @@ class MLP_D(nn.Module):
         for i in range(len(layer_sizes) - 1):
             if spectralnorm:
                 layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer=writer, log_freq=log_freq)
-
-            layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
+            else:
+                layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             setattr(self, 'layer' + str(i + 1), layer)
 
             # No batch normalization after first layer
@@ -131,10 +131,13 @@ class MLP_D(nn.Module):
             layer = getattr(self, 'layer%d' % i)
             print(i, layer)
             if isinstance(layer, t.nn.Linear):
-                print('hep')
                 writer.add_histogram('Disc_fc_w_%d' % i, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Disc_fc_grad_%d' % i, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
-
+            elif isinstance(layer, SpectralNorm):
+                writer.add_histogram('Disc_fc_w_%d' % i, layer.module.weight.data.cpu().numpy(), n_iter, bins='doane')
+                writer.add_histogram('Disc_fc_grad_%d' % i, layer.module.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
+            else:
+                raise ValueError('there is a problem here, it should be either Linear or SpectralNorm')
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
