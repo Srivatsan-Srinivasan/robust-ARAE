@@ -301,7 +301,7 @@ for epoch in range(1, args.epochs+1):
 
         niter_global += 1
 
-        tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, gan_gen.module, gan_disc.module, autoencoder.module, args.tensorboard_freq)
+        tensorboard(niter_global + (-1+epoch)*len(train_data), writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, gan_gen.module, gan_disc.module, autoencoder.module, args.tensorboard_freq)
         if niter_global % 100 == 0:
             print('[%d/%d][%d/%d] Loss_D: %.8f (Loss_D_real: %.8f '
                   'Loss_D_fake: %.8f) Loss_G: %.8f'
