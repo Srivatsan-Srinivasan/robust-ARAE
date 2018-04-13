@@ -1,3 +1,8 @@
+"""
+Taken from:
+https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/blob/master/spectral_normalization.py
+"""
+
 import torch
 from torch.optim.optimizer import Optimizer, required
 from torch.autograd import Variable
@@ -12,20 +17,21 @@ def l2normalize(v, eps=1e-12):
 
 
 class SpectralNorm(nn.Module):
-    def __init__(self, module, name='weight', power_iterations=1, writer = None):
+    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=10000):
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name
         self.power_iterations = power_iterations
         self.update_count = 0
+        self.log_freq = log_freq
         self.writer = writer
         if not self._made_params():
             self._make_params()
-            
-    def calc_spectral_norm(self, u,v,w,height):
+
+    def calc_spectral_norm(self, u, v, w, height):
         for _ in range(self.power_iterations):
-            v.data = l2normalize(torch.mv(torch.t(w.view(height,-1).data), u.data))
-            u.data = l2normalize(torch.mv(w.view(height,-1).data, v.data))
+            v.data = l2normalize(torch.mv(torch.t(w.view(height, -1).data), u.data))
+            u.data = l2normalize(torch.mv(w.view(height, -1).data, v.data))
 
         sigma = u.dot(w.view(height, -1).mv(v))
         return sigma, w / sigma.expand_as(w)
@@ -36,10 +42,11 @@ class SpectralNorm(nn.Module):
         w = getattr(self.module, self.name + "_bar")
 
         height = w.data.shape[0]
-        sigma, norm_weights = self.calc_spectral_norm(u,v,w,height)
-        norm_recomputed,weights = self.calc_spectral_norm(u,v,norm_weights,height)
-                
-        self.writer.add_scalar('spectral_norm', norm_recomputed, self.update_count) if self.writer is not None else None
+        sigma, norm_weights = self.calc_spectral_norm(u, v, w, height)
+        norm_recomputed, weights = self.calc_spectral_norm(u, v, norm_weights, height)
+
+        if self.update_count % self.log_freq == 0:  # it is always 1 anyway...
+            self.writer.add_scalar('spectral_norm', norm_recomputed, self.update_count) if self.writer is not None else None
         self.update_count += 1
 
         # Setting the weight seen by the module(in this case MLP) as spectral-normalized.
@@ -66,20 +73,19 @@ class SpectralNorm(nn.Module):
         v.data = l2normalize(v.data)
         w_bar = Parameter(w.data)
 
-        #Optimizer does not know of the existence of weight parameter.
-        #It is deleted here in the init step and re-initialized with weight_bar.
-        #Hence all gradient steps happen on weight_bar.
+        # Optimizer does not know of the existence of weight parameter.
+        # It is deleted here in the init step and re-initialized with weight_bar.
+        # Hence all gradient steps happen on weight_bar.
         del self.module._parameters[self.name]
- 
-        #Optimization(SGD) happens with respect to weight_bar
+
+        # Optimization(SGD) happens with respect to weight_bar
         self.module.register_parameter(self.name + "_u", u)
         self.module.register_parameter(self.name + "_v", v)
         self.module.register_parameter(self.name + "_bar", w_bar)
 
-
     def forward(self, *args):
-        self._update_u_v()        
-        #Forward gets computed using weight of the module which is defined in
-        #update u_v as spectral normalized weights(check last line). 
-        #Optimization(SGD) happens with respect to weight_bar.
+        self._update_u_v()
+        # Forward gets computed using weight of the module which is defined in
+        # update u_v as spectral normalized weights(check last line).
+        # Optimization(SGD) happens with respect to weight_bar.
         return self.module.forward(*args)

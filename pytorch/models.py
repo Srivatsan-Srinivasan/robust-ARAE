@@ -12,8 +12,9 @@ from spectral_normalization import SpectralNorm
 
 class MLP_D(nn.Module):
     """Discriminator whose architecture is a MLP"""
+
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm = True, writer=None, gpu_id=None):
+                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=10000):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
@@ -31,10 +32,10 @@ class MLP_D(nn.Module):
         layer_sizes = [ninput] + [int(x) for x in layers.split('-')]
         self.n_layers = len(layer_sizes)
 
-        for i in range(len(layer_sizes) - 1):                
+        for i in range(len(layer_sizes) - 1):
             if spectralnorm:
-                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer = writer)
-                
+                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer=writer, log_freq=log_freq)
+
             layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             setattr(self, 'layer' + str(i + 1), layer)
 
@@ -44,17 +45,17 @@ class MLP_D(nn.Module):
                 setattr(self, 'bn' + str(i + 1), bn)
 
             setattr(self, 'activation' + str(i + 1), activation)
-            
+
         if spectralnorm:
-            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput), writer = writer)
+            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput), writer=writer, log_freq=log_freq)
         else:
             layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
-            
+
         setattr(self, 'layer' + str(self.n_layers), layer)
 
         self.init_weights(weight_init)
 
-    def forward(self, x, writer = None):
+    def forward(self, x, writer=None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
@@ -124,7 +125,7 @@ class MLP_D(nn.Module):
 
     def tensorboard(self, writer, n_iter):
         k = 0
-        for i in range(1, self.n_layers+1):
+        for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
                 writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
@@ -134,6 +135,7 @@ class MLP_D(nn.Module):
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
+
     def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, gpu_id=None, weight_init='default', batchnorm=True):
         super(MLP_G, self).__init__()
         self.ninput = ninput
@@ -211,7 +213,7 @@ class MLP_G(nn.Module):
         # l2 norm
         z = variable(np.random.normal(size=(500, self.ninput)), cuda=self.gpu, gpu_id=self.gpu_id)
         c = self.forward(z)
-        l2norm = t.mean(t.sum(c**2, 1))
+        l2norm = t.mean(t.sum(c ** 2, 1))
         writer.add_scalar('l2_norm_gen', l2norm, n_iter)
         # sum of variances
         trace_cov = np.trace(np.cov(c.data.cpu().numpy()))
