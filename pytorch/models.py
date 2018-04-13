@@ -96,7 +96,9 @@ class MLP_D(nn.Module):
     def _input_gradient(self, x, x_synth):
         """
         Compute gradients with regard to the input
-        The input is chosen to be a random image in between the true and synthetic images
+        The input is chosen to be a random vector in between the true and synthetic images (uniformly on the segments linking the two)
+
+        Code taken from https://github.com/caogang/wgan-gp/blob/master/gan_mnist.py#L143
         """
         # build the input the gradients should be computed
         u = t.rand(x.size(0), 1)
@@ -119,6 +121,12 @@ class MLP_D(nn.Module):
         return gradients
 
     def gradient_penalty(self, x, x_synth, lambd=10):
+        """
+        Gradient penalty to force the discriminator to be 1-Lipschitz continuous
+
+        See `Improved Training of Wasserstein GANs`: https://arxiv.org/abs/1704.00028
+        Code taken from https://github.com/caogang/wgan-gp/blob/master/gan_mnist.py#L143
+        """
         gradients = self._input_gradient(x, x_synth)
         gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambd
         return gp
