@@ -134,10 +134,11 @@ class MLP_D(nn.Module):
                 writer.add_histogram('Disc_fc_w_%d' % i, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Disc_fc_grad_%d' % i, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
             elif isinstance(layer, SpectralNorm):
-                writer.add_histogram('Disc_fc_w_%d' % i, layer.module.weight.data.cpu().numpy(), n_iter, bins='doane')
-                writer.add_histogram('Disc_fc_grad_%d' % i, layer.module.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
+                writer.add_histogram('Disc_fc_w_%d' % i, layer.module.weight_bar.data.cpu().numpy(), n_iter, bins='doane')
+                writer.add_histogram('Disc_fc_grad_%d' % i, layer.module.weight_bar.grad.cpu().data.numpy(), n_iter, bins='doane')
             else:
                 raise ValueError('there is a problem here, it should be either Linear or SpectralNorm')
+
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
