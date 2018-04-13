@@ -14,7 +14,7 @@ class MLP_D(nn.Module):
     """Discriminator whose architecture is a MLP"""
 
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=10000):
+                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=100000):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput

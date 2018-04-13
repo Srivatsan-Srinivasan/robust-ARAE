@@ -17,7 +17,7 @@ def l2normalize(v, eps=1e-12):
 
 
 class SpectralNorm(nn.Module):
-    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=10000):
+    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=100000):
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name
