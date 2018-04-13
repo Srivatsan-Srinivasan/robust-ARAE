@@ -237,6 +237,11 @@ class MLP_G(nn.Module):
 
 class Seq2Seq(nn.Module):
     """Autoencoder of sentences"""
+
+    # `grad_norm` is used to store the gradients of the autoencoder so that they can be
+    #  plotted in TensorBoard.
+    # It is useful to put it as a class variable because when doing multi-gpu training you can no longer access
+    # instance attributes(or at least it is buggy because each instance has a different value for self.grad_norm)
     grad_norm = {}
 
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
@@ -298,7 +303,7 @@ class Seq2Seq(nn.Module):
     def init_hidden(self, bsz):
         zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
         zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        return (to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id))
+        return to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id)
 
     def init_state(self, bsz):
         zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
