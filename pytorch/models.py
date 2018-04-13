@@ -53,6 +53,9 @@ class MLP_D(nn.Module):
 
         setattr(self, 'layer' + str(self.n_layers), layer)
 
+        print('disc.n_layers')
+        print(self.n_layers)
+
         self.init_weights(weight_init)
 
     def forward(self, x, writer=None):
@@ -124,13 +127,11 @@ class MLP_D(nn.Module):
         return gp
 
     def tensorboard(self, writer, n_iter):
-        k = 0
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
-                writer.add_histogram('Disc_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
-                writer.add_histogram('Disc_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
-                k += 1
+                writer.add_histogram('Disc_fc_w_%d' % i, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
+                writer.add_histogram('Disc_fc_grad_%d' % i, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
 
 
 class MLP_G(nn.Module):
@@ -200,14 +201,12 @@ class MLP_G(nn.Module):
             raise NotImplementedError('Not implemented')
 
     def tensorboard(self, writer, n_iter):
-        k = 0
         # layers
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
             if isinstance(layer, t.nn.Linear):
-                writer.add_histogram('Gen_fc_w_%d' % k, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
-                writer.add_histogram('Gen_fc_grad_%d' % k, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
-                k += 1
+                writer.add_histogram('Gen_fc_w_%d' % i, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
+                writer.add_histogram('Gen_fc_grad_%d' % i, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
 
         # Distributional properties of the generated codes
         # l2 norm
