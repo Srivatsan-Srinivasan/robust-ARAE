@@ -129,7 +129,9 @@ class MLP_D(nn.Module):
     def tensorboard(self, writer, n_iter):
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer%d' % i)
+            print(i, layer)
             if isinstance(layer, t.nn.Linear):
+                print('hep')
                 writer.add_histogram('Disc_fc_w_%d' % i, layer.weight.data.cpu().numpy(), n_iter, bins='doane')
                 writer.add_histogram('Disc_fc_grad_%d' % i, layer.weight.grad.cpu().data.numpy(), n_iter, bins='doane')
 
