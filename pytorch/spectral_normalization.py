@@ -39,10 +39,11 @@ class SpectralNorm(nn.Module):
         sigma, norm_weights = self.calc_spectral_norm(u,v,w,height)
         norm_recomputed,weights = self.calc_spectral_norm(u,v,norm_weights,height)
                 
-        self.writer.add_scalar('data/scalar1', norm_recomputed, self.update_count) if self.writer is not None else None
+        self.writer.add_scalar('spectral_norm', norm_recomputed, self.update_count) if self.writer is not None else None
         self.update_count += 1
-        #Setting the weight seen by the module(in this case MLP) as spectral-normalized.
-        setattr(self.module, self.name, norm_weights )
+
+        # Setting the weight seen by the module(in this case MLP) as spectral-normalized.
+        setattr(self.module, self.name, norm_weights)
 
     def _made_params(self):
         try:
