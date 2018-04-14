@@ -15,7 +15,8 @@ def check_args(args):
     if args.tensorboard and args.tensorboard_logdir is None:
         raise ValueError("You should provide a name for tensorboard_logdir. Note that you do not need to "
                          "indicate `/tensorboard` as a prefix, the it will automatically be a subfolder of `/tensorboard`")
-    assert 0 <= args.gpu_id <= t.cuda.device_count() - 1
+    if args.gpu_id is not None:
+        assert 0 <= args.gpu_id <= t.cuda.device_count() - 1
     if args.gpu_id is not None and args.n_gpus > 1:
         raise ValueError("If you decide to use a specific GPU (args.gpu_id is not None), you cannot also choose to use all of them (args.n_gpus > 1)")
 

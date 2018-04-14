@@ -92,7 +92,7 @@ def evaluate_generator(gan_gen, autoencoder, corpus, noise, epoch, args):
 
 
 def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
-    """Evaluate the performance of a simple language model that is trained on synthetic sentences"""
+    """Evaluate the performance of a simple language model (KENLM) that is trained on synthetic sentences"""
     # generate 100000 examples
     indices = []
     noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
