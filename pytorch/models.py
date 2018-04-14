@@ -14,7 +14,9 @@ class MLP_D(nn.Module):
     """Discriminator whose architecture is a MLP"""
 
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=100000):
+                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=100000,
+                 lambda_GP=10
+                 ):
         super(MLP_D, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
@@ -22,6 +24,7 @@ class MLP_D(nn.Module):
         self.gpu = gpu
         self.gpu_id = gpu_id
         self.batchnorm = batchnorm
+        self.lambda_GP = lambda_GP
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -120,7 +123,7 @@ class MLP_D(nn.Module):
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
         return gradients
 
-    def gradient_penalty(self, x, x_synth, lambd=10):
+    def gradient_penalty(self, x, x_synth):
         """
         Gradient penalty to force the discriminator to be 1-Lipschitz continuous
 
@@ -128,7 +131,7 @@ class MLP_D(nn.Module):
         Code taken from https://github.com/caogang/wgan-gp/blob/master/gan_mnist.py#L143
         """
         gradients = self._input_gradient(x, x_synth)
-        gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * lambd
+        gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * self.lambda_GP
         return gp
 
     def tensorboard(self, writer, n_iter):

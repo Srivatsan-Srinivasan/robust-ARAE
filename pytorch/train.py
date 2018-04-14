@@ -108,6 +108,8 @@ parser.add_argument('--gan_clamp', type=float, default=0.01,
                     help='WGAN clamp')
 parser.add_argument('--gradient_penalty', action='store_true',
                     help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
+parser.add_argument('--lambda_GP', type=float, default=10.,
+                    help='Regularization param for the gradient penalty')
 parser.add_argument('--spectralnorm', action='store_true',
                     help='Whether to use a spectral normalization in the discriminator loss')
 
@@ -209,7 +211,7 @@ gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, ac
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id)
 gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
-                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id)
+                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP)
 
 criterion_ce = nn.CrossEntropyLoss()
 
