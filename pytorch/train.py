@@ -210,7 +210,7 @@ print('Train data has %d batches' % len(train_data))
 ntokens = len(corpus.dictionary.word2idx)
 create_tensorboard_dir(args.tensorboard_logdir) if args.tensorboard else None
 writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.tensorboard else None
-global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)
+global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
 
 autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden=args.nhidden,
