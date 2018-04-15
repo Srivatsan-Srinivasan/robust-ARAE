@@ -38,8 +38,6 @@ class Timer(object):
                 result = method(*args, **kw)
                 te = time.time()
 
-                print(self.method_counter)
-                print(self.method_counter[method.__name__])
                 if method.__name__ in self.method_counter:
                     self.method_counter[method.__name__] += 1
                 else:
