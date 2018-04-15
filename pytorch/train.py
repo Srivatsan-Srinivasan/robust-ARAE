@@ -11,6 +11,8 @@ import torch.nn as nn
 import torch.optim as optim
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
+from torch.optim.lr_scheduler import ReduceLROnPlateau
+
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan
 from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer
@@ -86,6 +88,8 @@ parser.add_argument('--no_earlystopping', action='store_true',
 parser.add_argument('--patience', type=int, default=5,
                     help="number of language model evaluations without ppl "
                          "improvement to wait before early stopping")
+parser.add_argument('--ae_lr_scheduler', action='store_true',
+                    help='Whether to use a scheduler to decrease AE learning rate when PPL doesnt decrease')
 parser.add_argument('--batch_size', type=int, default=64, metavar='N',
                     help='batch size')
 parser.add_argument('--niters_ae', type=int, default=1,
@@ -249,6 +253,10 @@ print(gan_disc)
 optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
 optimizer_gan_g, optimizer_gan_d = get_optimizers_gan(gan_gen, gan_disc, args)
 
+scheduler = None
+if args.ae_lr_scheduler:
+    scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
+
 
 ###############################################################################
 # Training code
@@ -289,6 +297,8 @@ for epoch in range(1, args.epochs+1):
 
     # loop through all batches in training data
     while niter < len(train_data):
+        if impatience > args.patience: break
+
         # train autoencoder ----------------------------
         for i in range(args.niters_ae):
             if niter == len(train_data):
@@ -338,6 +348,7 @@ for epoch in range(1, args.epochs+1):
                     eval_path = os.path.join(args.data_path, "test.txt")
                     save_path = "output/{}/epoch{}_step{}_lm_generations".format(args.outf, epoch, niter_global)
                     ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
+                    scheduler.step(ppl) if scheduler is not None else None
                     print("Perplexity {}".format(ppl))
                     all_ppl.append(ppl)
                     print(all_ppl)
@@ -360,7 +371,6 @@ for epoch in range(1, args.epochs+1):
                             with open("./output/{}/logs.txt".
                                       format(args.outf), 'a') as f:
                                 f.write("\nEnding Training\n")
-                            sys.exit()
 
     # end of epoch ----------------------------
     # evaluation
