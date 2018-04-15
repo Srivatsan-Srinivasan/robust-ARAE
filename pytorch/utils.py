@@ -30,7 +30,6 @@ class Timer(object):
         self.method_counter = {}
 
     def timeit(self, method):
-        print('hep')
         if self.enabled:
             print('enabled')
 
@@ -38,12 +37,8 @@ class Timer(object):
                 ts = time.time()
                 result = method(*args, **kw)
                 te = time.time()
-                if 'log_time' in kw:
-                    name = kw.get('log_name', method.__name__.upper())
-                    kw['log_time'][name] = int((te - ts) * 1000)
-                else:
-                    print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
 
+                print(self.method_counter)
                 print(self.method_counter[method.__name__])
                 if method.__name__ in self.method_counter:
                     self.method_counter[method.__name__] += 1
