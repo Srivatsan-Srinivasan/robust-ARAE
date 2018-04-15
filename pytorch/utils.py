@@ -33,7 +33,6 @@ class Timer(object):
         if self.enabled:
 
             def timed(*args, **kw):
-                print(self.name)
 
                 ts = time.time()
                 result = method(*args, **kw)
