@@ -121,6 +121,10 @@ parser.add_argument('--lambda_GP', type=float, default=10.,
                     help='Regularization param for the gradient penalty')
 parser.add_argument('--spectralnorm', action='store_true',
                     help='Whether to use a spectral normalization in the discriminator loss')
+parser.add_argument('--eps_drift', type=float, default=None,
+                    help='Whether to add a term eps_drift*D(x)^2 in the loss of the discriminator'
+                         'If None, add nothing')
+
 
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
@@ -348,6 +352,8 @@ for epoch in range(1, args.epochs+1):
                     eval_path = os.path.join(args.data_path, "test.txt")
                     save_path = "output/{}/epoch{}_step{}_lm_generations".format(args.outf, epoch, niter_global)
                     ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
+                    if args.tensorboard:
+                        writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
                     scheduler.step(ppl) if scheduler is not None else None
                     print("Perplexity {}".format(ppl))
                     all_ppl.append(ppl)
@@ -375,6 +381,10 @@ for epoch in range(1, args.epochs+1):
     # end of epoch ----------------------------
     # evaluation
     test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args)
+    if args.tensorboard:
+        writer.add_scalar('acc_recons', accuracy, niter_global + (epoch-1)*len(train_data))
+        writer.add_scalar('test_recons_loss', test_loss, niter_global + (epoch-1)*len(train_data))
+
     print('-' * 89)
     print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
           'test ppl {:5.2f} | acc {:3.3f}'.
@@ -396,6 +406,9 @@ for epoch in range(1, args.epochs+1):
         eval_path = os.path.join(args.data_path, "test.txt")
         save_path = "./output/{}/end_of_epoch{}_lm_generations".format(args.outf, epoch)
         ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
+        if args.tensorboard:
+            writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
+
         print("Perplexity {}".format(ppl))
         all_ppl.append(ppl)
         print(all_ppl)

@@ -67,7 +67,7 @@ class MLP_D(nn.Module):
             self.forward = MLP_D.timer.timeit(self.forward)
             self.gradient_penalty = MLP_D.timer.timeit(self.gradient_penalty)
 
-    def forward(self, x, writer=None):
+    def forward(self, x, mean=True, writer=None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
@@ -81,8 +81,7 @@ class MLP_D(nn.Module):
             x = t.cat([x, x_std_feature], 1)
 
         x = layer(x)
-        x = t.mean(x)
-        return x
+        return t.mean(x) if mean else x
 
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':

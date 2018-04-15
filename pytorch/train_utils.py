@@ -305,8 +305,8 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
 
     # loss / backprop
-    errD_real = gan_disc(real_hidden, writer=writer)
-    errD_real.backward(one)
+    errD_real = gan_disc(real_hidden, mean=False, writer=writer)
+    torch.mean(errD_real).backward(one)
 
     # negative samples ----------------------------
     # generate fake codes
@@ -323,6 +323,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
         errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
         errD_grad.backward(one)
 
+    # regularization
     l2_reg = None
     if args.l2_reg_disc is not None:
         if not args.spectralnorm:
@@ -334,6 +335,10 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
             weight = layer.weight_bar
             l2_reg = args.l2_reg_disc * weight.norm(2)
         l2_reg.backward(one)
+
+    if args.eps_drift is not None:
+        errD_drift = args.eps_drift * torch.mean(errD_real.pow(2))
+        errD_drift.backward(one)
 
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
