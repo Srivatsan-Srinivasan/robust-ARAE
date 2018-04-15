@@ -259,7 +259,7 @@ if args.ae_lr_scheduler:
 
 #This will still retain overall number of tokens to the initial vocabulary size, just modify data.
 corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
-corpus.train = retokenize_data_for_vocab_size(corpus.test, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
+corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
 print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
 print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
 
