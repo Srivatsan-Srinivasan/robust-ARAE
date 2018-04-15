@@ -8,6 +8,26 @@ from models import Seq2Seq
 from utils import to_gpu, variable, train_ngram_lm, get_ppl
 
 
+def get_optimizers_gan(gan_gen, gan_disc, args):
+    if args.optim_gan.lower() == 'adam':
+        optimizer_gan_g = torch.optim.Adam(gan_gen.parameters(),
+                                           lr=args.lr_gan_g,
+                                           betas=(args.beta1, 0.999))
+
+        optimizer_gan_d = torch.optim.Adam(filter(lambda p: p.requires_grad, gan_disc.parameters()),
+                                           lr=args.lr_gan_d,
+                                           betas=(args.beta1, 0.999))
+        return optimizer_gan_g, optimizer_gan_d
+    elif args.optim_gan.lower() == 'rmsprop':
+        optimizer_gan_g = torch.optim.RMSprop(gan_gen.parameters(),
+                                              lr=args.lr_gan_g)
+        optimizer_gan_d = torch.optim.RMSprop(filter(lambda p: p.requires_grad, gan_disc.parameters()),
+                                              lr=args.lr_gan_d)
+        return optimizer_gan_g, optimizer_gan_d
+    else:
+        raise NotImplementedError("Choose adam or rmsprop")
+
+
 def save_model(autoencoder, gan_gen, gan_disc, args):
     print("Saving models")
     with open('./output/{}/autoencoder_model.pt'.format(args.outf), 'wb') as f:
@@ -40,7 +60,7 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         flattened_output = output.view(-1, ntokens)
 
         masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)
-        total_loss += criterion_ce(masked_output/args.temp, masked_target).data
+        total_loss += criterion_ce(masked_output / args.temp, masked_target).data
 
         # accuracy
         max_vals, max_indices = torch.max(masked_output, 1)
@@ -62,7 +82,7 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
                 f.write(chars)
                 f.write("\n\n")
 
-    return total_loss[0] / len(data_source), all_accuracies/bcnt
+    return total_loss[0] / len(data_source), all_accuracies / bcnt
 
 
 def evaluate_generator(gan_gen, autoencoder, corpus, noise, epoch, args):
@@ -106,13 +126,13 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
     indices = np.concatenate(indices, axis=0)
 
     # write generated sentences to text file
-    with open(save_path+".txt", "w") as f:
+    with open(save_path + ".txt", "w") as f:
         # laplacian smoothing
         for word in corpus.dictionary.word2idx.keys():
-            f.write(word+"\n")
+            f.write(word + "\n")
         for idx in indices:
             # generated sentence
-            #print(idx[0],"###")
+            # print(idx[0],"###")
             words = [corpus.dictionary.idx2word[x[0]] for x in idx]
 
             # truncate sentences to first occurrence of <eos>
@@ -123,12 +143,12 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
                 else:
                     break
             chars = " ".join(truncated_sent)
-            f.write(chars+"\n")
+            f.write(chars + "\n")
 
     # train language model on generated examples
     lm = train_ngram_lm(kenlm_path=args.kenlm_path,
-                        data_path=save_path+".txt",
-                        output_path=save_path+".arpa",
+                        data_path=save_path + ".txt",
+                        output_path=save_path + ".arpa",
                         N=args.N)
 
     # load sentences to evaluate on
@@ -140,7 +160,7 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
     return ppl
 
 
-def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_loss_ae, start_time, i, ntokens, epoch, args):
+def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_loss_ae, start_time, i, ntokens, epoch, args, writer, n_iter):
     """
     Train autoencoder
     :param batch: a 3-tuple (source_sentences, target_sentences, sentences_lengths)
@@ -159,13 +179,13 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
     # output: (batch_size, max_len, ntokens)
-    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, keep_hidden=(i==(args.niters_ae-1)) and args.tensorboard)
+    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, keep_hidden=(i == (args.niters_ae - 1)) and args.tensorboard)
 
     # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
     masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems, without the padding
 
-    loss = criterion_ce(masked_output/args.temp, masked_target)  # batch_size x max_len classification problems
+    loss = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
     loss.backward()
 
     # `clip_grad_norm` to prevent exploding gradient in RNNs / LSTMs
@@ -202,10 +222,17 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     if (i == (args.niters_ae - 1)) and args.tensorboard:  # keep gradients
         autoencoder.keep_gradients()
 
+    tensorboard_ae(loss.data.cpu().numpy()[0], writer, n_iter)
     return total_loss_ae, start_time
 
 
-def train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args):
+def tensorboard_ae(loss, writer, n_iter, log_freq=100):
+    if writer is not None:
+        if n_iter % log_freq == 0:
+            writer.add_scalar("loss_ae", loss, n_iter)
+
+
+def train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args, writer, n_iter):
     """
     Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
     consistency between G and D, AND between the two parts of the loss of D
@@ -232,10 +259,18 @@ def train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args):
     errG.backward(one)
     optimizer_gan_g.step()
 
+    tensorboard_gan_g(errG, writer, n_iter)
+
     return errG
 
 
-def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, batch, args, writer = None):
+def tensorboard_gan_g(loss, writer, n_iter, log_freq=100):
+    if writer is not None:
+        if n_iter % log_freq == 0:
+            writer.add_scalar("loss_gan_g", loss, n_iter)
+
+
+def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, batch, args, writer, n_iter):
     """
     Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
     consistency between G and D, AND between the two parts of the loss of D
@@ -270,7 +305,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
 
     # loss / backprop
-    errD_real = gan_disc(real_hidden,writer=writer)
+    errD_real = gan_disc(real_hidden, writer=writer)
     errD_real.backward(one)
 
     # negative samples ----------------------------
@@ -282,9 +317,23 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     fake_hidden = gan_gen(noise)
     errD_fake = gan_disc(fake_hidden.detach())
     errD_fake.backward(mone)
+
+    errD_grad = None
     if args.gradient_penalty:
         errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
         errD_grad.backward(one)
+
+    l2_reg = None
+    if args.l2_reg_disc is not None:
+        if not args.spectralnorm:
+            layer = getattr(gan_disc, 'layer%d' % gan_disc.n_layers)
+            weight = layer.weight
+            l2_reg = args.l2_reg_disc * weight.norm(2)
+        else:
+            layer = getattr(gan_disc, 'layer%d' % gan_disc.n_layers).module
+            weight = layer.weight_bar
+            l2_reg = args.l2_reg_disc * weight.norm(2)
+        l2_reg.backward(one)
 
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
@@ -293,7 +342,18 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     optimizer_ae.step()
     errD = -(errD_real - errD_fake)
 
+    tensorboard_gan_d(errD_real, errD_fake, errD_grad, l2_reg, writer, n_iter)
+
     return errD, errD_real, errD_fake
+
+
+def tensorboard_gan_d(loss_true, loss_fake, loss_grad, l2_reg, writer, n_iter, log_freq=100):
+    if writer is not None:
+        if n_iter % log_freq == 0:
+            writer.add_scalar("loss_gan_d_true", loss_true, n_iter)
+            writer.add_scalar("loss_gan_d_fake", loss_fake, n_iter)
+            writer.add_scalar("loss_gan_d_grad", loss_grad, n_iter) if loss_grad is not None else None
+            writer.add_scalar("loss_gan_d_l2", l2_reg, n_iter) if l2_reg is not None else None
 
 
 def grad_hook(grad, grad_norm, args):

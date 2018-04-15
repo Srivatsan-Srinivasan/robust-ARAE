@@ -2,6 +2,56 @@ import os
 import numpy as np
 import random
 import torch as t
+import time
+
+
+class Timer(object):
+    """
+    EXAMPLE:
+
+    timer = Timer()
+
+
+    @timer.timeit
+    def get_all_employee_details(**kwargs):
+        print('employee details')
+
+        return 6, 7, 8
+
+
+    employees = get_all_employee_details(x=5)
+    print(employees)
+    """
+    def __init__(self, name, enabled=False, log_freq=1000, writer=None):
+        self.name = name  # to avoid that method with the same name get the same curve (ex: forwards of different classes)
+        self.log_freq = log_freq  # to avoid spamming tensorboard too much
+        self.writer = writer
+        self.enabled = enabled
+        self.method_counter = {}
+
+    def timeit(self, method):
+        if self.enabled:
+            def timed(*args, **kw):
+                ts = time.time()
+                result = method(*args, **kw)
+                te = time.time()
+                if 'log_time' in kw:
+                    name = kw.get('log_name', method.__name__.upper())
+                    kw['log_time'][name] = int((te - ts) * 1000)
+                else:
+                    print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
+
+                if method.__name__ in self.method_counter:
+                    self.method_counter[method.__name__] += 1
+                else:
+                    self.method_counter[method.__name__] = 0
+                if self.method_counter[method.__name__] % self.log_freq == 0:
+                    self.writer.add_scalar(self.name + '_' + method.__name__ + '_timer', te - ts, self.method_counter[method.__name__])
+                return result
+        else:
+            timed = method
+
+        return timed
 
 
 def load_kenlm():

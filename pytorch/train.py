@@ -12,8 +12,8 @@ import torch.optim as optim
 from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from models import Seq2Seq, MLP_D, MLP_G
-from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args
+from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -67,11 +67,14 @@ parser.add_argument('--gan_activation', default='lrelu', type=str,
                     help='Activation to use in GAN')
 parser.add_argument('--std_minibatch', action='store_true',
                     help="Whether to compute minibatch std in the discriminator as an additional feature")
-parser.add_argument('--bn_disc', action='store_true',  # @todo: compare without batchnorm
+parser.add_argument('--bn_disc', action='store_true',
                     help="Whether to use batchnorm in the discriminator")
 parser.add_argument('--bn_gen', action='store_true',
                     help="Whether to use batchnorm in the generator")
-
+parser.add_argument('--l2_reg_disc', type=float, default=None,
+                    help="Whether to use l2 regularization on the last layer of the discriminator (it tends to diverge)"
+                         "Try with 100 = 10^2 = 1/sig^2"
+                    )
 
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=15,
@@ -94,6 +97,8 @@ parser.add_argument('--niters_gan_g', type=int, default=1,
 parser.add_argument('--niters_gan_schedule', type=str, default='2-4-6',
                     help='epoch counts to increase number of GAN training '
                          ' iterations (increment by 1 each time)')
+parser.add_argument('--optim_gan', default='adam', type=str,
+                    help='rmsprop or adam')
 parser.add_argument('--lr_ae', type=float, default=1,
                     help='autoencoder learning rate')
 parser.add_argument('--lr_gan_g', type=float, default=5e-05,
@@ -136,6 +141,10 @@ parser.add_argument('--tensorboard_freq', type=int, default=300,
                     help='logging frequency')
 parser.add_argument('--tensorboard_logdir', type=str, default=None,  # by default tensorboard/ (just add the relative path from tensorboard/)
                     help='Tensorboard logging directory. It will be a subdirectory of `tensorboard/`, so don\'t had the prefix before your name!')
+parser.add_argument('--timeit', type=int, default=None,
+                    help='Whether to time functions or not. If you indicate nothing, it is None and nothing happens'
+                         'Otherwise, you should indicate a log frequency. Don\'t make it too small or tensorboard will overflow'
+                         'Try 5000 (it will time functions 1/5000 of the time)')
 
 
 args = parser.parse_args()
@@ -197,6 +206,8 @@ print('Train data has %d batches' % len(train_data))
 ntokens = len(corpus.dictionary.word2idx)
 create_tensorboard_dir(args.tensorboard_logdir) if args.tensorboard else None
 writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.tensorboard else None
+global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)
+
 autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden=args.nhidden,
                       ntokens=ntokens,
@@ -206,12 +217,14 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       dropout=args.dropout,
                       gpu=args.cuda,
                       ngpus=args.n_gpus,
-                      gpu_id=args.gpu_id)
+                      gpu_id=args.gpu_id,
+                      timeit=args.timeit,
+                      writer=writer)
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
-                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id)
+                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit)
 gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
-                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP)
+                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP, timeit=args.timeit)
 
 criterion_ce = nn.CrossEntropyLoss()
 
@@ -234,13 +247,7 @@ print(gan_gen)
 print(gan_disc)
 
 optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
-optimizer_gan_g = optim.Adam(gan_gen.parameters(),
-                             lr=args.lr_gan_g,
-                             betas=(args.beta1, 0.999))
-
-optimizer_gan_d = optim.Adam(filter(lambda p: p.requires_grad, gan_disc.parameters()),
-                             lr=args.lr_gan_d,
-                             betas=(args.beta1, 0.999))
+optimizer_gan_g, optimizer_gan_d = get_optimizers_gan(gan_gen, gan_disc, args)
 
 
 ###############################################################################
@@ -286,7 +293,7 @@ for epoch in range(1, args.epochs+1):
         for i in range(args.niters_ae):
             if niter == len(train_data):
                 break  # end of epoch
-            total_loss_ae, start_time = train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args)
+            total_loss_ae, start_time = train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args, writer, niter_global + (-1+epoch)*len(train_data))
             niter += 1
 
         # train gan ----------------------------------
@@ -295,11 +302,11 @@ for epoch in range(1, args.epochs+1):
             # train discriminator/critic
             for i in range(args.niters_gan_d):
                 # feed a seen sample within this epoch; good for early training
-                errD, errD_real, errD_fake = train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer = writer)
+                errD, errD_real, errD_fake = train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer, niter_global + (-1+epoch)*len(train_data))
 
             # train generator
             for i in range(args.niters_gan_g):
-                errG = train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args)
+                errG = train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args, writer, niter_global + (-1+epoch)*len(train_data))
 
         niter_global += 1
 
@@ -357,7 +364,7 @@ for epoch in range(1, args.epochs+1):
 
     # end of epoch ----------------------------
     # evaluation
-    test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args)  # evaluate_autoencoder(test_data, epoch)
+    test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args)
     print('-' * 89)
     print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
           'test ppl {:5.2f} | acc {:3.3f}'.

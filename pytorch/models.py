@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
-from utils import to_gpu, variable, pad_packed_sequence
+from utils import to_gpu, variable, pad_packed_sequence, Timer
 import json
 import os
 import numpy as np
@@ -13,9 +13,11 @@ from spectral_normalization import SpectralNorm
 class MLP_D(nn.Module):
     """Discriminator whose architecture is a MLP"""
 
+    timer = Timer('Disc')
+
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
                  std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=100000,
-                 lambda_GP=10
+                 lambda_GP=10, timeit=None
                  ):
         super(MLP_D, self).__init__()
         self.ninput = ninput
@@ -58,6 +60,12 @@ class MLP_D(nn.Module):
 
         self.init_weights(weight_init)
 
+        if timeit is not None:
+            MLP_D.timer.enabled = True
+            MLP_D.timer.log_freq = timeit
+            MLP_D.timer.writer = writer
+
+    @timer.timeit
     def forward(self, x, writer=None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
@@ -123,6 +131,7 @@ class MLP_D(nn.Module):
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
         return gradients
 
+    @timer.timeit
     def gradient_penalty(self, x, x_synth):
         """
         Gradient penalty to force the discriminator to be 1-Lipschitz continuous
@@ -152,8 +161,11 @@ class MLP_D(nn.Module):
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
+    timer = Timer('Gen', enabled=False, log_freq=None, writer=None)
 
-    def __init__(self, ninput, noutput, layers, activation=nn.ReLU(), gpu=False, gpu_id=None, weight_init='default', batchnorm=True):
+    def __init__(self, ninput, noutput, layers, activation=nn.ReLU(),
+                 gpu=False, gpu_id=None, weight_init='default', batchnorm=True,
+                 timeit=None, writer=None):
         super(MLP_G, self).__init__()
         self.ninput = ninput
         self.noutput = noutput
@@ -185,6 +197,12 @@ class MLP_G(nn.Module):
 
         self.init_weights(weight_init)
 
+        if timeit is not None:
+            MLP_G.timer.enabled = True
+            MLP_G.timer.log_freq = timeit
+            MLP_G.writer = writer
+
+    @timer.timeit
     def forward(self, x):
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer' + str(i))
@@ -246,9 +264,10 @@ class Seq2Seq(nn.Module):
     # It is useful to put it as a class variable because when doing multi-gpu training you can no longer access
     # instance attributes(or at least it is buggy because each instance has a different value for self.grad_norm)
     grad_norm = {}
+    timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
     def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
-                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None):
+                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None):
         super(Seq2Seq, self).__init__()
         self.nhidden = nhidden
         self.emsize = emsize
@@ -286,6 +305,11 @@ class Seq2Seq(nn.Module):
 
         self.init_weights()
 
+        if timeit is not None:
+            Seq2Seq.timer.enabled = True
+            Seq2Seq.timer.log_freq = timeit
+            Seq2Seq.timer.writer = writer
+
     def init_weights(self):
         initrange = 0.1
 
@@ -321,6 +345,7 @@ class Seq2Seq(nn.Module):
         Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
         return grad
 
+    @timer.timeit
     def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False):
         """
 
@@ -346,6 +371,7 @@ class Seq2Seq(nn.Module):
 
         return decoded
 
+    @timer.timeit
     def encode(self, indices, lengths, noise, keep_hidden=False):
         """
         :param indices: the integer-encoded sentences. It is a LongTensor
@@ -396,6 +422,7 @@ class Seq2Seq(nn.Module):
             self.hidden = hidden
         return hidden
 
+    @timer.timeit
     def decode(self, hidden, batch_size, maxlen, indices=None, lengths=None):
         # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
         # among the GPUs you are using
