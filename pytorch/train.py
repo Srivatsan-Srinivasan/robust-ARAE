@@ -225,7 +225,7 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       timeit=args.timeit,
                       writer=writer)
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
-                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit)
+                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
 gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
                  spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP, timeit=args.timeit)

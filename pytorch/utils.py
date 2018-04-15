@@ -30,7 +30,10 @@ class Timer(object):
         self.method_counter = {}
 
     def timeit(self, method):
+        print('hep')
         if self.enabled:
+            print('enabled')
+
             def timed(*args, **kw):
                 ts = time.time()
                 result = method(*args, **kw)
@@ -41,11 +44,13 @@ class Timer(object):
                 else:
                     print('%r  %2.2f ms' % (method.__name__, (te - ts) * 1000))
 
+                print(self.method_counter[method.__name__])
                 if method.__name__ in self.method_counter:
                     self.method_counter[method.__name__] += 1
                 else:
                     self.method_counter[method.__name__] = 0
                 if self.method_counter[method.__name__] % self.log_freq == 0:
+                    print('logging time on tensorboard...')
                     self.writer.add_scalar(self.name + '_' + method.__name__ + '_timer', te - ts, self.method_counter[method.__name__])
                 return result
         else:
