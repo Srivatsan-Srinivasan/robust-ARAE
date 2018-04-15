@@ -15,7 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size
 
 parser = argparse.ArgumentParser(description='PyTorch ARAE for Text')
 # Path Arguments
@@ -121,6 +121,8 @@ parser.add_argument('--lambda_GP', type=float, default=10.,
                     help='Regularization param for the gradient penalty')
 parser.add_argument('--spectralnorm', action='store_true',
                     help='Whether to use a spectral normalization in the discriminator loss')
+parser.add_argument('--progressive_vocab', action='store_true',
+                    help='Whether to train sequentially with increasing vocab')
 
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
@@ -197,11 +199,9 @@ with open("./output/{}/logs.txt".format(args.outf), 'w') as f:
     f.write("\n\n")
 
 eval_batch_size = 10
-test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
-train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
 
 print("Loaded data!")
-print('Train data has %d batches' % len(train_data))
+
 
 ###############################################################################
 # Build the models
@@ -257,6 +257,15 @@ scheduler = None
 if args.ae_lr_scheduler:
     scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
 
+#This will still retain overall number of tokens to the initial vocabulary size, just modify data.
+corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
+corpus.train = retokenize_data_for_vocab_size(corpus.test, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
+print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
+print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
+
+test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
+train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
+print('Train data has %d batches' % len(train_data))
 
 ###############################################################################
 # Training code
