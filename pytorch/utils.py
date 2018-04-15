@@ -32,7 +32,6 @@ class Timer(object):
 
     def timeit(self, method):
         if self.enabled:
-            print('enabled')
 
             def timed(*args, **kw):
                 print(self.name)
@@ -46,7 +45,6 @@ class Timer(object):
                 else:
                     self.method_counter[method.__name__] = 0
                 if self.method_counter[method.__name__] % self.log_freq == 0:
-                    print('logging time on tensorboard...')
                     self.writer.add_scalar(self.name + '_' + method.__name__ + '_timer', te - ts, self.method_counter[method.__name__])
                 return result
         else:

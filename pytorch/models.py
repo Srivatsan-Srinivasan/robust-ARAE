@@ -200,7 +200,7 @@ class MLP_G(nn.Module):
         if timeit is not None:
             MLP_G.timer.enabled = True
             MLP_G.timer.log_freq = timeit
-            MLP_G.writer = writer
+            MLP_G.timer.writer = writer
             self.forward = MLP_G.timer.timeit(self.forward)
 
     def forward(self, x):
