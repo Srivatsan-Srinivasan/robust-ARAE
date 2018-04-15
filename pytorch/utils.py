@@ -26,7 +26,6 @@ class Timer(object):
         self.name = name  # to avoid that method with the same name get the same curve (ex: forwards of different classes)
         self.log_freq = log_freq  # to avoid spamming tensorboard too much
         self.writer = writer
-        print(name, writer)
         self.enabled = enabled
         self.method_counter = {}
 
