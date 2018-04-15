@@ -64,8 +64,9 @@ class MLP_D(nn.Module):
             MLP_D.timer.enabled = True
             MLP_D.timer.log_freq = timeit
             MLP_D.timer.writer = writer
+            self.forward = MLP_D.timer.timeit(self.forward)
+            self.gradient_penalty = MLP_D.timer.timeit(self.gradient_penalty)
 
-    @timer.timeit
     def forward(self, x, writer=None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
@@ -131,7 +132,6 @@ class MLP_D(nn.Module):
                                     create_graph=True, retain_graph=True, only_inputs=True)[0]
         return gradients
 
-    @timer.timeit
     def gradient_penalty(self, x, x_synth):
         """
         Gradient penalty to force the discriminator to be 1-Lipschitz continuous
@@ -201,8 +201,8 @@ class MLP_G(nn.Module):
             MLP_G.timer.enabled = True
             MLP_G.timer.log_freq = timeit
             MLP_G.writer = writer
+            self.forward = MLP_G.timer.timeit(self.forward)
 
-    @timer.timeit
     def forward(self, x):
         for i in range(1, self.n_layers + 1):
             layer = getattr(self, 'layer' + str(i))
@@ -309,6 +309,9 @@ class Seq2Seq(nn.Module):
             Seq2Seq.timer.enabled = True
             Seq2Seq.timer.log_freq = timeit
             Seq2Seq.timer.writer = writer
+            # self.forward = Seq2Seq.timer.timeit(self.forward)
+            self.encode = Seq2Seq.timer.timeit(self.encode)
+            self.decode = Seq2Seq.timer.timeit(self.decode)
 
     def init_weights(self):
         initrange = 0.1
@@ -345,7 +348,6 @@ class Seq2Seq(nn.Module):
         Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
         return grad
 
-    @timer.timeit
     def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False):
         """
 
@@ -371,7 +373,6 @@ class Seq2Seq(nn.Module):
 
         return decoded
 
-    @timer.timeit
     def encode(self, indices, lengths, noise, keep_hidden=False):
         """
         :param indices: the integer-encoded sentences. It is a LongTensor
@@ -422,7 +423,6 @@ class Seq2Seq(nn.Module):
             self.hidden = hidden
         return hidden
 
-    @timer.timeit
     def decode(self, hidden, batch_size, maxlen, indices=None, lengths=None):
         # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
         # among the GPUs you are using
