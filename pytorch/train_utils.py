@@ -347,7 +347,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     optimizer_ae.step()
     errD = -(errD_real - errD_fake)
 
-    tensorboard_gan_d(errD_real, errD_fake, errD_grad, l2_reg, writer, n_iter)
+    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, l2_reg, writer, n_iter)
 
     return errD, errD_real, errD_fake
 
