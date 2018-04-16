@@ -306,7 +306,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
 
     # loss / backprop
     errD_real = gan_disc(real_hidden, mean=False, writer=writer)
-    torch.mean(errD_real).backward(one)
+    torch.mean(errD_real).backward(one, retain_graph=args.eps_drift is not None)
 
     # negative samples ----------------------------
     # generate fake codes
