@@ -75,8 +75,9 @@ parser.add_argument('--bn_gen', action='store_true',
                     help="Whether to use batchnorm in the generator")
 parser.add_argument('--l2_reg_disc', type=float, default=None,
                     help="Whether to use l2 regularization on the last layer of the discriminator (it tends to diverge)"
-                         "Try with 100 = 10^2 = 1/sig^2"
-                    )
+                         "Try with 100 = 10^2 = 1/sig^2")
+parser.add_argument('--tie_weights', action='store_true',
+                    help="Whether to tie the weights of the embedding of the decoder and its linear layer")
 
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=15,
@@ -227,7 +228,9 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       ngpus=args.n_gpus,
                       gpu_id=args.gpu_id,
                       timeit=args.timeit,
-                      writer=writer)
+                      writer=writer,
+                      tie_weights=args.tie_weights
+                      )
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
 gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
@@ -354,7 +357,6 @@ for epoch in range(1, args.epochs+1):
                     ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
                     if args.tensorboard:
                         writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
-                    scheduler.step(ppl) if scheduler is not None else None
                     print("Perplexity {}".format(ppl))
                     all_ppl.append(ppl)
                     print(all_ppl)
@@ -406,6 +408,7 @@ for epoch in range(1, args.epochs+1):
         eval_path = os.path.join(args.data_path, "test.txt")
         save_path = "./output/{}/end_of_epoch{}_lm_generations".format(args.outf, epoch)
         ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
+        scheduler.step(ppl) if scheduler is not None else None
         if args.tensorboard:
             writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
 

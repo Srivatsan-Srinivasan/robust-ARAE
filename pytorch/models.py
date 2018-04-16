@@ -265,7 +265,7 @@ class Seq2Seq(nn.Module):
     grad_norm = {}
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
-    def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
+    def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2, tie_weights=False,
                  hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None):
         super(Seq2Seq, self).__init__()
         self.nhidden = nhidden
@@ -300,7 +300,14 @@ class Seq2Seq(nn.Module):
                                batch_first=True)
 
         # Initialize Linear Transformation
-        self.linear = nn.Linear(nhidden, ntokens)
+        if tie_weights:
+            if emsize == nhidden:
+                self.linear = nn.Linear(nhidden, ntokens)
+                self.linear.weight = self.embedding_decoder.weight
+            else:
+                raise ValueError("If you want to tie weights, you need to have emsize=nhidden")
+        else:
+            self.linear = nn.Linear(nhidden, ntokens)
 
         self.init_weights()
 
