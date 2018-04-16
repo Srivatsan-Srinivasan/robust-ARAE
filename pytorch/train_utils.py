@@ -50,7 +50,7 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         source = to_gpu(args.cuda, Variable(source, volatile=True), gpu_id=args.gpu_id)
         target = to_gpu(args.cuda, Variable(target, volatile=True), gpu_id=args.gpu_id)
 
-        mask = target.gt(0)
+        mask = target.gt(0)  # remove padding
         masked_target = target.masked_select(mask)
         # examples x ntokens
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)

@@ -251,7 +251,7 @@ class MLP_G(nn.Module):
         l2norm = t.mean(t.sum(c ** 2, 1))
         writer.add_scalar('l2_norm_gen', l2norm, n_iter)
         # sum of variances
-        trace_cov = np.trace(np.cov(c.data.cpu().numpy()))
+        trace_cov = np.trace(np.cov(c.data.cpu().numpy()).T)
         writer.add_scalar('trace_cov_gen', trace_cov, n_iter)
 
 
@@ -548,7 +548,7 @@ class Seq2Seq(nn.Module):
         writer.add_histogram('Dec_fc_grad', self.gradients['Dec_fc'], n_iter, bins='doane')
 
         # Distributional properties of codes
-        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy()))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
+        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy().T))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
 
 
