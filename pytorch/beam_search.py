@@ -1,5 +1,7 @@
 """
 Modified version of https://github.com/IBM/pytorch-seq2seq/tree/master/seq2seq/models
+
+SEE EXAMPLE USAGE AT THE BOTTOM OF THIS FILE
 """
 
 import random
@@ -26,7 +28,6 @@ class DecoderRNN(t.nn.Module):
         bidirectional (bool, optional): if the encoder is bidirectional (default False)
         dropout_p (float, optional): dropout probability for the output sequence (default: 0)
     Attributes:
-        KEY_ATTN_SCORE (str): key used to indicate attention weights in `ret_dict`
         KEY_LENGTH (str): key used to indicate a list representing lengths of output sequences in `ret_dict`
         KEY_SEQUENCE (str): key used to indicate a list of sequences in `ret_dict`
     Inputs: inputs, encoder_hidden, encoder_outputs, function, teacher_forcing_ratio
@@ -51,7 +52,6 @@ class DecoderRNN(t.nn.Module):
           predicted token IDs }.
     """
 
-    KEY_ATTN_SCORE = 'attention_score'
     KEY_LENGTH = 'length'
     KEY_SEQUENCE = 'sequence'
 
@@ -74,7 +74,7 @@ class DecoderRNN(t.nn.Module):
 
         self.out = linear
 
-    def forward_step(self, input_var, hidden, z, encoder_outputs, function, k=None):
+    def forward_step(self, input_var, hidden, z, function, k=None):
         batch_size = input_var.size(0)
         output_size = input_var.size(1)
 
@@ -84,16 +84,13 @@ class DecoderRNN(t.nn.Module):
 
         output, hidden = self.rnn(augmented_embeddings, hidden)
 
-        attn = None
-
         predicted_softmax = function(self.out(output.contiguous().view(-1, self.rnn.hidden_size))).view(self.batch_size if k is None else self.batch_size * k, output_size, -1)
-        return predicted_softmax, hidden, attn
+        return predicted_softmax, hidden
 
-    def forward(self, inputs=None, encoder_hidden=None, encoder_outputs=None, z=None,
+    def forward(self, inputs=None, encoder_hidden=None, z=None,
                 function=F.log_softmax, teacher_forcing_ratio=0):
         ret_dict = dict()
 
-        #         decoder_hidden = self._init_state(encoder_hidden)
         decoder_hidden = variable(t.zeros(self.rnn.num_layers, self.batch_size, self.rnn.hidden_size), cuda=False), variable(t.zeros(self.rnn.num_layers, self.batch_size, self.rnn.hidden_size), cuda=False)
 
         use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
@@ -102,7 +99,7 @@ class DecoderRNN(t.nn.Module):
         sequence_symbols = []
         lengths = np.array([self.max_length] * self.batch_size)
 
-        def decode(step, step_output, step_attn):
+        def decode(step, step_output):
             decoder_outputs.append(step_output)
             symbols = decoder_outputs[-1].topk(1)[1]
             sequence_symbols.append(symbols)
@@ -119,19 +116,19 @@ class DecoderRNN(t.nn.Module):
         if use_teacher_forcing:
             decoder_input = inputs[:, :-1]
 
-            decoder_output, decoder_hidden, attn = self.forward_step(decoder_input, decoder_hidden, z, encoder_outputs,
-                                                                     function=function)
+            decoder_output, decoder_hidden = self.forward_step(decoder_input, decoder_hidden, z,
+                                                               function=function)
 
             for di in range(decoder_output.size(1)):
                 step_output = decoder_output[:, di, :]
-                decode(di, step_output, None)
+                decode(di, step_output)
         else:
             decoder_input = inputs[:, 0].unsqueeze(1)
             for di in range(self.max_length):
-                decoder_output, decoder_hidden, step_attn = self.forward_step(decoder_input, decoder_hidden, z, encoder_outputs,
-                                                                              function=function)
+                decoder_output, decoder_hidden = self.forward_step(decoder_input, decoder_hidden, z,
+                                                                   function=function)
                 step_output = decoder_output.squeeze(1)
-                symbols = decode(di, step_output, step_attn)
+                symbols = decode(di, step_output)
                 decoder_input = symbols
 
         ret_dict[DecoderRNN.KEY_SEQUENCE] = sequence_symbols
@@ -230,7 +227,7 @@ class TopKDecoder(torch.nn.Module):
         self.SOS = self.rnn.sos_id
         self.EOS = self.rnn.eos_id
 
-    def forward(self, batch_size, inputs=None, z=None, encoder_hidden=None, encoder_outputs=None, function=F.log_softmax,
+    def forward(self, batch_size, inputs=None, z=None, encoder_hidden=None, function=F.log_softmax,
                 teacher_forcing_ratio=0, retain_output_probs=True):
         """
         Forward rnn for MAX_LENGTH steps.  Look at :func:`seq2seq.models.DecoderRNN.DecoderRNN.forward_rnn` for details.
@@ -269,8 +266,7 @@ class TopKDecoder(torch.nn.Module):
         for _ in range(0, self.rnn.max_length):
 
             # Run the RNN one step forward
-            #             def forward_step(self, input_var, hidden, z, encoder_outputs, function):
-            log_softmax_output, hidden, _ = self.rnn.forward_step(input_var, hidden, z, None, function=function, k=self.k)
+            log_softmax_output, hidden = self.rnn.forward_step(input_var, hidden, z, function=function, k=self.k)
 
             # If doing local backprop (e.g. supervised training), retain the output layer
             if retain_output_probs:
@@ -490,11 +486,11 @@ if __name__ == '__main__':
     output = topkdec.forward(32, z=z)
 
     for j in range(k):
-        sentence = t.cat(output[2]['topk_sequence'],2)[11,j,:]
+        sentence = t.cat(output[2]['topk_sequence'], 2)[11, j, :]
 
         s = ''
         for x in sentence.data.numpy():
             if x == 2:
                 break
-            s += idx2word[x]+' '
+            s += idx2word[x] + ' '
         print(s)
