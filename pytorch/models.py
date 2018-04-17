@@ -16,17 +16,20 @@ class MLP_D(nn.Module):
     timer = Timer('Disc')
 
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm=True, writer=None, gpu_id=None, log_freq=100000,
-                 lambda_GP=10, timeit=None
+                 std_minibatch=True, batchnorm=False, spectralnorm=False, writer=None, gpu_id=None, log_freq=100000,
+                 lambda_GP=10, timeit=None, polar=True, dropout=None, lambda_dropout=None
                  ):
         super(MLP_D, self).__init__()
         self.ninput = ninput
+        self.polar = polar
         self.noutput = noutput
         self.std_minibatch = std_minibatch
         self.gpu = gpu
         self.gpu_id = gpu_id
         self.batchnorm = batchnorm
         self.lambda_GP = lambda_GP
+        self.dropout = dropout  # THIS IS ONLY FOR THE DROPOUT PENALTY FROM THE PAPER `IMPROVING THE IMPROVED TRAINING OF WGAN` !!! This is not regular dropout. Just a way of enforcing Lipschitz continuity
+        self.lambda_dropout = lambda_dropout
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -118,7 +121,10 @@ class MLP_D(nn.Module):
         x_data = x.data
         x_synth_data = x_synth.data
 
-        interpolate = (x_synth_data * u + x_data * (1 - u))
+        if not self.polar:
+            interpolate = (x_synth_data * u + x_data * (1 - u))
+        else:
+            interpolate = (x_synth_data * t.sqrt(u) + x_data * t.sqrt((1 - u)))
         interpolate = interpolate.cuda(self.gpu_id) if self.gpu else interpolate
         xx = t.autograd.Variable(interpolate, requires_grad=True)
         D_xx = self.forward(xx)
@@ -141,6 +147,43 @@ class MLP_D(nn.Module):
         gradients = self._input_gradient(x, x_synth)
         gp = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * self.lambda_GP
         return gp
+
+    def dropout_penalty(self, x):
+        """
+        IMPROVING THE IMPROVED TRAINING OF WASSERSTEIN GANS: A CONSISTENCY TERM AND ITS DUAL EFFECT
+        https://openreview.net/forum?id=SJx9GQb0-
+        """
+        if self.dropout is None and self.lambda_dropout is not None:
+            raise ValueError('neither `self.dropout` nor `self.lambda_dropout` should not be None if you want to use '
+                             'a dropout penalty to enforce Lipscitz continuity')
+
+        x1 = x*1.
+        x2 = x*1.
+
+        for i in range(1, self.n_layers):
+            layer = getattr(self, 'layer%d' % i)
+            activation = getattr(self, 'activation%d' % i)
+            bn = getattr(self, 'bn%d' % i) if self.batchnorm and i > 1 else None
+            dropout = t.nn.Dropout(self.dropout)
+            x1 = activation(bn(layer(dropout(x1)))) if bn is not None else activation(layer(dropout(x1)))
+            dropout = t.nn.Dropout(self.dropout)
+            x2 = activation(bn(layer(dropout(x2)))) if bn is not None else activation(layer(dropout(x2)))
+        penultimate_x1 = x1*1.
+        penultimate_x2 = x2*1.
+
+        layer = getattr(self, 'layer%d' % self.n_layers)
+
+        if self.std_minibatch:
+            x_std_feature1 = t.mean(t.std(x1, 0)).unsqueeze(1).expand(x1.size(0), 1)
+            x_std_feature2 = t.mean(t.std(x2, 0)).unsqueeze(1).expand(x2.size(0), 1)
+            x1 = t.cat([x1, x_std_feature1], 1)
+            x2 = t.cat([x2, x_std_feature2], 1)
+
+        dropout = t.nn.Dropout(self.dropout)
+        x1 = layer(dropout(x1))
+        dropout = t.nn.Dropout(self.dropout)
+        x2 = layer(dropout(x2))
+        return self.lambda_dropout * ((x1 - x2).norm(2, 1) + .1*(penultimate_x1 - penultimate_x2).norm(2, 1)).mean()
 
     def tensorboard(self, writer, n_iter):
         """
@@ -644,6 +687,36 @@ def load_gen(load_path, old=False):
 
     gan_gen.load_state_dict(t.load(gen_path))
     return model_args, idx2word, gan_gen
+
+
+def load_disc(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                     noutput=1,
+                     layers=model_args['arch_d'],
+                     spectralnorm=model_args['spectralnorm'],
+                     batchnorm=model_args['bn_disc'],
+                     std_minibatch=model_args['std_minibatch']
+                     )
+
+    print('Loading models from' + load_path)
+    disc_path = os.path.join(load_path, "gan_disc_model.pt")
+
+    gan_disc.load_state_dict(t.load(disc_path))
+    return model_args, idx2word, gan_disc
 
 
 def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):

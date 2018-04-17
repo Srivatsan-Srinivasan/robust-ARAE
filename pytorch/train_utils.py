@@ -340,6 +340,11 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
         errD_drift = args.eps_drift * torch.mean(errD_real.pow(2))
         errD_drift.backward(one)
 
+    errD_dropout = None
+    if args.lambda_dropout is not None and args.dropout_penalty is not None:
+        errD_dropout = gan_disc.dropout_penalty(real_hidden)
+        errD_dropout.backward(one)
+
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
 
@@ -347,18 +352,19 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     optimizer_ae.step()
     errD = -(errD_real - errD_fake)
 
-    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, l2_reg, writer, n_iter)
+    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, errD_dropout, l2_reg, writer, n_iter)
 
     return errD, errD_real, errD_fake
 
 
-def tensorboard_gan_d(loss_true, loss_fake, loss_grad, l2_reg, writer, n_iter, log_freq=100):
+def tensorboard_gan_d(loss_true, loss_fake, loss_grad, loss_dropout, l2_reg, writer, n_iter, log_freq=100):
     if writer is not None:
         if n_iter % log_freq == 0:
             writer.add_scalar("loss_gan_d_true", loss_true, n_iter)
             writer.add_scalar("loss_gan_d_fake", loss_fake, n_iter)
             writer.add_scalar("loss_gan_d_grad", loss_grad, n_iter) if loss_grad is not None else None
             writer.add_scalar("loss_gan_d_l2", l2_reg, n_iter) if l2_reg is not None else None
+            writer.add_scalar("loss_gan_d_dropout", loss_dropout, n_iter) if loss_dropout is not None else None
 
 
 def grad_hook(grad, grad_norm, args):

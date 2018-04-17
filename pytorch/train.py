@@ -81,7 +81,9 @@ parser.add_argument('--l2_reg_disc', type=float, default=None,
 parser.add_argument('--tie_weights', action='store_true',
                     help="Whether to tie the weights of the embedding of the decoder and its linear layer")
 parser.add_argument('--bidirectionnal', action='store_true',
-                    help="Whether the encoder should be bidirecionnal. If it is, it divides the hdim of the encoder by 2")
+                    help="Whether the encoder should be bidirectionnal. If it is, it divides the hdim of the encoder by 2")
+parser.add_argument('--polar', action='store_true',
+                    help='Whether to use polar interpolation for GP')
 
 
 # Training Arguments
@@ -91,7 +93,7 @@ parser.add_argument('--min_epochs', type=int, default=6,
                     help="minimum number of epochs to train for")
 parser.add_argument('--no_earlystopping', action='store_true',
                     help="won't use KenLM for early stopping")
-parser.add_argument('--patience', type=int, default=5,
+parser.add_argument('--patience', type=int, default=3,
                     help="number of language model evaluations without ppl "
                          "improvement to wait before early stopping")
 parser.add_argument('--ae_lr_scheduler', action='store_true',
@@ -127,10 +129,16 @@ parser.add_argument('--lambda_GP', type=float, default=10.,
                     help='Regularization param for the gradient penalty')
 parser.add_argument('--spectralnorm', action='store_true',
                     help='Whether to use a spectral normalization in the discriminator loss')
-
+parser.add_argument('--lambda_dropout', type=float, default=None,
+                    help='The coefficient in front of the dropout penalty'
+                         '2 is the value they use in the paper')
+parser.add_argument('--dropout_penalty', type=float, default=None,
+                    help='To enforce the Lipschitz continuity of the critic'
+                         'See paper `Improving the improved WGAN`'
+                         'Should be a small value (try .05)'
+                         'Additional loss added to the critic')
 parser.add_argument('--progressive_vocab', action='store_true',
                     help='Whether to train sequentially with increasing vocab')
-
 parser.add_argument('--eps_drift', type=float, default=None,
                     help='Whether to add a term eps_drift*D(x)^2 in the loss of the discriminator'
                          'If None, add nothing')
@@ -240,8 +248,9 @@ autoencoder = Seq2Seq(emsize=args.emsize,
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
 gan_disc = MLP_D(ninput=args.nhidden_enc, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
-                 weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
-                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP, timeit=args.timeit)
+                 weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, polar=args.polar,
+                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP,
+                 timeit=args.timeit, lambda_dropout=args.lambda_dropout, dropout=args.dropout_penalty)
 
 criterion_ce = nn.CrossEntropyLoss()
 
@@ -270,7 +279,7 @@ scheduler = None
 if args.ae_lr_scheduler:
     scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
 
-#This will still retain overall number of tokens to the initial vocabulary size, just modify data.
+# This will still retain overall number of tokens to the initial vocabulary size, just modify data.
 corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
 corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token = corpus.dictionary.word2idx['<oov>'], vocab_size = ntokens)
 print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))

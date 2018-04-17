@@ -22,6 +22,7 @@ class Timer(object):
     employees = get_all_employee_details(x=5)
     print(employees)
     """
+
     def __init__(self, name, enabled=False, log_freq=1000, writer=None):
         self.name = name  # to avoid that method with the same name get the same curve (ex: forwards of different classes)
         self.log_freq = log_freq  # to avoid spamming tensorboard too much
@@ -70,7 +71,7 @@ def check_args(args):
 
 def create_tensorboard_dir(logdir):
     if logdir not in os.listdir('tensorboard/'):
-        os.makedirs('tensorboard/'+logdir)
+        os.makedirs('tensorboard/' + logdir)
 
 
 # @todo: improve this so that it can efficiently process batch of sentences of different lengths (it should not swap padding with characters)
@@ -84,9 +85,9 @@ def noisy_sentence(sentence, k):
     noisy_s = sentence.data
     for _ in range(k):
         i, j = np.random.randint(0, sentence.size(0), size=2)
-        tmp = noisy_s[i]*1.
-        noisy_s[i] = noisy_s[j]*1.
-        noisy_s[j] = tmp*1.
+        tmp = noisy_s[i] * 1.
+        noisy_s[i] = noisy_s[j] * 1.
+        noisy_s[j] = tmp * 1.
     return sentence
 
 
@@ -167,7 +168,8 @@ def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=Fals
         vv = t.from_numpy(np.array([array]))
         vv = vv.cuda(gpu_id) if cuda else vv
         v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
-    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
+    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array,
+                                                                                                                                                                                                                                                  t.cuda.LongTensor):
         v = t.autograd.Variable(array.cuda(gpu_id) if cuda else array, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, t.autograd.Variable):
         v = array.cuda(gpu_id) if cuda else array
@@ -209,7 +211,7 @@ class Dictionary(object):
         if cnt:
             # prune by count
             self.pruned_vocab = \
-                    {pair[0]: pair[1] for pair in vocab_list if pair[1] > k}
+                {pair[0]: pair[1] for pair in vocab_list if pair[1] > k}
         else:
             # prune by most frequently seen words
             vocab_list.sort(key=lambda x: (x[1], x[0]), reverse=True)
@@ -309,9 +311,9 @@ def batchify(data, bsz, shuffle=False, gpu=False, gpu_id=None):
 
     for i in range(nbatch):
         # Pad batches to maximum sequence length in batch
-        batch = data[i*bsz:(i+1)*bsz]
+        batch = data[i * bsz:(i + 1) * bsz]
         # subtract 1 from lengths b/c includes BOTH starts & end symbols
-        lengths = [len(x)-1 for x in batch]
+        lengths = [len(x) - 1 for x in batch]
         # sort items by length (decreasing)
         batch, lengths = length_sort(batch, lengths)
 
@@ -323,7 +325,7 @@ def batchify(data, bsz, shuffle=False, gpu=False, gpu_id=None):
         # find length to pad to
         maxlen = max(lengths)
         for x, y in zip(source, target):
-            zeros = (maxlen-len(x))*[0]
+            zeros = (maxlen - len(x)) * [0]
             x += zeros
             y += zeros
 
@@ -355,10 +357,10 @@ def train_ngram_lm(kenlm_path, data_path, output_path, N):
     # create .arpa file of n-grams
     curdir = os.path.abspath(os.path.curdir)
     #
-    command = "bin/lmplz -o "+str(N)+" <"+os.path.join(curdir, data_path) + \
-              " >"+os.path.join(curdir, output_path)
+    command = "bin/lmplz -o " + str(N) + " <" + os.path.join(curdir, data_path) + \
+              " >" + os.path.join(curdir, output_path)
     command = command.replace("./ ", "") + " --discount_fallback"
-    os.system("cd "+os.path.join(kenlm_path, 'build')+" && "+command)
+    os.system("cd " + os.path.join(kenlm_path, 'build') + " && " + command)
 
     load_kenlm()
     # create language model
@@ -379,16 +381,16 @@ def get_ppl(lm, sentences):
         word_count = len(words)
         total_wc += word_count
         total_nll += score
-    ppl = 10**-(total_nll/total_wc)
+    ppl = 10 ** -(total_nll / total_wc)
     return ppl
 
-def retokenize_data_for_vocab_size(data, unk_token = 3, vocab_size=10000):
-    #data in format of list of lists. outer list for each sentence. inner list contains
-    #words as int.    
+
+def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
+    # data in format of list of lists. outer list for each sentence. inner list contains
+    # words as int.
     def retokenize_sentence(sentence, vocab_size):
-        get_int_token = lambda w,v: w if(w <= v) else unk_token
+        get_int_token = lambda w, v: w if (w <= v) else unk_token
         return [get_int_token(word, vocab_size) for word in sentence]
-    
-    data = [retokenize_sentence(sentence,vocab_size) for sentence in data]
+
+    data = [retokenize_sentence(sentence, vocab_size) for sentence in data]
     return data
-    
