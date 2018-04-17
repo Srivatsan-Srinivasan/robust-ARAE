@@ -50,7 +50,7 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         source = to_gpu(args.cuda, Variable(source, volatile=True), gpu_id=args.gpu_id)
         target = to_gpu(args.cuda, Variable(target, volatile=True), gpu_id=args.gpu_id)
 
-        mask = target.gt(0)
+        mask = target.gt(0)  # remove padding
         masked_target = target.masked_select(mask)
         # examples x ntokens
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
@@ -305,8 +305,8 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
 
     # loss / backprop
-    errD_real = gan_disc(real_hidden, writer=writer)
-    errD_real.backward(one)
+    errD_real = gan_disc(real_hidden, mean=False, writer=writer)
+    torch.mean(errD_real).backward(one, retain_graph=args.eps_drift is not None)
 
     # negative samples ----------------------------
     # generate fake codes
@@ -323,6 +323,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
         errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
         errD_grad.backward(one)
 
+    # regularization
     l2_reg = None
     if args.l2_reg_disc is not None:
         if not args.spectralnorm:
@@ -335,6 +336,10 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
             l2_reg = args.l2_reg_disc * weight.norm(2)
         l2_reg.backward(one)
 
+    if args.eps_drift is not None:
+        errD_drift = args.eps_drift * torch.mean(errD_real.pow(2))
+        errD_drift.backward(one)
+
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
     torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
 
@@ -342,7 +347,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     optimizer_ae.step()
     errD = -(errD_real - errD_fake)
 
-    tensorboard_gan_d(errD_real, errD_fake, errD_grad, l2_reg, writer, n_iter)
+    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, l2_reg, writer, n_iter)
 
     return errD, errD_real, errD_fake
 

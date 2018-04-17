@@ -38,7 +38,9 @@ parser.add_argument('--lowercase', action='store_true',
 # Model Arguments
 parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
-parser.add_argument('--nhidden', type=int, default=300,
+parser.add_argument('--nhidden_enc', type=int, default=300,
+                    help='number of hidden units per layer')
+parser.add_argument('--nhidden_dec', type=int, default=300,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
@@ -75,8 +77,12 @@ parser.add_argument('--bn_gen', action='store_true',
                     help="Whether to use batchnorm in the generator")
 parser.add_argument('--l2_reg_disc', type=float, default=None,
                     help="Whether to use l2 regularization on the last layer of the discriminator (it tends to diverge)"
-                         "Try with 100 = 10^2 = 1/sig^2"
-                    )
+                         "Try with 100 = 10^2 = 1/sig^2")
+parser.add_argument('--tie_weights', action='store_true',
+                    help="Whether to tie the weights of the embedding of the decoder and its linear layer")
+parser.add_argument('--bidirectionnal', action='store_true',
+                    help="Whether the encoder should be bidirecionnal. If it is, it divides the hdim of the encoder by 2")
+
 
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=15,
@@ -121,9 +127,13 @@ parser.add_argument('--lambda_GP', type=float, default=10.,
                     help='Regularization param for the gradient penalty')
 parser.add_argument('--spectralnorm', action='store_true',
                     help='Whether to use a spectral normalization in the discriminator loss')
+
 parser.add_argument('--progressive_vocab', action='store_true',
                     help='Whether to train sequentially with increasing vocab')
 
+parser.add_argument('--eps_drift', type=float, default=None,
+                    help='Whether to add a term eps_drift*D(x)^2 in the loss of the discriminator'
+                         'If None, add nothing')
 # Evaluation Arguments
 parser.add_argument('--sample', action='store_true',
                     help='sample when decoding for generation')
@@ -213,7 +223,8 @@ writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.t
 global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
 
 autoencoder = Seq2Seq(emsize=args.emsize,
-                      nhidden=args.nhidden,
+                      nhidden_enc=args.nhidden_enc,
+                      nhidden_dec=args.nhidden_dec,
                       ntokens=ntokens,
                       nlayers=args.nlayers,
                       noise_radius=args.noise_radius,
@@ -223,10 +234,12 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       ngpus=args.n_gpus,
                       gpu_id=args.gpu_id,
                       timeit=args.timeit,
-                      writer=writer)
-gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
+                      writer=writer,
+                      tie_weights=args.tie_weights
+                      )
+gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
+gan_disc = MLP_D(ninput=args.nhidden_enc, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
                  spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP, timeit=args.timeit)
 
@@ -357,7 +370,8 @@ for epoch in range(1, args.epochs+1):
                     eval_path = os.path.join(args.data_path, "test.txt")
                     save_path = "output/{}/epoch{}_step{}_lm_generations".format(args.outf, epoch, niter_global)
                     ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
-                    scheduler.step(ppl) if scheduler is not None else None
+                    if args.tensorboard:
+                        writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
                     print("Perplexity {}".format(ppl))
                     all_ppl.append(ppl)
                     print(all_ppl)
@@ -384,6 +398,10 @@ for epoch in range(1, args.epochs+1):
     # end of epoch ----------------------------
     # evaluation
     test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args)
+    if args.tensorboard:
+        writer.add_scalar('acc_recons', accuracy, niter_global + (epoch-1)*len(train_data))
+        writer.add_scalar('test_recons_loss', test_loss, niter_global + (epoch-1)*len(train_data))
+
     print('-' * 89)
     print('| end of epoch {:3d} | time: {:5.2f}s | test loss {:5.2f} | '
           'test ppl {:5.2f} | acc {:3.3f}'.
@@ -405,6 +423,10 @@ for epoch in range(1, args.epochs+1):
         eval_path = os.path.join(args.data_path, "test.txt")
         save_path = "./output/{}/end_of_epoch{}_lm_generations".format(args.outf, epoch)
         ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
+        scheduler.step(ppl) if scheduler is not None else None
+        if args.tensorboard:
+            writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch-1)*len(train_data))
+
         print("Perplexity {}".format(ppl))
         all_ppl.append(ppl)
         print(all_ppl)

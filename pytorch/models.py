@@ -67,7 +67,7 @@ class MLP_D(nn.Module):
             self.forward = MLP_D.timer.timeit(self.forward)
             self.gradient_penalty = MLP_D.timer.timeit(self.gradient_penalty)
 
-    def forward(self, x, writer=None):
+    def forward(self, x, mean=True, writer=None):
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
             activation = getattr(self, 'activation%d' % i)
@@ -81,8 +81,7 @@ class MLP_D(nn.Module):
             x = t.cat([x, x_std_feature], 1)
 
         x = layer(x)
-        x = t.mean(x)
-        return x
+        return t.mean(x) if mean else x
 
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':
@@ -252,7 +251,7 @@ class MLP_G(nn.Module):
         l2norm = t.mean(t.sum(c ** 2, 1))
         writer.add_scalar('l2_norm_gen', l2norm, n_iter)
         # sum of variances
-        trace_cov = np.trace(np.cov(c.data.cpu().numpy()))
+        trace_cov = np.trace(np.cov(c.data.cpu().numpy()).T)
         writer.add_scalar('trace_cov_gen', trace_cov, n_iter)
 
 
@@ -266,10 +265,11 @@ class Seq2Seq(nn.Module):
     grad_norm = {}
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
-    def __init__(self, emsize, nhidden, ntokens, nlayers, noise_radius=0.2,
-                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None):
+    def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers, noise_radius=0.2, tie_weights=False,
+                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None, bidirectionnal=False):
         super(Seq2Seq, self).__init__()
-        self.nhidden = nhidden
+        self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
+        self.nhidden_dec = nhidden_dec
         self.emsize = emsize
         self.ntokens = ntokens
         self.nlayers = nlayers
@@ -288,20 +288,26 @@ class Seq2Seq(nn.Module):
 
         # RNN Encoder and Decoder
         self.encoder = nn.LSTM(input_size=emsize,
-                               hidden_size=nhidden,
+                               hidden_size=nhidden_enc,
                                num_layers=nlayers,
                                dropout=dropout,
-                               batch_first=True)
+                               batch_first=True,
+                               bidirectional=bidirectionnal)
 
-        decoder_input_size = emsize + nhidden
+        decoder_input_size = emsize + nhidden_enc
         self.decoder = nn.LSTM(input_size=decoder_input_size,
-                               hidden_size=nhidden,
+                               hidden_size=nhidden_dec,
                                num_layers=1,
                                dropout=dropout,
                                batch_first=True)
 
         # Initialize Linear Transformation
-        self.linear = nn.Linear(nhidden, ntokens)
+        self.linear = nn.Linear(nhidden_dec, ntokens)
+        if tie_weights:
+            if emsize == nhidden_dec:
+                self.linear.weight = self.embedding_decoder.weight
+            else:
+                raise ValueError("If you want to tie weights, you need to have emsize=nhidden")
 
         self.init_weights()
 
@@ -331,12 +337,12 @@ class Seq2Seq(nn.Module):
         self.linear.bias.data.fill_(0)
 
     def init_hidden(self, bsz):
-        zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
-        zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
+        zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
+        zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
         return to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id)
 
     def init_state(self, bsz):
-        zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden))
+        zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
         return to_gpu(self.gpu, zeros, gpu_id=self.gpu_id)
 
     def store_grad_norm(self, grad):
@@ -456,7 +462,7 @@ class Seq2Seq(nn.Module):
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
         # reshape to batch_size*maxlen x nhidden before linear over vocab
-        decoded = self.linear(output.contiguous().view(-1, self.nhidden))
+        decoded = self.linear(output.contiguous().view(-1, self.nhidden_dec))
         decoded = decoded.view(batch_size, output.size(1), self.ntokens)
 
         return decoded
@@ -542,24 +548,35 @@ class Seq2Seq(nn.Module):
         writer.add_histogram('Dec_fc_grad', self.gradients['Dec_fc'], n_iter, bins='doane')
 
         # Distributional properties of codes
-        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy()))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
+        trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy().T))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
 
 
-def load_models(load_path):
+def load_models(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
     model_args = json.load(open("{}/args.json".format(load_path), "r"))
     word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
     idx2word = {v: k for k, v in word2idx.items()}
 
     autoencoder = Seq2Seq(emsize=model_args['emsize'],
-                          nhidden=model_args['nhidden'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'])
     gan_gen = MLP_G(ninput=model_args['z_size'],
-                    noutput=model_args['nhidden'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'])
-    gan_disc = MLP_D(ninput=model_args['nhidden'],
+    gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                      noutput=1,
                      layers=model_args['arch_d'])
 
@@ -572,6 +589,62 @@ def load_models(load_path):
     gan_gen.load_state_dict(t.load(gen_path))
     gan_disc.load_state_dict(t.load(disc_path))
     return model_args, idx2word, autoencoder, gan_gen, gan_disc
+
+
+def load_ae(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    autoencoder = Seq2Seq(emsize=model_args['emsize'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
+                          ntokens=model_args['ntokens'],
+                          nlayers=model_args['nlayers'],
+                          hidden_init=model_args['hidden_init'])
+
+    print('Loading models from' + load_path)
+    ae_path = os.path.join(load_path, "autoencoder_model.pt")
+
+    autoencoder.load_state_dict(t.load(ae_path))
+    return model_args, idx2word, autoencoder
+
+
+def load_gen(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    gan_gen = MLP_G(ninput=model_args['z_size'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                    layers=model_args['arch_g'])
+
+
+    print('Loading models from' + load_path)
+    gen_path = os.path.join(load_path, "gan_gen_model.pt")
+
+    gan_gen.load_state_dict(t.load(gen_path))
+    return model_args, idx2word, gan_gen
 
 
 def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
