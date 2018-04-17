@@ -342,7 +342,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
 
     errD_dropout = None
     if args.lambda_dropout is not None and args.dropout_penalty is not None:
-        errD_dropout = gan_disc.dropout_penalty(real_hidden)
+        errD_dropout = gan_disc.dropout_penalty(variable(real_hidden.data, cuda=args.cuda, gpu_id=args.gpu_id))
         errD_dropout.backward(one)
 
     # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
@@ -367,6 +367,7 @@ def tensorboard_gan_d(loss_true, loss_fake, loss_grad, loss_dropout, l2_reg, wri
             writer.add_scalar("loss_gan_d_dropout", loss_dropout, n_iter) if loss_dropout is not None else None
 
 
+# @todo what is this ? try to remove it ?
 def grad_hook(grad, grad_norm, args):
     # Gradient norm: regularize to be same
     # code_grad_gan * code_grad_ae / norm(code_grad_gan)
