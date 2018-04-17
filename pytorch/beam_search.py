@@ -267,7 +267,8 @@ class TopKDecoder(torch.nn.Module):
         for _ in range(0, max_length):
 
             # Run the RNN one step forward
-            log_softmax_output, hidden, _ = self.rnn.forward_step(input_var, hidden, z, inflated_encoder_outputs, function=function, k=self.k)
+
+            log_softmax_output, hidden = self.rnn.forward_step(input_var, hidden, z, function=function, k=self.k)
 
             # If doing local backprop (e.g. supervised training), retain the output layer
             if retain_output_probs:
