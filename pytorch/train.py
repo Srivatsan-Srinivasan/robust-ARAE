@@ -223,8 +223,8 @@ writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.t
 global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
 
 autoencoder = Seq2Seq(emsize=args.emsize,
-                      nhidden_enc=args.nhidden,
-                      nhidden_dec=args.nhidden,
+                      nhidden_enc=args.nhidden_enc,
+                      nhidden_dec=args.nhidden_dec,
                       ntokens=ntokens,
                       nlayers=args.nlayers,
                       noise_radius=args.noise_radius,
