@@ -580,6 +580,40 @@ def load_models(load_path):
     return model_args, idx2word, autoencoder, gan_gen, gan_disc
 
 
+def load_ae(load_path):
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    autoencoder = Seq2Seq(emsize=model_args['emsize'],
+                          nhidden=model_args['nhidden'],
+                          ntokens=model_args['ntokens'],
+                          nlayers=model_args['nlayers'],
+                          hidden_init=model_args['hidden_init'])
+
+    print('Loading models from' + load_path)
+    ae_path = os.path.join(load_path, "autoencoder_model.pt")
+
+    autoencoder.load_state_dict(t.load(ae_path))
+    return model_args, idx2word, autoencoder
+
+
+def load_gen(load_path):
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    gan_gen = MLP_G(ninput=model_args['z_size'],
+                    noutput=model_args['nhidden'],
+                    layers=model_args['arch_g'])
+
+    print('Loading models from' + load_path)
+    gen_path = os.path.join(load_path, "gan_gen_model.pt")
+
+    gan_gen.load_state_dict(t.load(gen_path))
+    return model_args, idx2word, gan_gen
+
+
 def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
     """
     Assume noise is batch_size x z_size
