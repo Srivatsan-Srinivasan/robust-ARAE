@@ -17,19 +17,16 @@ import torch
 from utils import variable
 
 
+# @todo: right now batch_size is hardcoded in __init__, it shouldnt be the case and rather be a param of forward
 class DecoderRNN(t.nn.Module):
     """
     Provides functionality for decoding in a seq2seq framework, with an option for attention.
     Args:
         vocab_size (int): size of the vocabulary
         max_len (int): a maximum allowed length for the sequence to be processed
-        hidden_size (int): the number of features in the hidden state `h`
         sos_id (int): index of the start of sentence symbol
         eos_id (int): index of the end of sentence symbol
-        n_layers (int, optional): number of recurrent layers (default: 1)
-        rnn_cell (str, optional): type of RNN cell (default: gru)
         bidirectional (bool, optional): if the encoder is bidirectional (default False)
-        dropout_p (float, optional): dropout probability for the output sequence (default: 0)
     Attributes:
         KEY_LENGTH (str): key used to indicate a list representing lengths of output sequences in `ret_dict`
         KEY_SEQUENCE (str): key used to indicate a list of sequences in `ret_dict`
@@ -159,12 +156,67 @@ class DecoderRNN(t.nn.Module):
 
 
 def _inflate(tensor, times, dim):
+    """
+    Given a tensor, 'inflates' it along the given dimension by replicating each slice specified number of times (in-place)
+    Args:
+        tensor: A :class:`Tensor` to inflate
+        times: number of repetitions
+        dim: axis for inflation (default=0)
+    Returns:
+        A :class:`Tensor`
+    Examples::
+        >> a = torch.LongTensor([[1, 2], [3, 4]])
+        >> a
+        1   2
+        3   4
+        [torch.LongTensor of size 2x2]
+        >> b = ._inflate(a, 2, dim=1)
+        >> b
+        1   2   1   2
+        3   4   3   4
+        [torch.LongTensor of size 2x4]
+        >> c = _inflate(a, 2, dim=0)
+        >> c
+        1   2
+        3   4
+        1   2
+        3   4
+        [torch.LongTensor of size 4x2]
+    """
     repeat_dims = [1] * tensor.dim()
     repeat_dims[dim] = times
     return tensor.repeat(*repeat_dims)
 
 
 class TopKDecoder(torch.nn.Module):
+    """
+    Top-K decoding with beam search.
+    Args:
+        decoder_rnn (DecoderRNN): An object of DecoderRNN used for decoding.
+        k (int): Size of the beam.
+    Inputs: inputs, encoder_hidden, encoder_outputs, function, teacher_forcing_ratio
+        - **inputs** (seq_len, batch, input_size): list of sequences, whose length is the batch size and within which
+          each sequence is a list of token IDs.  It is used for teacher forcing when provided. (default is `None`)
+        - **encoder_hidden** (num_layers * num_directions, batch_size, hidden_size): tensor containing the features
+          in the hidden state `h` of encoder. Used as the initial hidden state of the decoder.
+        - **encoder_outputs** (batch, seq_len, hidden_size): tensor with containing the outputs of the encoder.
+          Used for attention mechanism (default is `None`).
+        - **function** (torch.nn.Module): A function used to generate symbols from RNN hidden state
+          (default is `torch.nn.functional.log_softmax`).
+        - **teacher_forcing_ratio** (float): The probability that teacher forcing will be used. A random number is
+          drawn uniformly from 0-1 for every decoding token, and if the sample is smaller than the given value,
+          teacher forcing would be used (default is 0).
+    Outputs: decoder_outputs, decoder_hidden, ret_dict
+        - **decoder_outputs** (batch): batch-length list of tensors with size (max_length, hidden_size) containing the
+          outputs of the decoder.
+        - **decoder_hidden** (num_layers * num_directions, batch, hidden_size): tensor containing the last hidden
+          state of the decoder.
+        - **ret_dict**: dictionary containing additional information as follows {*length* : list of integers
+          representing lengths of output sequences, *topk_length*: list of integers representing lengths of beam search
+          sequences, *sequence* : list of sequences, where each sequence is a list of predicted token IDs,
+          *topk_sequence* : list of beam search sequences, each beam is a list of token IDs, *inputs* : target
+          outputs if provided for decoding}.
+    """
     def __init__(self, decoder_rnn, k):
         super(TopKDecoder, self).__init__()
         self.rnn = decoder_rnn
@@ -270,7 +322,26 @@ class TopKDecoder(torch.nn.Module):
         return decoder_outputs, decoder_hidden, metadata
 
     def _backtrack(self, nw_output, nw_hidden, predecessors, symbols, scores, b, hidden_size):
-
+        """
+        Backtracks over batch to generate optimal k-sequences.
+            Args:
+                nw_output [(batch*k, vocab_size)] * sequence_length: A Tensor of outputs from network
+                nw_hidden [(num_layers, batch*k, hidden_size)] * sequence_length: A Tensor of hidden states from network
+                predecessors [(batch*k)] * sequence_length: A Tensor of predecessors
+                symbols [(batch*k)] * sequence_length: A Tensor of predicted tokens
+                scores [(batch*k)] * sequence_length: A Tensor containing sequence scores for every token t = [0, ... , seq_len - 1]
+                b: Size of the batch
+                hidden_size: Size of the hidden state
+            Returns:
+                output [(batch, k, vocab_size)] * sequence_length: A list of the output probabilities (p_n)
+                from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
+                h_t [(batch, k, hidden_size)] * sequence_length: A list containing the output features (h_n)
+                from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
+                h_n(batch, k, hidden_size): A Tensor containing the last hidden state for all top-k sequences.
+                score [batch, k]: A list containing the final scores for all top-k sequences
+                length [batch, k]: A list specifying the length of each sequence in the top-k candidates
+                p (batch, k, sequence_len): A Tensor containing predicted sequence
+        """
         lstm = isinstance(nw_hidden[0], tuple)
 
         # initialize return variables given different types
@@ -313,6 +384,23 @@ class TopKDecoder(torch.nn.Module):
             # Re-order the back pointer of the previous step with the back pointer of
             # the current step
             t_predecessors = predecessors[t].index_select(0, t_predecessors).squeeze()
+
+            # This tricky block handles dropped sequences that see EOS earlier.
+            # The basic idea is summarized below:
+            #
+            #   Terms:
+            #       Ended sequences = sequences that see EOS early and dropped
+            #       Survived sequences = sequences in the last step of the beams
+            #
+            #       Although the ended sequences are dropped during decoding,
+            #   their generated symbols and complete backtracking information are still
+            #   in the backtracking variables.
+            #   For each batch, everytime we see an EOS in the backtracking process,
+            #       1. If there is survived sequences in the return variables, replace
+            #       the one with the lowest survived sequence score with the new ended
+            #       sequences
+            #       2. Otherwise, replace the ended sequence with the lowest sequence
+            #       score with the new ended sequence
 
             eos_indices = symbols[t].data.squeeze(1).eq(self.EOS).nonzero()
             if eos_indices.dim() > 0:
