@@ -2,7 +2,10 @@
 Modified version of https://github.com/IBM/pytorch-seq2seq/tree/master/seq2seq/models
 
 SEE EXAMPLE USAGE AT THE BOTTOM OF THIS FILE
+
 """
+
+# @todo: With k=1, it does not give the same results as models.generate with sample = False. I think it should be the case...
 
 import random
 import numpy as np
@@ -156,68 +159,12 @@ class DecoderRNN(t.nn.Module):
 
 
 def _inflate(tensor, times, dim):
-    """
-    Given a tensor, 'inflates' it along the given dimension by replicating each slice specified number of times (in-place)
-    Args:
-        tensor: A :class:`Tensor` to inflate
-        times: number of repetitions
-        dim: axis for inflation (default=0)
-    Returns:
-        A :class:`Tensor`
-    Examples::
-        >> a = torch.LongTensor([[1, 2], [3, 4]])
-        >> a
-        1   2
-        3   4
-        [torch.LongTensor of size 2x2]
-        >> b = ._inflate(a, 2, dim=1)
-        >> b
-        1   2   1   2
-        3   4   3   4
-        [torch.LongTensor of size 2x4]
-        >> c = _inflate(a, 2, dim=0)
-        >> c
-        1   2
-        3   4
-        1   2
-        3   4
-        [torch.LongTensor of size 4x2]
-    """
     repeat_dims = [1] * tensor.dim()
     repeat_dims[dim] = times
     return tensor.repeat(*repeat_dims)
 
 
 class TopKDecoder(torch.nn.Module):
-    """
-   Top-K decoding with beam search.
-   Args:
-       decoder_rnn (DecoderRNN): An object of DecoderRNN used for decoding.
-       k (int): Size of the beam.
-   Inputs: inputs, encoder_hidden, encoder_outputs, function, teacher_forcing_ratio
-       - **inputs** (seq_len, batch, input_size): list of sequences, whose length is the batch size and within which
-         each sequence is a list of token IDs.  It is used for teacher forcing when provided. (default is `None`)
-       - **encoder_hidden** (num_layers * num_directions, batch_size, hidden_size): tensor containing the features
-         in the hidden state `h` of encoder. Used as the initial hidden state of the decoder.
-       - **encoder_outputs** (batch, seq_len, hidden_size): tensor with containing the outputs of the encoder.
-         Used for attention mechanism (default is `None`).
-       - **function** (torch.nn.Module): A function used to generate symbols from RNN hidden state
-         (default is `torch.nn.functional.log_softmax`).
-       - **teacher_forcing_ratio** (float): The probability that teacher forcing will be used. A random number is
-         drawn uniformly from 0-1 for every decoding token, and if the sample is smaller than the given value,
-         teacher forcing would be used (default is 0).
-   Outputs: decoder_outputs, decoder_hidden, ret_dict
-       - **decoder_outputs** (batch): batch-length list of tensors with size (max_length, hidden_size) containing the
-         outputs of the decoder.
-       - **decoder_hidden** (num_layers * num_directions, batch, hidden_size): tensor containing the last hidden
-         state of the decoder.
-       - **ret_dict**: dictionary containing additional information as follows {*length* : list of integers
-         representing lengths of output sequences, *topk_length*: list of integers representing lengths of beam search
-         sequences, *sequence* : list of sequences, where each sequence is a list of predicted token IDs,
-         *topk_sequence* : list of beam search sequences, each beam is a list of token IDs, *inputs* : target
-         outputs if provided for decoding}.
-   """
-
     def __init__(self, decoder_rnn, k):
         super(TopKDecoder, self).__init__()
         self.rnn = decoder_rnn
@@ -227,13 +174,12 @@ class TopKDecoder(torch.nn.Module):
         self.SOS = self.rnn.sos_id
         self.EOS = self.rnn.eos_id
 
-    def forward(self, batch_size, inputs=None, z=None, encoder_hidden=None, function=F.log_softmax,
+    def forward(self, batch_size, max_length, inputs=None, z=None, encoder_hidden=None, encoder_outputs=None, function=F.log_softmax,
                 teacher_forcing_ratio=0, retain_output_probs=True):
         """
         Forward rnn for MAX_LENGTH steps.  Look at :func:`seq2seq.models.DecoderRNN.DecoderRNN.forward_rnn` for details.
         """
 
-        self.batch_size = batch_size
         self.pos_index = Variable(torch.LongTensor(range(batch_size)) * self.k).view(-1, 1)
 
         # Inflate the initial hidden states to be of size: b*k x h
@@ -246,15 +192,17 @@ class TopKDecoder(torch.nn.Module):
             else:
                 hidden = _inflate(encoder_hidden, self.k, 1)
 
+        inflated_encoder_outputs = None
+
         # Initialize the scores; for the first step,
         # ignore the inflated copies to avoid duplicate entries in the top k
-        sequence_scores = torch.Tensor(self.batch_size * self.k, 1)
+        sequence_scores = torch.Tensor(batch_size * self.k, 1)
         sequence_scores.fill_(-float('Inf'))
-        sequence_scores.index_fill_(0, torch.LongTensor([i * self.k for i in range(0, self.batch_size)]), 0.0)
+        sequence_scores.index_fill_(0, torch.LongTensor([i * self.k for i in range(0, batch_size)]), 0.0)
         sequence_scores = Variable(sequence_scores)
 
         # Initialize the input vector
-        input_var = Variable(torch.transpose(torch.LongTensor([[self.SOS] * self.batch_size * self.k]), 0, 1))
+        input_var = Variable(torch.transpose(torch.LongTensor([[self.SOS] * batch_size * self.k]), 0, 1))
 
         # Store decisions for backtracking
         stored_outputs = list()
@@ -263,10 +211,10 @@ class TopKDecoder(torch.nn.Module):
         stored_emitted_symbols = list()
         stored_hidden = list()
 
-        for _ in range(0, self.rnn.max_length):
+        for _ in range(0, max_length):
 
             # Run the RNN one step forward
-            log_softmax_output, hidden = self.rnn.forward_step(input_var, hidden, z, function=function, k=self.k)
+            log_softmax_output, hidden, _ = self.rnn.forward_step(input_var, hidden, z, inflated_encoder_outputs, function=function, k=self.k)
 
             # If doing local backprop (e.g. supervised training), retain the output layer
             if retain_output_probs:
@@ -275,14 +223,14 @@ class TopKDecoder(torch.nn.Module):
             # To get the full sequence scores for the new candidates, add the local scores for t_i to the predecessor scores for t_(i-1)
             sequence_scores = _inflate(sequence_scores, self.V, 1)
             sequence_scores += log_softmax_output.squeeze(1)
-            scores, candidates = sequence_scores.view(self.batch_size, -1).topk(self.k, dim=1)
+            scores, candidates = sequence_scores.view(batch_size, -1).topk(self.k, dim=1)
 
             # Reshape input = (bk, 1) and sequence_scores = (bk, 1)
-            input_var = (candidates % self.V).view(self.batch_size * self.k, 1)
-            sequence_scores = scores.view(self.batch_size * self.k, 1)
+            input_var = (candidates % self.V).view(batch_size * self.k, 1)
+            sequence_scores = scores.view(batch_size * self.k, 1)
 
             # Update fields for next timestep
-            predecessors = (candidates / self.V + self.pos_index.expand_as(candidates)).view(self.batch_size * self.k, 1)
+            predecessors = (candidates / self.V + self.pos_index.expand_as(candidates)).view(batch_size * self.k, 1)
             if isinstance(hidden, tuple):
                 hidden = tuple([h.index_select(1, predecessors.squeeze()) for h in hidden])
             else:
@@ -302,7 +250,7 @@ class TopKDecoder(torch.nn.Module):
         # Do backtracking to return the optimal values
         output, h_t, h_n, s, l, p = self._backtrack(stored_outputs, stored_hidden,
                                                     stored_predecessors, stored_emitted_symbols,
-                                                    stored_scores, self.batch_size, self.hidden_size)
+                                                    stored_scores, batch_size, self.hidden_size)
 
         # Build return objects
         decoder_outputs = [step[:, 0, :] for step in output]
@@ -322,25 +270,6 @@ class TopKDecoder(torch.nn.Module):
         return decoder_outputs, decoder_hidden, metadata
 
     def _backtrack(self, nw_output, nw_hidden, predecessors, symbols, scores, b, hidden_size):
-        """Backtracks over batch to generate optimal k-sequences.
-       Args:
-           nw_output [(batch*k, vocab_size)] * sequence_length: A Tensor of outputs from network
-           nw_hidden [(num_layers, batch*k, hidden_size)] * sequence_length: A Tensor of hidden states from network
-           predecessors [(batch*k)] * sequence_length: A Tensor of predecessors
-           symbols [(batch*k)] * sequence_length: A Tensor of predicted tokens
-           scores [(batch*k)] * sequence_length: A Tensor containing sequence scores for every token t = [0, ... , seq_len - 1]
-           b: Size of the batch
-           hidden_size: Size of the hidden state
-       Returns:
-           output [(batch, k, vocab_size)] * sequence_length: A list of the output probabilities (p_n)
-           from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
-           h_t [(batch, k, hidden_size)] * sequence_length: A list containing the output features (h_n)
-           from the last layer of the RNN, for every n = [0, ... , seq_len - 1]
-           h_n(batch, k, hidden_size): A Tensor containing the last hidden state for all top-k sequences.
-           score [batch, k]: A list containing the final scores for all top-k sequences
-           length [batch, k]: A list specifying the length of each sequence in the top-k candidates
-           p (batch, k, sequence_len): A Tensor containing predicted sequence
-       """
 
         lstm = isinstance(nw_hidden[0], tuple)
 
@@ -385,23 +314,6 @@ class TopKDecoder(torch.nn.Module):
             # the current step
             t_predecessors = predecessors[t].index_select(0, t_predecessors).squeeze()
 
-            # This tricky block handles dropped sequences that see EOS earlier.
-            # The basic idea is summarized below:
-            #
-            #   Terms:
-            #       Ended sequences = sequences that see EOS early and dropped
-            #       Survived sequences = sequences in the last step of the beams
-            #
-            #       Although the ended sequences are dropped during decoding,
-            #   their generated symbols and complete backtracking information are still
-            #   in the backtracking variables.
-            #   For each batch, everytime we see an EOS in the backtracking process,
-            #       1. If there is survived sequences in the return variables, replace
-            #       the one with the lowest survived sequence score with the new ended
-            #       sequences
-            #       2. Otherwise, replace the ended sequence with the lowest sequence
-            #       score with the new ended sequence
-            #
             eos_indices = symbols[t].data.squeeze(1).eq(self.EOS).nonzero()
             if eos_indices.dim() > 0:
                 for i in range(eos_indices.size(0) - 1, -1, -1):
@@ -461,12 +373,10 @@ class TopKDecoder(torch.nn.Module):
 
         return output, h_t, h_n, s, l, p
 
-    @staticmethod
-    def _mask_symbol_scores(score, idx, masking_score=-float('inf')):
+    def _mask_symbol_scores(self, score, idx, masking_score=-float('inf')):
         score[idx] = masking_score
 
-    @staticmethod
-    def _mask(tensor, idx, dim=0, masking_score=-float('inf')):
+    def _mask(self, tensor, idx, dim=0, masking_score=-float('inf')):
         if len(idx.size()) > 0:
             indices = idx[:, 0]
             tensor.index_fill_(dim, indices, masking_score)
@@ -474,19 +384,28 @@ class TopKDecoder(torch.nn.Module):
 
 if __name__ == '__main__':
     """EXAMPLE USAGE"""
-    from models import load_ae, load_gen
+    from beam_search import TopKDecoder, DecoderRNN
+    from models import Seq2Seq, load_gen, load_ae
+    from utils import variable
+    import numpy as np
 
-    model_args, idx2word, autoencoder = load_ae('output/exp8')
-    _, _, gan_gen = load_gen('output/exp8')
-    decoder = DecoderRNN(autoencoder.decoder, autoencoder.linear, autoencoder.embedding_decoder, autoencoder.ntokens, 30, autoencoder.nhidden, 1, 2)
     k = 20
-    topkdec = TopKDecoder(decoder, k)
+    batch_size = 32
+    max_length = 30
 
-    z = gan_gen(variable(np.random.normal(size=(32, 100)), cuda=False))
-    output = topkdec.forward(32, z=z)
+    model_args, idx2word, autoencoder = load_ae('output/exp8', True)
+    _, _, gan_gen = load_gen('output/exp8', True)
+    autoencoder.decoder.eval()
+    gan_gen.eval()
+    decoder = DecoderRNN(autoencoder.decoder, autoencoder.linear, autoencoder.embedding_decoder, autoencoder.ntokens, 30, 1, 2)
+
+    z = variable(np.random.normal(size=(batch_size, 100)), cuda=False)
+    code = gan_gen(variable(np.random.normal(size=(batch_size, 100)), cuda=False))
+    topkdec = TopKDecoder(decoder, k)
+    output = topkdec.forward(batch_size, max_length, z=code)
 
     for j in range(k):
-        sentence = t.cat(output[2]['topk_sequence'], 2)[11, j, :]
+        sentence = t.cat(output[2]['topk_sequence'], 2)[0, j, :]
 
         s = ''
         for x in sentence.data.numpy():

@@ -639,7 +639,6 @@ def load_gen(load_path, old=False):
                     noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'])
 
-
     print('Loading models from' + load_path)
     gen_path = os.path.join(load_path, "gan_gen_model.pt")
 
