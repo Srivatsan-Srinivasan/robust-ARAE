@@ -552,21 +552,31 @@ class Seq2Seq(nn.Module):
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
 
 
-def load_models(load_path):
+def load_models(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
     model_args = json.load(open("{}/args.json".format(load_path), "r"))
     word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
     idx2word = {v: k for k, v in word2idx.items()}
 
     autoencoder = Seq2Seq(emsize=model_args['emsize'],
-                          nhidden_enc=model_args['nhidden_enc'],
-                          nhidden_dec=model_args['nhidden_dec'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'])
     gan_gen = MLP_G(ninput=model_args['z_size'],
-                    noutput=model_args['nhidden_enc'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'])
-    gan_disc = MLP_D(ninput=model_args['nhidden_enc'],
+    gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                      noutput=1,
                      layers=model_args['arch_d'])
 
@@ -581,14 +591,24 @@ def load_models(load_path):
     return model_args, idx2word, autoencoder, gan_gen, gan_disc
 
 
-def load_ae(load_path):
+def load_ae(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
     model_args = json.load(open("{}/args.json".format(load_path), "r"))
     word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
     idx2word = {v: k for k, v in word2idx.items()}
 
     autoencoder = Seq2Seq(emsize=model_args['emsize'],
-                          nhidden_enc=model_args['nhidden_enc'],
-                          nhidden_dec=model_args['nhidden_dec'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'])
@@ -600,14 +620,25 @@ def load_ae(load_path):
     return model_args, idx2word, autoencoder
 
 
-def load_gen(load_path):
+def load_gen(load_path, old=False):
+    """
+
+    :param load_path:
+    :param old: True/False.
+                Before, the argparse had only one argument --nhidden
+                Now it is separated into --nhidden_enc and --nhidden_dec
+                For old=True, you load the first
+                For old=False, you load the second
+    :return:
+    """
     model_args = json.load(open("{}/args.json".format(load_path), "r"))
     word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
     idx2word = {v: k for k, v in word2idx.items()}
 
     gan_gen = MLP_G(ninput=model_args['z_size'],
-                    noutput=model_args['nhidden_enc'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'])
+
 
     print('Loading models from' + load_path)
     gen_path = os.path.join(load_path, "gan_gen_model.pt")
