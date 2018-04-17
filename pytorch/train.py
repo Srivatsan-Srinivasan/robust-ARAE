@@ -38,7 +38,9 @@ parser.add_argument('--lowercase', action='store_true',
 # Model Arguments
 parser.add_argument('--emsize', type=int, default=300,
                     help='size of word embeddings')
-parser.add_argument('--nhidden', type=int, default=300,
+parser.add_argument('--nhidden_enc', type=int, default=300,
+                    help='number of hidden units per layer')
+parser.add_argument('--nhidden_dec', type=int, default=300,
                     help='number of hidden units per layer')
 parser.add_argument('--nlayers', type=int, default=1,
                     help='number of layers')
@@ -78,6 +80,9 @@ parser.add_argument('--l2_reg_disc', type=float, default=None,
                          "Try with 100 = 10^2 = 1/sig^2")
 parser.add_argument('--tie_weights', action='store_true',
                     help="Whether to tie the weights of the embedding of the decoder and its linear layer")
+parser.add_argument('--bidirectionnal', action='store_true',
+                    help="Whether the encoder should be bidirecionnal. If it is, it divides the hdim of the encoder by 2")
+
 
 # Training Arguments
 parser.add_argument('--epochs', type=int, default=15,
@@ -218,7 +223,8 @@ writer = SummaryWriter(log_dir='tensorboard/'+args.tensorboard_logdir) if args.t
 global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
 
 autoencoder = Seq2Seq(emsize=args.emsize,
-                      nhidden=args.nhidden,
+                      nhidden_enc=args.nhidden,
+                      nhidden_dec=args.nhidden,
                       ntokens=ntokens,
                       nlayers=args.nlayers,
                       noise_radius=args.noise_radius,
@@ -231,9 +237,9 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       writer=writer,
                       tie_weights=args.tie_weights
                       )
-gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
+gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
-gan_disc = MLP_D(ninput=args.nhidden, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
+gan_disc = MLP_D(ninput=args.nhidden_enc, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc,
                  spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP, timeit=args.timeit)
 
