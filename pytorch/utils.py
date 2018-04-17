@@ -381,3 +381,14 @@ def get_ppl(lm, sentences):
         total_nll += score
     ppl = 10**-(total_nll/total_wc)
     return ppl
+
+def retokenize_data_for_vocab_size(data, unk_token = 3, vocab_size=10000):
+    #data in format of list of lists. outer list for each sentence. inner list contains
+    #words as int.    
+    def retokenize_sentence(sentence, vocab_size):
+        get_int_token = lambda w,v: w if(w <= v) else unk_token
+        return [get_int_token(word, vocab_size) for word in sentence]
+    
+    data = [retokenize_sentence(sentence,vocab_size) for sentence in data]
+    return data
+    
