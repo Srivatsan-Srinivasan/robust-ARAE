@@ -233,8 +233,20 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False):
+    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, word2idx=None, idx2word=None):
+        """
+        :param path: path to the directory containing the dataset
+                     ex: snli_lm/
+        :param word2idx, idx2word: If you have a saved models, when you do load_models/ae/disc/gen, you have 2 dictionnaries: word2idx and
+                                   idx2word.
+                                   You can pass them as inputs of the Corpus so that it doesn't recompute the mappings word - idx
+                                   Otherwise it would be randomly shuffled
+        """
         self.dictionary = Dictionary()
+        if word2idx is not None:
+            assert idx2word is not None
+            self.dictionary.word2idx = word2idx
+            self.dictionary.idx2word = idx2word
         self.maxlen = maxlen
         self.lowercase = lowercase
         self.vocab_size = vocab_size
@@ -242,7 +254,8 @@ class Corpus(object):
         self.test_path = os.path.join(path, 'test.txt')
 
         # make the vocabulary from training set
-        self.make_vocab()
+        if word2idx is None:
+            self.make_vocab()
 
         self.train = self.tokenize(self.train_path)
         self.test = self.tokenize(self.test_path)

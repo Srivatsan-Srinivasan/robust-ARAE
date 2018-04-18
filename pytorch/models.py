@@ -124,7 +124,7 @@ class MLP_D(nn.Module):
         if not self.polar:
             interpolate = (x_synth_data * u + x_data * (1 - u))
         else:
-            interpolate = (x_synth_data * t.sqrt(u) + x_data * t.sqrt((1 - u)))
+            interpolate = x_synth_data * t.sqrt(u) + x_data * t.sqrt(1 - u)
         interpolate = interpolate.cuda(self.gpu_id) if self.gpu else interpolate
         xx = t.autograd.Variable(interpolate, requires_grad=True)
         D_xx = self.forward(xx)
@@ -631,7 +631,7 @@ def load_models(load_path, old=False):
     autoencoder.load_state_dict(t.load(ae_path))
     gan_gen.load_state_dict(t.load(gen_path))
     gan_disc.load_state_dict(t.load(disc_path))
-    return model_args, idx2word, autoencoder, gan_gen, gan_disc
+    return model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc
 
 
 def load_ae(load_path, old=False):
@@ -660,7 +660,7 @@ def load_ae(load_path, old=False):
     ae_path = os.path.join(load_path, "autoencoder_model.pt")
 
     autoencoder.load_state_dict(t.load(ae_path))
-    return model_args, idx2word, autoencoder
+    return model_args, word2idx, idx2word, autoencoder
 
 
 def load_gen(load_path, old=False):
@@ -686,7 +686,7 @@ def load_gen(load_path, old=False):
     gen_path = os.path.join(load_path, "gan_gen_model.pt")
 
     gan_gen.load_state_dict(t.load(gen_path))
-    return model_args, idx2word, gan_gen
+    return model_args, word2idx, idx2word, gan_gen
 
 
 def load_disc(load_path, old=False):
@@ -716,7 +716,7 @@ def load_disc(load_path, old=False):
     disc_path = os.path.join(load_path, "gan_disc_model.pt")
 
     gan_disc.load_state_dict(t.load(disc_path))
-    return model_args, idx2word, gan_disc
+    return model_args, word2idx, idx2word, gan_disc
 
 
 def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
