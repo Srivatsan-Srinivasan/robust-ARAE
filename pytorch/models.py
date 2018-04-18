@@ -501,11 +501,12 @@ class Seq2Seq(nn.Module):
             state = self.init_hidden(batch_size)
 
         # @todo: exposure bias ?
-        if self.dropout is not None:
-            indices = self.dropout_dec(indices.float()).long()
-        embeddings = self.embedding_decoder(indices)
+        # @todo: decide how dropout should be implemented here. Should you drop whole words, or rather components of the embeddings of these words ? Should you drop the hidden too?
         # if self.dropout is not None:
-        #     embeddings = self.dropout_dec(embeddings)
+        #     indices = self.dropout_dec(indices.float()).long()
+        embeddings = self.embedding_decoder(indices)
+        if self.dropout is not None:
+            embeddings = self.dropout_dec(embeddings)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
         # if self.dropout is not None:
         #     augmented_embeddings = self.dropout_dec(augmented_embeddings)
