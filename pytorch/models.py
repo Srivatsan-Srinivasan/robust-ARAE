@@ -448,11 +448,11 @@ class Seq2Seq(nn.Module):
         else:
             raise ValueError("Should be either variable or list")
         embeddings = self.embedding(indices)
+        if self.dropout is not None:
+            embeddings = self.dropout_enc(embeddings)
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
-        if self.dropout is not None:
-            packed_embeddings = self.dropout_enc(packed_embeddings)
 
         # Encode
         self.encoder.flatten_parameters()
@@ -503,11 +503,11 @@ class Seq2Seq(nn.Module):
         # @todo: exposure bias ?
         embeddings = self.embedding_decoder(indices)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
+        if self.dropout is not None:
+            augmented_embeddings = self.dropout_dec(augmented_embeddings)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
-        if self.dropout is not None:
-            packed_embeddings = self.dropout_dec(packed_embeddings)
 
         self.decoder.flatten_parameters()
         packed_output, state = self.decoder(packed_embeddings, state)
