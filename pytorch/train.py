@@ -93,7 +93,7 @@ parser.add_argument('--min_epochs', type=int, default=6,
                     help="minimum number of epochs to train for")
 parser.add_argument('--no_earlystopping', action='store_true',
                     help="won't use KenLM for early stopping")
-parser.add_argument('--patience', type=int, default=3,
+parser.add_argument('--patience', type=int, default=5,
                     help="number of language model evaluations without ppl "
                          "improvement to wait before early stopping")
 parser.add_argument('--ae_lr_scheduler', action='store_true',
