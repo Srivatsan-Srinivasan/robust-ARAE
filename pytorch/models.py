@@ -329,6 +329,11 @@ class Seq2Seq(nn.Module):
         self.embedding = nn.Embedding(ntokens, emsize)
         self.embedding_decoder = nn.Embedding(ntokens, emsize)
 
+        # Embedding dropouts
+        if self.dropout is not None:
+            self.dropout_enc = nn.Dropout(self.dropout)
+            self.dropout_dec = nn.Dropout(self.dropout)
+
         # RNN Encoder and Decoder
         self.encoder = nn.LSTM(input_size=emsize,
                                hidden_size=nhidden_enc,
@@ -446,6 +451,8 @@ class Seq2Seq(nn.Module):
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
+        if self.dropout is not None:
+            packed_embeddings = self.dropout_enc(packed_embeddings)
 
         # Encode
         self.encoder.flatten_parameters()
@@ -499,6 +506,8 @@ class Seq2Seq(nn.Module):
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
+        if self.dropout is not None:
+            packed_embeddings = self.dropout_dec(packed_embeddings)
 
         self.decoder.flatten_parameters()
         packed_output, state = self.decoder(packed_embeddings, state)
