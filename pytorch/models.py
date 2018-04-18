@@ -501,10 +501,14 @@ class Seq2Seq(nn.Module):
             state = self.init_hidden(batch_size)
 
         # @todo: exposure bias ?
-        embeddings = self.embedding_decoder(indices)
-        augmented_embeddings = t.cat([embeddings, all_hidden], 2)
         if self.dropout is not None:
-            augmented_embeddings = self.dropout_dec(augmented_embeddings)
+            indices = self.dropout_dec(indices.float()).long()
+        embeddings = self.embedding_decoder(indices)
+        # if self.dropout is not None:
+        #     embeddings = self.dropout_dec(embeddings)
+        augmented_embeddings = t.cat([embeddings, all_hidden], 2)
+        # if self.dropout is not None:
+        #     augmented_embeddings = self.dropout_dec(augmented_embeddings)
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
