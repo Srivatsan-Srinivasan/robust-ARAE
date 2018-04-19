@@ -308,7 +308,7 @@ class Seq2Seq(nn.Module):
     grad_norm = {}
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
-    def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers, noise_radius=0.2, tie_weights=False,
+    def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers, noise_radius=0.2, tie_weights=False, norm_penalty=None,
                  hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None, bidirectionnal=False):
         super(Seq2Seq, self).__init__()
         self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
@@ -322,6 +322,7 @@ class Seq2Seq(nn.Module):
         self.gpu = gpu
         self.gpu_id = gpu_id
         self.ngpus = ngpus
+        self.norm_penalty = norm_penalty
 
         self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()), gpu_id=gpu_id)
 
@@ -462,13 +463,14 @@ class Seq2Seq(nn.Module):
         # batch_size x nhidden
         hidden = hidden[-1]  # get hidden state of last layer of encoder
 
-        # normalize to unit ball (l2 norm of 1) - p=2, dim=1
-        norms = t.norm(hidden, 2, 1)
+        if self.norm_penalty is None:
+            # normalize to unit ball (l2 norm of 1) - p=2, dim=1
+            norms = t.norm(hidden, 2, 1)
 
-        # For older versions of PyTorch use:
-        # hidden = t.div(hidden, norms.expand_as(hidden))
-        # For newest version of PyTorch (as of 8/25) use this:
-        hidden = t.div(hidden, norms.unsqueeze(1).expand_as(hidden))
+            # For older versions of PyTorch use:
+            # hidden = t.div(hidden, norms.expand_as(hidden))
+            # For newest version of PyTorch (as of 8/25) use this:
+            hidden = t.div(hidden, norms.unsqueeze(1).expand_as(hidden))
 
         if noise and self.noise_radius > 0:  # noise to make the task of the discriminator harder in the beginning of training
             gauss_noise = t.normal(means=t.zeros(hidden.size()),

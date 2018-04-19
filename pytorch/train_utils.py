@@ -179,13 +179,15 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
 
     # output: (batch_size, max_len, ntokens)
-    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, keep_hidden=(i == (args.niters_ae - 1)) and args.tensorboard)
+    output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, keep_hidden=((i == (args.niters_ae - 1)) and args.tensorboard) or (args.norm_penalty is not None))
 
     # output_size: (batch_size x max_len, ntokens)
     flattened_output = output.view(-1, ntokens)
     masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems, without the padding
 
     loss = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
+    if args.norm_penalty is not None:
+        loss += args.norm_penalty * torch.norm(autoencoder.hidden, 2, 1).mean()
     loss.backward()
 
     # `clip_grad_norm` to prevent exploding gradient in RNNs / LSTMs
