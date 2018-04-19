@@ -187,7 +187,7 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
 
     loss = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
     if args.norm_penalty is not None:
-        loss += args.norm_penalty * torch.norm(autoencoder.hidden, 2, 1).mean()
+        loss += args.norm_penalty * autoencoder.hidden.pow(2).sum(1).mean()
     loss.backward()
 
     # `clip_grad_norm` to prevent exploding gradient in RNNs / LSTMs
