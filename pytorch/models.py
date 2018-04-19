@@ -200,6 +200,15 @@ class MLP_D(nn.Module):
             else:
                 raise ValueError('there is a problem here, it should be either Linear or SpectralNorm')
 
+    def __cuda__(self, gpu_id=None):
+        if gpu_id is None and self.gpu_id is None:
+            gpu_id = 0
+        if gpu_id is None and self.gpu_id is not None:
+            gpu_id = self.gpu_id
+        self.cuda(gpu_id)
+        self.gpu_id = gpu_id
+        self.gpu = True
+
 
 class MLP_G(nn.Module):
     """Generator whose architecture is a MLP"""
@@ -296,6 +305,15 @@ class MLP_G(nn.Module):
         # sum of variances
         trace_cov = np.trace(np.cov(c.data.cpu().numpy()).T)
         writer.add_scalar('trace_cov_gen', trace_cov, n_iter)
+
+    def __cuda__(self, gpu_id=None):
+        if gpu_id is None and self.gpu_id is None:
+            gpu_id = 0
+        if gpu_id is None and self.gpu_id is not None:
+            gpu_id = self.gpu_id
+        self.cuda(gpu_id)
+        self.gpu_id = gpu_id
+        self.gpu = True
 
 
 class Seq2Seq(nn.Module):
@@ -609,6 +627,18 @@ class Seq2Seq(nn.Module):
         # Distributional properties of codes
         trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy().T))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
+
+    def __cuda__(self, gpu_id=None):
+        if gpu_id is None and self.gpu_id is None:
+            gpu_id = 0
+        if gpu_id is None and self.gpu_id is not None:
+            gpu_id = self.gpu_id
+        self.cuda(gpu_id)
+        self.gpu_id = gpu_id
+        self.gpu = True
+        self.start_symbols = to_gpu(True, Variable(t.ones(10, 1).long()), gpu_id=gpu_id)
+        self.encoder.flatten_parameters()
+        self.decoder.flatten_parameters()
 
 
 def load_models(load_path, old=False):
