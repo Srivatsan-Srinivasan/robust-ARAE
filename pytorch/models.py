@@ -667,7 +667,11 @@ def load_models(load_path, old=False):
                     layers=model_args['arch_g'])
     gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                      noutput=1,
-                     layers=model_args['arch_d'])
+                     layers=model_args['arch_d'],
+                     spectralnorm=model_args['spectralnorm'],
+                     batchnorm=model_args['bn_disc'],
+                     std_minibatch=model_args['std_minibatch']
+                     )
 
     print('Loading models from' + load_path)
     ae_path = os.path.join(load_path, "autoencoder_model.pt")
