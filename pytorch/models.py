@@ -664,7 +664,9 @@ def load_models(load_path, old=False):
                           hidden_init=model_args['hidden_init'])
     gan_gen = MLP_G(ninput=model_args['z_size'],
                     noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
-                    layers=model_args['arch_g'])
+                    layers=model_args['arch_g'],
+                    batchnorm=model_args['bn_gen']
+                    )
     gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                      noutput=1,
                      layers=model_args['arch_d'],
