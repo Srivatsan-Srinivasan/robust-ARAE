@@ -100,9 +100,9 @@ def threshold(x, t, positive_only=True):
     assert isinstance(t, float)
     if t > 0:
         if not positive_only:
-            return F.threshold(x, t, 0) - F.threshold(-x, t, 0)
+            return F.threshold(x-t, 0, 0) - F.threshold(-x-t, 0, 0)
         else:
-            return F.threshold(x, t, 0)
+            return F.threshold(x-t, 0, 0)
     elif t < 0:
         raise ValueError("Threshold should be positive")
     else:
