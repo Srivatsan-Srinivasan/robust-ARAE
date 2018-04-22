@@ -627,6 +627,8 @@ class Seq2Seq(nn.Module):
         # Distributional properties of codes
         trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy().T))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
+        norm_code = t.mean(t.sum(self.hidden ** 2, 1))
+        writer.add_scalar('l2_norm_enc', norm_code, n_iter)
 
     def __cuda__(self, gpu_id=None):
         if gpu_id is None and self.gpu_id is None:
@@ -661,7 +663,11 @@ def load_models(load_path, old=False):
                           nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
-                          hidden_init=model_args['hidden_init'])
+                          hidden_init=model_args['hidden_init'],
+                          norm_penalty=model_args['norm_penalty'],
+                          dropout=model_args['dropout'],
+                          bidirectionnal=model_args['bidirectionnal']
+                          )
     gan_gen = MLP_G(ninput=model_args['z_size'],
                     noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'],
@@ -706,7 +712,11 @@ def load_ae(load_path, old=False):
                           nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
-                          hidden_init=model_args['hidden_init'])
+                          hidden_init=model_args['hidden_init'],
+                          norm_penalty=model_args['norm_penalty'],
+                          dropout=model_args['dropout'],
+                          bidirectionnal=model_args['bidirectionnal']
+                          )
 
     print('Loading models from' + load_path)
     ae_path = os.path.join(load_path, "autoencoder_model.pt")
