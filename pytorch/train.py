@@ -97,6 +97,8 @@ def init_config():
                             help='If you want to enforce a L2 regularization on the norm of the encoder, instead of forcing it to lie'
                                  'on the unit sphere. This way you can use volume (as you do interpolation it may make more sense)'
                                  'If you try it, use 1-10 as a starting point')
+        parser.add_argument('--norm_penalty_threshold', type=float, default=0.,
+                            help='Whether you want to penalize the norm of the code for being above this value')
         return parser
 
     def training(parser):
@@ -268,6 +270,7 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       writer=writer,
                       tie_weights=args.tie_weights,
                       norm_penalty=args.norm_penalty,
+                      norm_penalty_threshold=args.norm_penalty_threshold,
                       bidirectionnal=args.bidirectionnal
                       )
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),

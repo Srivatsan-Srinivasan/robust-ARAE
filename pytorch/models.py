@@ -157,8 +157,8 @@ class MLP_D(nn.Module):
             raise ValueError('neither `self.dropout` nor `self.lambda_dropout` should not be None if you want to use '
                              'a dropout penalty to enforce Lipscitz continuity')
 
-        x1 = x*1.
-        x2 = x*1.
+        x1 = x * 1.
+        x2 = x * 1.
 
         for i in range(1, self.n_layers):
             layer = getattr(self, 'layer%d' % i)
@@ -168,8 +168,8 @@ class MLP_D(nn.Module):
             x1 = activation(bn(layer(dropout(x1)))) if bn is not None else activation(layer(dropout(x1)))
             dropout = t.nn.Dropout(self.dropout)
             x2 = activation(bn(layer(dropout(x2)))) if bn is not None else activation(layer(dropout(x2)))
-        penultimate_x1 = x1*1.
-        penultimate_x2 = x2*1.
+        penultimate_x1 = x1 * 1.
+        penultimate_x2 = x2 * 1.
 
         layer = getattr(self, 'layer%d' % self.n_layers)
 
@@ -183,7 +183,7 @@ class MLP_D(nn.Module):
         x1 = layer(dropout(x1))
         dropout = t.nn.Dropout(self.dropout)
         x2 = layer(dropout(x2))
-        return self.lambda_dropout * ((x1 - x2).norm(2, 1) + .1*(penultimate_x1 - penultimate_x2).norm(2, 1)).mean()
+        return self.lambda_dropout * ((x1 - x2).norm(2, 1) + .1 * (penultimate_x1 - penultimate_x2).norm(2, 1)).mean()
 
     def tensorboard(self, writer, n_iter):
         """
@@ -327,7 +327,9 @@ class Seq2Seq(nn.Module):
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
     def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers, noise_radius=0.2, tie_weights=False, norm_penalty=None,
-                 hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None, writer=None, timeit=None, bidirectionnal=False):
+                 norm_penalty_threshold=0, hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None,
+                 writer=None, timeit=None, bidirectionnal=False,
+                 ):
         super(Seq2Seq, self).__init__()
         self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
         self.nhidden_dec = nhidden_dec
@@ -341,6 +343,7 @@ class Seq2Seq(nn.Module):
         self.gpu_id = gpu_id
         self.ngpus = ngpus
         self.norm_penalty = norm_penalty
+        self.norm_penalty_threshold = norm_penalty_threshold
 
         self.start_symbols = to_gpu(gpu, Variable(t.ones(10, 1).long()), gpu_id=gpu_id)
 
@@ -665,6 +668,7 @@ def load_models(load_path, old=False):
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'],
                           norm_penalty=model_args['norm_penalty'],
+                          norm_penalty_threshold=model_args['norm_penalty_threshold'],
                           dropout=model_args['dropout'],
                           bidirectionnal=model_args['bidirectionnal']
                           )
@@ -714,6 +718,7 @@ def load_ae(load_path, old=False):
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'],
                           norm_penalty=model_args['norm_penalty'],
+                          norm_penalty_threshold=model_args['norm_penalty_threshold'],
                           dropout=model_args['dropout'],
                           bidirectionnal=model_args['bidirectionnal']
                           )

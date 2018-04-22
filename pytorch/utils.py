@@ -3,6 +3,7 @@ import numpy as np
 import random
 import torch as t
 import time
+import torch.nn.functional as F
 
 
 class Timer(object):
@@ -67,6 +68,9 @@ def check_args(args):
         assert 0 <= args.gpu_id <= t.cuda.device_count() - 1
     if args.gpu_id is not None and args.n_gpus > 1:
         raise ValueError("If you decide to use a specific GPU (args.gpu_id is not None), you cannot also choose to use all of them (args.n_gpus > 1)")
+    assert isinstance(args.norm_penalty_threshold, float)
+    if args.norm_penalty_threshold != 0:
+        assert args.norm_penalty_threshold > 0
 
 
 def create_tensorboard_dir(logdir):
@@ -89,6 +93,17 @@ def noisy_sentence(sentence, k):
         noisy_s[i] = noisy_s[j] * 1.
         noisy_s[j] = tmp * 1.
     return sentence
+
+
+def threshold(x, t):
+    """returns, elementwise, 0 if between -t and t, x otherwise"""
+    assert isinstance(t, float)
+    if t > 0:
+        return F.threshold(x, t, 0) - F.threshold(-x, t, 0)
+    elif t < 0:
+        raise ValueError("Threshold should be positive")
+    else:
+        return x
 
 
 def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
