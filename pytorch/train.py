@@ -342,7 +342,7 @@ impatience = 0
 all_ppl = []
 epoch = 1
 
-while epoch <= args.epoch :
+while epoch <= args.epochs:
     vocab_changed = False
     # update gan training schedule
     if epoch in gan_schedule:
