@@ -267,7 +267,8 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       timeit=args.timeit,
                       writer=writer,
                       tie_weights=args.tie_weights,
-                      norm_penalty=args.norm_penalty
+                      norm_penalty=args.norm_penalty,
+                      bidirectionnal=args.bidirectionnal
                       )
 gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
                 weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
