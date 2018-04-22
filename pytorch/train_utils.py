@@ -38,7 +38,7 @@ def save_model(autoencoder, gan_gen, gan_disc, args):
         torch.save(gan_disc.state_dict(), f)
 
 
-def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, args):
+def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, args, log = True):
     # Turn on evaluation mode which disables dropout.
     autoencoder.eval()
     total_loss = 0
@@ -68,19 +68,20 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         bcnt += 1
 
         aeoutf = "./output/%s/%d_autoencoder.txt" % (args.outf, epoch)
-        with open(aeoutf, "a") as f:
-            max_values, max_indices = torch.max(output, 2)
-            max_indices = max_indices.view(output.size(0), -1).data.cpu().numpy()
-            target = target.view(output.size(0), -1).data.cpu().numpy()
-            for t, idx in zip(target, max_indices):
-                # real sentence
-                chars = " ".join([corpus.dictionary.idx2word[x] for x in t])
-                f.write(chars)
-                f.write("\n")
-                # autoencoder output sentence
-                chars = " ".join([corpus.dictionary.idx2word[x] for x in idx])
-                f.write(chars)
-                f.write("\n\n")
+        if log :
+            with open(aeoutf, "a") as f:
+                max_values, max_indices = torch.max(output, 2)
+                max_indices = max_indices.view(output.size(0), -1).data.cpu().numpy()
+                target = target.view(output.size(0), -1).data.cpu().numpy()
+                for t, idx in zip(target, max_indices):
+                    # real sentence
+                    chars = " ".join([corpus.dictionary.idx2word[x] for x in t])
+                    f.write(chars)
+                    f.write("\n")
+                    # autoencoder output sentence
+                    chars = " ".join([corpus.dictionary.idx2word[x] for x in idx])
+                    f.write(chars)
+                    f.write("\n\n")
 
     return total_loss[0] / len(data_source), all_accuracies / bcnt
 

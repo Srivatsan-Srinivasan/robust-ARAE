@@ -16,7 +16,6 @@ from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan
 from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size
 
-
 # Terminal arg parsing
 def init_config():
     """Just to make it more readable in PyCharm"""
@@ -153,6 +152,8 @@ def init_config():
                                  'Additional loss added to the critic')
         parser.add_argument('--progressive_vocab', action='store_true',
                             help='Whether to train sequentially with increasing vocab')
+        parser.add_argument('--vocabulary_switch_cutoff', type=float, default = 0.85,
+                            help='Accuracy cutoff to switch to next level of vocab')
         parser.add_argument('--eps_drift', type=float, default=None,
                             help='Whether to add a term eps_drift*D(x)^2 in the loss of the discriminator'
                                  'If None, add nothing')
@@ -301,11 +302,17 @@ scheduler = None
 if args.ae_lr_scheduler:
     scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
 
-# This will still retain overall number of tokens to the initial vocabulary size, just modify data.
-corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size=ntokens)
-corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size=ntokens)
-print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
-print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
+prog_vocab_iterator = 0
+prog_vocab_list = [1000, 2000, 5000, 8000, 11000]
+allow_termination = True
+
+if args.progressive_vocab :
+    # This will still retain overall number of tokens to the initial vocabulary size, just modify data.
+    corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+    corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+    print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
+    print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
+    allow_termination = False
 
 test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
 train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
@@ -333,7 +340,10 @@ fixed_noise.data.normal_(0, 1)
 best_ppl = None
 impatience = 0
 all_ppl = []
-for epoch in range(1, args.epochs + 1):
+epoch = 1
+
+while epoch <= args.epoch :
+    vocab_changed = False
     # update gan training schedule
     if epoch in gan_schedule:
         niter_gan += 1
@@ -398,7 +408,7 @@ for epoch in range(1, args.epochs + 1):
                 evaluate_generator(gan_gen, autoencoder, corpus, fixed_noise, "epoch{}_step{}".format(epoch, niter_global), args)  # evaluate_generator(fixed_noise, "epoch{}_step{}".format(epoch, niter_global))
 
                 # evaluate with lm
-                if not args.no_earlystopping and epoch > args.min_epochs:
+                if not args.no_earlystopping and epoch > args.min_epochs and allow_termination:
                     eval_path = os.path.join(args.data_path, "test.txt")
                     save_path = "output/{}/epoch{}_step{}_lm_generations".format(args.outf, epoch, niter_global)
                     ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
@@ -426,6 +436,28 @@ for epoch in range(1, args.epochs + 1):
                             with open("./output/{}/logs.txt".
                                               format(args.outf), 'a') as f:
                                 f.write("\nEnding Training\n")
+            
+            #Check if we need to progress vocabulary.
+            if niter_global % 1000 == 0 and args.progressive_vocab:
+                if prog_vocab_iterator < len(prog_vocab_list) - 1:
+                    test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args, log = False)
+                    if accuracy > args.vocabulary_switch_cutoff :
+                            prog_vocab_iterator += 1
+                            corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+                            corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+                            print("After modification vocab of train : %d, test : %d", max([max(s) for s in corpus.train]), max([max(s) for s in corpus.test]))
+                            allow_termination = (prog_vocab_iterator == len(prog_vocab_list) - 1 ) 
+                            test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
+                            train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
+                            print("Short circuiting the epoch(will start from scratch) since the vocabulary changed")
+                            vocab_changed = True
+                            if args.tensorboard :
+                                writer.add_scalar('progressive_vocab_size', prog_vocab_list[prog_vocab_iterator], epoch)
+                            break
+    
+    #Start the epoch over again(from scratch) incase vocab changed.
+    if args.progressive_vocab and vocab_changed :
+        continue                
 
     # end of epoch ----------------------------
     # evaluation
@@ -451,7 +483,7 @@ for epoch in range(1, args.epochs + 1):
         f.write('\n')
 
     evaluate_generator(gan_gen, autoencoder, corpus, fixed_noise, "end_of_epoch_{}".format(epoch), args)
-    if not args.no_earlystopping and epoch >= args.min_epochs:
+    if not args.no_earlystopping and epoch >= args.min_epochs and allow_termination:
         eval_path = os.path.join(args.data_path, "test.txt")
         save_path = "./output/{}/end_of_epoch{}_lm_generations".format(args.outf, epoch)
         ppl = train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args)
@@ -480,6 +512,7 @@ for epoch in range(1, args.epochs + 1):
                 with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                     f.write("\nEnding Training\n")
                 sys.exit()
-
+    
     # shuffle between epochs
+    epoch = epoch + 1
     train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
