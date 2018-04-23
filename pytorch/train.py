@@ -190,8 +190,6 @@ def init_config():
                             help='Whether to time functions or not. If you indicate nothing, it is None and nothing happens'
                                  'Otherwise, you should indicate a log frequency. Don\'t make it too small or tensorboard will overflow'
                                  'Try 5000 (it will time functions 1/5000 of the time)')
-        parser.add_argument('--save_last', action='store_true',
-                            help='Whether to save the last model')
         parser.add_argument('--save_intermediate', type=float, default=None,
                             help='If not None, save also the models that have a reverse ppl less than best+save_intermediate')
 
@@ -481,16 +479,14 @@ for epoch in range(1, args.epochs + 1):
             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                 f.write("New best ppl {}\n".format(best_ppl))
             save_model(autoencoder, gan_gen, gan_disc, args)
-        elif best_ppl is not None and ppl > best_ppl:
+        else:
             if args.save_intermediate is not None:
                 if best_ppl + args.save_intermediate >= ppl:
                     save_model(autoencoder, gan_gen, gan_disc, args, intermediate=True, ppl=ppl)
-        else:
+
             impatience += 1
             # end training
             if impatience > args.patience:
-                if args.save_last:
-                    save_model(autoencoder, gan_gen, gan_disc, args, last=True)
                 print("Ending training")
                 with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                     f.write("\nEnding Training\n")
