@@ -192,6 +192,9 @@ def init_config():
                                  'Try 5000 (it will time functions 1/5000 of the time)')
         parser.add_argument('--save_last', action='store_true',
                             help='Whether to save the last model')
+        parser.add_argument('--save_intermediate', type=float, default=None,
+                            help='If not None, save also the models that have a reverse ppl less than best+save_intermediate')
+
         return parser
 
     parser = other(eval(training(model(preprocessing(path(parser))))))
@@ -478,6 +481,10 @@ for epoch in range(1, args.epochs + 1):
             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                 f.write("New best ppl {}\n".format(best_ppl))
             save_model(autoencoder, gan_gen, gan_disc, args)
+        elif best_ppl is not None and ppl > best_ppl:
+            if args.save_intermediate is not None:
+                if best_ppl + args.save_intermediate >= ppl:
+                    save_model(autoencoder, gan_gen, gan_disc, intermediate=True, ppl=ppl)
         else:
             impatience += 1
             # end training

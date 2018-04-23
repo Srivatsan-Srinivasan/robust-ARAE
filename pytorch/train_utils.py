@@ -28,14 +28,24 @@ def get_optimizers_gan(gan_gen, gan_disc, args):
         raise NotImplementedError("Choose adam or rmsprop")
 
 
-def save_model(autoencoder, gan_gen, gan_disc, args, last=False):
-    print("Saving models")
-    with open('./output/{}/autoencoder_model.pt'.format(args.outf) if not last else './output/{}/autoencoder_model_last.pt'.format(args.outf), 'wb') as f:
-        torch.save(autoencoder.state_dict(), f)
-    with open('./output/{}/gan_gen_model.pt'.format(args.outf) if not last else './output/{}/gan_gen_model_last.pt'.format(args.outf), 'wb') as f:
-        torch.save(gan_gen.state_dict(), f)
-    with open('./output/{}/gan_disc_model.pt'.format(args.outf) if not last else './output/{}/gan_disc_model_last.pt'.format(args.outf), 'wb') as f:
-        torch.save(gan_disc.state_dict(), f)
+def save_model(autoencoder, gan_gen, gan_disc, args, last=False, intermediate=False, ppl=None):
+    if not intermediate:
+        print("Saving models")
+        with open('./output/{}/autoencoder_model.pt'.format(args.outf) if not last else './output/{}/autoencoder_model_last.pt'.format(args.outf), 'wb') as f:
+            torch.save(autoencoder.state_dict(), f)
+        with open('./output/{}/gan_gen_model.pt'.format(args.outf) if not last else './output/{}/gan_gen_model_last.pt'.format(args.outf), 'wb') as f:
+            torch.save(gan_gen.state_dict(), f)
+        with open('./output/{}/gan_disc_model.pt'.format(args.outf) if not last else './output/{}/gan_disc_model_last.pt'.format(args.outf), 'wb') as f:
+            torch.save(gan_disc.state_dict(), f)
+    else:
+        print("Saving intermediate models with ppl : %.2f" % ppl)
+        with open('./output/{}/autoencoder_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
+            torch.save(autoencoder.state_dict(), f)
+        with open('./output/{}/gan_gen_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
+            torch.save(gan_gen.state_dict(), f)
+        with open('./output/{}/gan_disc_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
+            torch.save(gan_disc.state_dict(), f)
+
 
 
 def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, args):
