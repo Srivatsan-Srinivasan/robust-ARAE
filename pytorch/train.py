@@ -484,7 +484,7 @@ for epoch in range(1, args.epochs + 1):
         elif best_ppl is not None and ppl > best_ppl:
             if args.save_intermediate is not None:
                 if best_ppl + args.save_intermediate >= ppl:
-                    save_model(autoencoder, gan_gen, gan_disc, intermediate=True, ppl=ppl)
+                    save_model(autoencoder, gan_gen, gan_disc, args, intermediate=True, ppl=ppl)
         else:
             impatience += 1
             # end training
