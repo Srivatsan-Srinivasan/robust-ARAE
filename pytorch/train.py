@@ -426,6 +426,10 @@ for epoch in range(1, args.epochs + 1):
                             f.write("New best ppl {}\n".format(best_ppl))
                         save_model(autoencoder, gan_gen, gan_disc, args)
                     else:
+                        if args.save_intermediate is not None:
+                            if best_ppl + args.save_intermediate >= ppl:
+                                save_model(autoencoder, gan_gen, gan_disc, args, intermediate=True, ppl=ppl)
+
                         impatience += 1
                         # end training
                         if impatience > args.patience:
