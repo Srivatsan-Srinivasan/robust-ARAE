@@ -469,6 +469,11 @@ class Seq2Seq(nn.Module):
             lengths_ = lengths[:]
         else:
             raise ValueError("Should be either variable or list")
+        print('indices')
+        print(indices)
+        print('lengths_')
+        print(lengths_)
+
         embeddings = self.embedding(indices)
         if self.dropout is not None:
             embeddings = self.dropout_enc(embeddings)
