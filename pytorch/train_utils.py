@@ -26,7 +26,7 @@ def get_synthetic_dataset(args):
     with open(args.data_path + '/synthetic_dataset.pkl', 'rb') as f:
         dataset = pickle.load(f)
     dataset_ = []
-    for l in dataset:
+    for i,l in dataset.items():
         dataset_ += l.tolist()
     dataset = shuffle(dataset_)
     n = len(dataset)
