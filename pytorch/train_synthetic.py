@@ -355,7 +355,8 @@ for epoch in range(1, args.epochs + 1):
         # train autoencoder ----------------------------
         for i in range(args.niters_ae):
             if niter == len(train_data):
-                break  # end of epoch
+                break  # end of
+            print(train_data[niter])
             total_loss_ae, start_time = train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args, writer, niter_global + (-1 + epoch) * len(train_data))
             niter += 1
 
