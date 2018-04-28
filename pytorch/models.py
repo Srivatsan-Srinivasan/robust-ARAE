@@ -469,10 +469,6 @@ class Seq2Seq(nn.Module):
             lengths_ = lengths[:]
         else:
             raise ValueError("Should be either variable or list")
-        print('indices')
-        print(indices)
-        print('lengths_')
-        print(lengths_)
 
         embeddings = self.embedding(indices)
         if self.dropout is not None:
@@ -485,8 +481,6 @@ class Seq2Seq(nn.Module):
         self.encoder.flatten_parameters()
         packed_output, state = self.encoder(packed_embeddings)
 
-        print('state')
-        print(state)
         hidden, cell = state
         # batch_size x nhidden
         hidden = hidden[-1]  # get hidden state of last layer of encoder
@@ -503,10 +497,6 @@ class Seq2Seq(nn.Module):
         if noise and self.noise_radius > 0:  # noise to make the task of the discriminator harder in the beginning of training
             gauss_noise = t.normal(means=t.zeros(hidden.size()),
                                    std=self.noise_radius)
-            print('hidden')
-            print(hidden)
-            print('self.gpu_id')
-            print(self.gpu_id)
             hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise), gpu_id=self.gpu_id)
 
         if keep_hidden:
