@@ -485,6 +485,8 @@ class Seq2Seq(nn.Module):
         self.encoder.flatten_parameters()
         packed_output, state = self.encoder(packed_embeddings)
 
+        print('state')
+        print(state)
         hidden, cell = state
         # batch_size x nhidden
         hidden = hidden[-1]  # get hidden state of last layer of encoder
