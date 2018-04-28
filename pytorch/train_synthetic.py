@@ -251,7 +251,7 @@ print("Loaded data!")
 # Build the models
 ###############################################################################
 
-ntokens = corpus.vocab_size
+ntokens = corpus.vocab_size + 4
 create_tensorboard_dir(args.tensorboard_logdir) if args.tensorboard else None
 writer = SummaryWriter(log_dir='tensorboard/' + args.tensorboard_logdir) if args.tensorboard else None
 global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
