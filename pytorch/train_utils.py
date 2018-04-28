@@ -243,7 +243,7 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
 
     # train language model on generated examples
     lengths = t.sum((indices > 2).long(), 1).data.cpu().numpy().tolist()
-    ppl = oracle.get_ppl(indices, lengths)
+    ppl = oracle.get_ppl(indices-3, lengths)
 
     return ppl
 
