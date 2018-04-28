@@ -57,7 +57,6 @@ def calculate_corpus_bleu_by_length(test_tokens_as_dict, generation_tokens_as_di
 
     pickle.dump(corpus_bleu_by_length, open( save_filename + "_BLEU.p", "wb" )  )
 
-
 test_snli_file = '../snli_lm/test.txt'
 exp13 = '../generated_data/generated_exp13.txt'
 exp13b = '../generated_data/generated_exp13b.txt'
