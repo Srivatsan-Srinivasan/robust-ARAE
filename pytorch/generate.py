@@ -5,8 +5,8 @@ import random
 import torch
 from torch.autograd import Variable
 
-from models import load_models, generate
-
+from models import load_models_exp13,load_models_exp22,load_models_baseline, generate
+from models import generate_from_hidden
 ###############################################################################
 # Generation methods
 ###############################################################################
@@ -43,6 +43,37 @@ def interpolate(ae, gg, z1, z2, vocab,
         interpolations.append([s[i] for s in gens])
     return interpolations
 
+#hidden_to_hidden(fake_hidden,ae_from,ae_to,idx2word_from,word2idx_to,maxlen,sample)
+def interpolate_hidden(ae, z1, z2, vocab,
+                steps=5, sample=None, maxlen=None):
+    """
+    Interpolating in h space
+    Assumes that type(h1) == type(h2)
+    """
+    if type(z1) == Variable:
+        noise1 = z1
+        noise2 = z2
+    elif type(z1) == torch.FloatTensor or type(z1) == torch.cuda.FloatTensor:
+        noise1 = Variable(z1, volatile=True)
+        noise2 = Variable(z2, volatile=True)
+    elif type(z1) == np.ndarray:
+        noise1 = Variable(torch.from_numpy(z1).float(), volatile=True)
+        noise2 = Variable(torch.from_numpy(z2).float(), volatile=True)
+    else:
+        raise ValueError("Unsupported input type (noise): {}".format(type(z1)))
+
+    # interpolation weights
+    lambdas = [x*1.0/(steps-1) for x in range(steps)]
+
+    gens = []
+    for L in lambdas:
+        gens.append(generate_from_hidden(ae, (1-L)*noise1 + L*noise2,
+                             vocab, sample, maxlen))
+
+    interpolations = []
+    for i in range(len(gens[0])):
+        interpolations.append([s[i] for s in gens])
+    return interpolations
 
 def main(args):
     # Set the random seed manually for reproducibility.
@@ -58,8 +89,11 @@ def main(args):
     # Load the models
     ###########################################################################
 
-    model_args, idx2word, autoencoder, gan_gen, gan_disc \
-        = load_models(args.load_path)
+    model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc \
+        = load_models_exp13(args.load_path)
+
+    model_args_b, word2idx_b, idx2word_b, autoencoder_b, gan_gen_b, gan_disc_b \
+        = load_models_baseline("/dev/yoon/ARAE/pytorch/maxlen30")
 
     ###########################################################################
     # Generation code
@@ -88,17 +122,37 @@ def main(args):
         noise1.normal_()
         noise2 = torch.ones(args.ninterpolations, model_args['z_size'])
         noise2.normal_()
-        interps = interpolate(autoencoder, gan_gen,
-                              z1=noise1,
-                              z2=noise2,
+        gan_gen.eval()
+        noise1 = Variable(noise1, volatile=True)
+        noise2 = Variable(noise2, volatile=True)
+        h1 = gan_gen(noise1)
+        h2 = gan_gen(noise2)
+        h3 = hidden_to_hidden(h1,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
+        h4 = hidden_to_hidden(h2,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
+        interps = interpolate_hidden(autoencoder,
+                              z1=h1,
+                              z2=h2,
                               vocab=idx2word,
                               steps=args.steps,
                               sample=args.sample,
                               maxlen=model_args['maxlen'])
 
+        interps2 = interpolate_hidden(autoencoder_b,
+                              z1=h3,
+                              z2=h4,
+                              vocab=idx2word_b,
+                              steps=args.steps,
+                              sample=args.sample,
+                              maxlen=model_args_b['maxlen'])
+
         if not args.noprint:
-            print("\nSentence interpolations:\n")
+            print("\nSentence interpolations exp13:\n")
             for interp in interps:
+                for sent in interp:
+                    print(sent)
+                print("")
+            print("\nSentence interpolations baseline:\n")
+            for interp in interps2:
                 for sent in interp:
                     print(sent)
                 print("")

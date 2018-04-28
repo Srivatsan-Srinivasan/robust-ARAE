@@ -640,8 +640,47 @@ class Seq2Seq(nn.Module):
         self.encoder.flatten_parameters()
         self.decoder.flatten_parameters()
 
+#exp22
+def load_models_exp22(load_path, old=False):
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
 
-def load_models(load_path, old=False):
+    autoencoder = Seq2Seq(emsize=model_args['emsize'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
+                          ntokens=model_args['ntokens'],
+                          nlayers=model_args['nlayers'],
+                          hidden_init=model_args['hidden_init'],
+                          norm_penalty=model_args['norm_penalty'],
+                          dropout=model_args['dropout'],
+                          )
+    gan_gen = MLP_G(ninput=model_args['z_size'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                    layers=model_args['arch_g'],
+                    batchnorm=model_args['bn_gen']
+                    )
+    gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                     noutput=1,
+                     layers=model_args['arch_d'],
+                     spectralnorm=model_args['spectralnorm'],
+                     batchnorm=model_args['bn_disc'],
+                     std_minibatch=model_args['std_minibatch']
+                     )
+
+    print('Loading models from' + load_path)
+    ae_path = os.path.join(load_path, "autoencoder_model.pt")
+    gen_path = os.path.join(load_path, "gan_gen_model.pt")
+    disc_path = os.path.join(load_path, "gan_disc_model.pt")
+
+    autoencoder.load_state_dict(t.load(ae_path))
+    gan_gen.load_state_dict(t.load(gen_path))
+    gan_disc.load_state_dict(t.load(disc_path))
+    return model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc
+
+
+
+def load_models_exp13(load_path, old=False):
     """
 
     :param load_path:
@@ -655,13 +694,78 @@ def load_models(load_path, old=False):
     model_args = json.load(open("{}/args.json".format(load_path), "r"))
     word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
     idx2word = {v: k for k, v in word2idx.items()}
-
+    print(model_args)
     autoencoder = Seq2Seq(emsize=model_args['emsize'],
                           nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                           nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'])
+    gan_gen = MLP_G(ninput=model_args['z_size'],
+                    noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                    layers=model_args['arch_g'],
+                    batchnorm=model_args['bn_gen']
+                    )
+    gan_disc = MLP_D(ninput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                     noutput=1,
+                     layers=model_args['arch_d'],
+                     spectralnorm=model_args['spectralnorm'],
+                     batchnorm=model_args['bn_disc'],
+                     std_minibatch=model_args['std_minibatch']
+                     )
+
+    print('Loading models from' + load_path)
+    ae_path = os.path.join(load_path, "autoencoder_model.pt")
+    gen_path = os.path.join(load_path, "gan_gen_model.pt")
+    disc_path = os.path.join(load_path, "gan_disc_model.pt")
+
+    autoencoder.load_state_dict(t.load(ae_path))
+    gan_gen.load_state_dict(t.load(gen_path))
+    gan_disc.load_state_dict(t.load(disc_path))
+    return model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc
+
+def load_models_baseline(load_path):
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+    print(model_args)
+    autoencoder = Seq2Seq(emsize=model_args['emsize'],
+                          nhidden=model_args['nhidden'],
+                          ntokens=model_args['ntokens'],
+                          nlayers=model_args['nlayers'],
+                          hidden_init=model_args['hidden_init'])
+    gan_gen = MLP_G(ninput=model_args['z_size'],
+                    noutput=model_args['nhidden'],
+                    layers=model_args['arch_g'])
+    gan_disc = MLP_D(ninput=model_args['nhidden'],
+                     noutput=1,
+                     layers=model_args['arch_d'])
+
+    print('Loading models from'+load_path)
+    ae_path = os.path.join(load_path, "autoencoder_model.pt")
+    gen_path = os.path.join(load_path, "gan_gen_model.pt")
+    disc_path = os.path.join(load_path, "gan_disc_model.pt")
+
+    autoencoder.load_state_dict(torch.load(ae_path))
+    gan_gen.load_state_dict(torch.load(gen_path))
+    gan_disc.load_state_dict(torch.load(disc_path))
+    return model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc
+
+def load_models_baseline_old(load_path, old=False):
+
+    model_args = json.load(open("{}/args.json".format(load_path), "r"))
+    word2idx = json.load(open("{}/vocab.json".format(load_path), "r"))
+    idx2word = {v: k for k, v in word2idx.items()}
+
+    autoencoder = Seq2Seq(emsize=model_args['emsize'],
+                          nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
+                          nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
+                          ntokens=model_args['ntokens'],
+                          nlayers=model_args['nlayers'],
+                          hidden_init=model_args['hidden_init'],
+                          norm_penalty=model_args['norm_penalty'],
+                          dropout=model_args['dropout'],
+                          )
     gan_gen = MLP_G(ninput=model_args['z_size'],
                     noutput=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                     layers=model_args['arch_g'],
@@ -770,6 +874,108 @@ def load_disc(load_path, old=False):
     gan_disc.load_state_dict(t.load(disc_path))
     return model_args, word2idx, idx2word, gan_disc
 
+def noise_to_noise(z,ae_from,gg_from,ae_to,gg_to,idx2word_from,word2idx_to):
+     """
+     Assume noise is batch_size x z_size
+     """
+     if type(z) == Variable:
+         noise = z
+     elif type(z) == t.FloatTensor or type(z) == t.cuda.FloatTensor:
+         noise = Variable(z, volatile=True)
+     elif type(z) == np.ndarray:
+         noise = Variable(t.from_numpy(z).float(), volatile=True)
+     else:
+         raise ValueError("Unsupported input type (noise): {}".format(type(z)))
+     
+     gg_from.eval()
+     gg_to.eval()
+     ae_from.eval()
+     ae_to.eval()
+     
+     # generate from random noise
+     fake_hidden = gg_from(noise)
+     max_indices = ae_from.generate(hidden=fake_hidden,
+                                        maxlen=maxlen,
+                                        sample=sample)
+     
+     max_indices = max_indices.data.cpu().numpy()
+     max_indices_tos = []
+     for idx in max_indices:
+         # generated sentence
+         #words = [vocab[x] for x in idx]
+         if type(idx[0]) is np.ndarray: 
+             max_indices_to = [word2idx_to[idx2word_from[x[0]]] for x in idx]
+         else:
+             max_indices_to = [word2idx_to[idx2word_from[x]] for x in idx]
+         max_indices_tos.append(max_indices_to)
+     return max_indices_tos
+
+def hidden_to_hidden(fake_hidden,ae_from,ae_to,idx2word_from,word2idx_to,maxlen,sample):
+     ae_from.eval()
+     ae_to.eval()
+
+     # generate from random noise
+     max_indices = ae_from.generate(hidden=fake_hidden,
+                                        maxlen=maxlen,
+                                        sample=sample)
+
+     max_indices = max_indices.data.cpu().numpy()
+     max_indices_tos = []
+     lengths = []
+     for idx in max_indices:
+         # generated sentence
+         #words = [vocab[x] for x in idx]
+         if type(idx[0]) is np.ndarray:
+             max_indices_to = [word2idx_to[idx2word_from[x[0]]] for x in idx]
+             length = 0
+             for x in idx:
+                 if idx2word_from[x[0]] == '<eos>':
+                     break
+                 length += 1
+             lengths.append(length)
+         else:
+             max_indices_to = [word2idx_to[idx2word_from[x]] for x in idx]
+             length = 0
+             for x in idx:
+                 if idx2word_from[x] == '<eos>':
+                     break
+                 length += 1
+             lengths.append(length)
+         max_indices_tos.append(max_indices_to)
+     max_indices_tos = t.LongTensor(max_indices_tos)
+     #now we encode to new ae z-space
+     hidden_to = ae_to.encode(max_indices_tos, lengths, noise)
+
+     return max_indices_tos
+
+def generate_from_hidden(autoencoder, fake_hidden, vocab, sample, maxlen):
+    autoencoder.eval()
+
+    # generate from random noise
+    max_indices = autoencoder.generate(hidden=fake_hidden,
+                                       maxlen=maxlen,
+                                       sample=sample)
+
+    max_indices = max_indices.data.cpu().numpy()
+    sentences = []
+    for idx in max_indices:
+        # generated sentence
+        #words = [vocab[x] for x in idx]
+        if type(idx[0]) is np.ndarray:
+            words = [vocab[x[0]] for x in idx]
+        else:
+            words = [vocab[x] for x in idx]
+        # truncate sentences to first occurrence of <eos>
+        truncated_sent = []
+        for w in words:
+            if w != '<eos>':
+                truncated_sent.append(w)
+            else:
+                break
+        sent = " ".join(truncated_sent)
+        sentences.append(sent)
+
+    return sentences
 
 def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
     """
@@ -797,7 +1003,11 @@ def generate(autoencoder, gan_gen, z, vocab, sample, maxlen):
     sentences = []
     for idx in max_indices:
         # generated sentence
-        words = [vocab[x] for x in idx]
+        #words = [vocab[x] for x in idx]
+        if type(idx[0]) is np.ndarray:
+            words = [vocab[x[0]] for x in idx]
+        else:
+            words = [vocab[x] for x in idx]
         # truncate sentences to first occurrence of <eos>
         truncated_sent = []
         for w in words:

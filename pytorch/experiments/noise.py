@@ -49,7 +49,7 @@ if __name__ == "__main__":
     parser.add_argument('--load_path', type=str,
                         help='directory to load models from')
     args = parser.parse_args()
-    model_args, idx2word, autoencoder, gan_gen, gan_disc \
+    model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc \
         = load_models(args.load_path)
 
     main(args)

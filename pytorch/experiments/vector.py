@@ -175,7 +175,7 @@ if __name__ == "__main__":
     parser.add_argument('--alter', type=str, default="")
     parser.add_argument('--nsent', type=int, default=100)
     args = parser.parse_args()
-    model_args, idx2word, autoencoder, gan_gen, gan_disc \
+    model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc \
         = load_models(args.load_path)
 
     main(args)
