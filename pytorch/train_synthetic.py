@@ -234,7 +234,7 @@ corpus = SyntheticCorpus(train, test,
                          vocab_size=args.vocab_size)
 
 # save arguments
-ntokens = corpus.vocab_size
+ntokens = corpus.vocab_size + 4
 print("Vocabulary Size: {}".format(ntokens))
 args.ntokens = ntokens
 with open('./output/{}/args.json'.format(args.outf), 'w') as f:

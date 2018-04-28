@@ -350,10 +350,6 @@ class Seq2Seq(nn.Module):
         # Vocabulary embedding
         self.embedding = nn.Embedding(ntokens, emsize)
         self.embedding_decoder = nn.Embedding(ntokens, emsize)
-        print('self.embedding')
-        print(self.embedding)
-        print('self.embedding_decoder')
-        print(self.embedding_decoder)
 
         # Embedding dropouts
         if self.dropout is not None:
