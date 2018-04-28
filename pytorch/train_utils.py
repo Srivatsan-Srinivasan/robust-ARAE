@@ -27,7 +27,7 @@ def get_synthetic_dataset(args):
         dataset = pickle.load(f)
     dataset_ = []
     for i,l in dataset.items():
-        dataset_ += l.tolist()
+        dataset_ += l
     dataset = shuffle(dataset_)
     n = len(dataset)
     train, test = dataset[:int(.95 * n)], dataset[int(.95 * n):]
