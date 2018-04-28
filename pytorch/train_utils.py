@@ -6,6 +6,32 @@ from torch.autograd import Variable
 from torch.nn import functional as F
 from models import Seq2Seq
 from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold
+import pickle
+from sklearn.utils import shuffle
+import torch as t
+from synthetic_oracle import Oracle
+
+
+def load_oracle(args):
+    oracle = Oracle(300, 300, 11000, 1, gpu=True, gpu_id=1)
+    oracle.load_state_dict(t.load(args.data_path+'/synthetic_oracle.pt'))
+    return oracle
+
+
+def get_synthetic_dataset(args):
+    """
+    Returns the train/test lists from the file `<args.data_path>/synthetic_dataset.pkl`
+    These two lists are used to instantiate the SyntheticCorpus
+    """
+    with open(args.data_path + '/synthetic_dataset.pkl', 'rb') as f:
+        dataset = pickle.load(f)
+    dataset_ = []
+    for l in dataset:
+        dataset_ += l.tolist()
+    dataset = shuffle(dataset_)
+    n = len(dataset)
+    train, test = dataset[:int(.95 * n)], dataset[int(.95 * n):]
+    return train, test
 
 
 def get_optimizers_gan(gan_gen, gan_disc, args):
@@ -45,7 +71,6 @@ def save_model(autoencoder, gan_gen, gan_disc, args, last=False, intermediate=Fa
             torch.save(gan_gen.state_dict(), f)
         with open('./output/{}/gan_disc_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
             torch.save(gan_disc.state_dict(), f)
-
 
 
 def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, args):
@@ -91,6 +116,38 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
                 chars = " ".join([corpus.dictionary.idx2word[x] for x in idx])
                 f.write(chars)
                 f.write("\n\n")
+
+    return total_loss[0] / len(data_source), all_accuracies / bcnt
+
+
+def evaluate_autoencoder_synthetic(autoencoder, corpus, criterion_ce, data_source, epoch, args):
+    # Turn on evaluation mode which disables dropout.
+    autoencoder.eval()
+    total_loss = 0
+    ntokens = corpus.vocab_size
+    all_accuracies = 0
+    bcnt = 0
+    for i, batch in enumerate(data_source):
+        source, target, lengths = batch
+        source = to_gpu(args.cuda, Variable(source, volatile=True), gpu_id=args.gpu_id)
+        target = to_gpu(args.cuda, Variable(target, volatile=True), gpu_id=args.gpu_id)
+
+        mask = target.gt(0)  # remove padding
+        masked_target = target.masked_select(mask)
+        # examples x ntokens
+        output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
+
+        # output: batch x seq_len x ntokens
+        output = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True)  # output = autoencoder(source, lengths, noise=True)
+        flattened_output = output.view(-1, ntokens)
+
+        masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)
+        total_loss += criterion_ce(masked_output / args.temp, masked_target).data
+
+        # accuracy
+        max_vals, max_indices = torch.max(masked_output, 1)
+        all_accuracies += torch.mean(max_indices.eq(masked_target).float()).data[0]
+        bcnt += 1
 
     return total_loss[0] / len(data_source), all_accuracies / bcnt
 
@@ -166,6 +223,27 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
         lines = f.readlines()
     sentences = [l.replace('\n', '') for l in lines]
     ppl = get_ppl(lm, sentences)
+
+    return ppl
+
+
+def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
+    """Evaluate the performance of a simple language model (KENLM) that is trained on synthetic sentences"""
+    # generate 100000 examples
+    indices = []
+    noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
+    for i in range(1000):
+        noise.data.normal_(0, 1)
+
+        fake_hidden = gan_gen(noise)
+        max_indices = autoencoder.generate(fake_hidden, args.maxlen)
+        indices.append(max_indices.data.cpu().numpy())
+
+    indices = np.concatenate(indices, axis=0)
+
+    # train language model on generated examples
+    lengths = t.sum((indices > 2).long(), 1).data.cpu().numpy().tolist()
+    ppl = oracle.get_ppl(indices, lengths)
 
     return ppl
 

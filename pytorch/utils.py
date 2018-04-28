@@ -322,6 +322,20 @@ class Corpus(object):
         return lines
 
 
+class SyntheticCorpus(object):
+    def __init__(self, train, test, maxlen, vocab_size=11000, lowercase=False):
+        """
+        :param train, test: list of lists of integers
+        """
+        self.dictionary = Dictionary()
+        self.maxlen = maxlen
+        self.lowercase = lowercase
+        self.vocab_size = vocab_size
+
+        self.train = train
+        self.test = test
+
+
 def batchify(data, bsz, shuffle=False, gpu=False, gpu_id=None):
     """
     Transform a list of data into batched torch Tensors
