@@ -496,6 +496,10 @@ class Seq2Seq(nn.Module):
         if noise and self.noise_radius > 0:  # noise to make the task of the discriminator harder in the beginning of training
             gauss_noise = t.normal(means=t.zeros(hidden.size()),
                                    std=self.noise_radius)
+            print('hidden')
+            print(hidden)
+            print('self.gpu_id')
+            print(self.gpu_id)
             hidden = hidden + to_gpu(self.gpu, Variable(gauss_noise), gpu_id=self.gpu_id)
 
         if keep_hidden:
