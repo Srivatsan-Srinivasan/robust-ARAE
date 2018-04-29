@@ -74,7 +74,7 @@ class Oracle(t.nn.Module):
             inputs = embedding*1.
 
         max_indices = t.stack(all_indices, 1)
-        return max_indices.squeeze() + 4  # avoid the 3 first tokens that are used for padding/start/end. Note that there is no OOV
+        return max_indices.squeeze() + 3  # avoid the 3 first tokens that are used for padding/start/end. Note that there is no OOV
 
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
