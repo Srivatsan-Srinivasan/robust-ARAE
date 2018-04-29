@@ -6,7 +6,7 @@ import torch
 from torch.autograd import Variable
 
 from models import load_models_exp13,load_models_exp22,load_models_baseline, generate
-from models import generate_from_hidden
+from models import generate_from_hidden,sentence_to_hidden
 ###############################################################################
 # Generation methods
 ###############################################################################
@@ -91,10 +91,10 @@ def main(args):
 
     model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc \
         = load_models_exp13(args.load_path)
-
+    """
     model_args_b, word2idx_b, idx2word_b, autoencoder_b, gan_gen_b, gan_disc_b \
         = load_models_baseline("/dev/yoon/ARAE/pytorch/maxlen30")
-
+    """
     ###########################################################################
     # Generation code
     ###########################################################################
@@ -127,8 +127,12 @@ def main(args):
         noise2 = Variable(noise2, volatile=True)
         h1 = gan_gen(noise1)
         h2 = gan_gen(noise2)
-        h3 = hidden_to_hidden(h1,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
-        h4 = hidden_to_hidden(h2,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
+        sent1 = ["the conductor is currently wearing a sports .","the men are moving and taking a nap outside .","a man in a business suit is riding the other in a high","a man with blond-hair and a female asleep outside the room .","a man with a gray t-shirt on his cellphone and a few other people walking in the air ."]
+        sent2 = ["a male dog poses with a white shovel at the end of snow .","a man is wearing an apron and the other female jumps in the ocean with a stick .","a boy wears a tan suit with a blue shirt .","a man wearing jeans and a white t-shirt is sleeping in an empty room holding a basket .","a man is trying to <oov> a bike ."]
+        #h3 = hidden_to_hidden(h1,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
+        #h4 = hidden_to_hidden(h2,autoencoder,autoencoder_b,idx2word,word2idx_b,args.sample,model_args_b['maxlen'])
+        h1 = sentence_to_hidden(sent1,autoencoder,word2idx,args.sample,model_args['maxlen']);
+        h2 = sentence_to_hidden(sent2,autoencoder,word2idx,args.sample,model_args['maxlen']);
         interps = interpolate_hidden(autoencoder,
                               z1=h1,
                               z2=h2,
@@ -136,7 +140,7 @@ def main(args):
                               steps=args.steps,
                               sample=args.sample,
                               maxlen=model_args['maxlen'])
-
+        """
         interps2 = interpolate_hidden(autoencoder_b,
                               z1=h3,
                               z2=h4,
@@ -144,7 +148,7 @@ def main(args):
                               steps=args.steps,
                               sample=args.sample,
                               maxlen=model_args_b['maxlen'])
-
+        """
         if not args.noprint:
             print("\nSentence interpolations exp13:\n")
             for interp in interps:

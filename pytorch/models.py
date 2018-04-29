@@ -948,6 +948,28 @@ def hidden_to_hidden(fake_hidden,ae_from,ae_to,idx2word_from,word2idx_to,maxlen,
 
      return max_indices_tos
 
+def sentence_to_hidden(sentences,autoencoder,word2idx,sample,maxlen):
+     autoencoder.eval()
+     sentences = [x.split() for x in sentences]
+
+     eos = word2idx['<eos>']
+
+     indices_all = []
+     lengths = []
+     for sentence in sentences:
+         indices = [word2idx[x] for x in sentence] + (maxlen-len(sentence))*[eos]
+         length = len(sentence)
+         lengths.append(length)
+         indices_all.append(indices)
+     #indices_all = t.LongTensor(indices_all)
+
+     indices_all = [x for (y,x) in sorted(zip(lengths,indices_all), key=lambda pair: pair[0],reverse=True)]
+     lengths = sorted(lengths,reverse=True)
+     indices_all = t.LongTensor(indices_all)
+     hiddens = autoencoder.encode(Variable(indices_all), lengths, False)
+
+     return hiddens
+
 def generate_from_hidden(autoencoder, fake_hidden, vocab, sample, maxlen):
     autoencoder.eval()
 
