@@ -61,7 +61,9 @@ test_snli_file = '../snli_lm/test.txt'
 exp13 = '../generated_data/generated_exp13.txt'
 exp13b = '../generated_data/generated_exp13b.txt'
 exp22 = '../generated_data/generated_exp22.txt'
-generated_Files = {'exp13':exp13, 'exp13b':exp13b, 'exp22':exp22}
+exp23 = '../generated_data/generated_exp23ddd_63ppl.txt'
+
+generated_Files = {'exp13':exp13, 'exp13b':exp13b, 'exp22':exp22, 'exp23': exp23}
 
 with open(test_snli_file) as f:
     sample_content = f.readlines()
@@ -71,9 +73,9 @@ reference_num = min(len(test_samples), 10000)
 trimmed_test_sent = sample(test_samples, reference_num)
 test_sent_as_dict, test_tokens_as_dict = return_length_dict(trimmed_test_sent)
 
-name_map = {exp13: 'exp_13', exp22  :'exp_22', exp13b : 'exp_13b'}
+name_map = {exp13: 'exp_13', exp22  :'exp_22', exp13b : 'exp_13b', exp23 : 'exp23'}
 
-for experiment in [exp13, exp13b,exp22]:
+for experiment in [exp23]:
     with open(experiment) as f:
         gen_content = f.readlines()
     # you may also want to remove whitespace characters like `\n` at the end of each line
