@@ -44,7 +44,7 @@ class Oracle(t.nn.Module):
         hidden = self.init_hidden(indices.size(0))
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
-        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=max(lengths)) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
+        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
         return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
 
     def generate(self, batch_size, maxlen, sample=True, temp=1.):
