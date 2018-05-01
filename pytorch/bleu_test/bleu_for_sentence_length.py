@@ -20,13 +20,13 @@ def return_length_dict(content, gen = False) :
     for sentence in tqdm(content):
        tokens = tknzr.tokenize(sentence)
        length = len(tokens)
-       
-       if length in corpus_as_dict_sent:
-           corpus_as_dict_sent[length].append(sentence)
-           corpus_as_dict_tokens[length].append(tokens)
-       else:
-           corpus_as_dict_sent[length] = [sentence]
-           corpus_as_dict_tokens[length] = [tokens]
+       if length <= 30:
+           if length in corpus_as_dict_sent:
+               corpus_as_dict_sent[length].append(sentence)
+               corpus_as_dict_tokens[length].append(tokens)
+           else:
+               corpus_as_dict_sent[length] = [sentence]
+               corpus_as_dict_tokens[length] = [tokens]
            
     return corpus_as_dict_sent, corpus_as_dict_tokens
 
@@ -58,31 +58,51 @@ def calculate_corpus_bleu_by_length(test_tokens_as_dict, generation_tokens_as_di
     pickle.dump(corpus_bleu_by_length, open( save_filename + "_BLEU.p", "wb" )  )
 
 test_snli_file = '../snli_lm/test.txt'
+train_snli_file = '../snli_lm/train.txt'
 exp13 = '../generated_data/generated_exp13.txt'
 exp13b = '../generated_data/generated_exp13b.txt'
 exp22 = '../generated_data/generated_exp22.txt'
 exp23 = '../generated_data/generated_exp23ddd_63ppl.txt'
+exp25 = '../generated_data/generated_exp25.txt'
 
-generated_Files = {'exp13':exp13, 'exp13b':exp13b, 'exp22':exp22, 'exp23': exp23}
+generated_Files = {'exp13':exp13, 'exp13b':exp13b, 'exp22':exp22, 'exp23': exp23, 'exp25':exp25}
 
 with open(test_snli_file) as f:
-    sample_content = f.readlines()
+    sample_content_test = f.readlines()
+with open(train_snli_file) as f:
+    sample_content_train = f.readlines()
+#sample_content = sample_content_test + sample_content_train
+sample_content = sample_content_test
 # you may also want to remove whitespace characters like `\n` at the end of each line
 test_samples = [x.strip() for x in sample_content ] 
-reference_num = min(len(test_samples), 10000)
-trimmed_test_sent = sample(test_samples, reference_num)
-test_sent_as_dict, test_tokens_as_dict = return_length_dict(trimmed_test_sent)
+#import pdb; pdb.set_trace()
+test_sent_as_dict, test_tokens_as_dict = return_length_dict(test_samples)
 
-name_map = {exp13: 'exp_13', exp22  :'exp_22', exp13b : 'exp_13b', exp23 : 'exp23'}
+test_number_map = {}
+for i in list(test_tokens_as_dict.keys()):
+    value = test_tokens_as_dict[i]
+    num = min(100000, len(value))
+    test_tokens_as_dict[i] = sample(value, num)
+    test_number_map[i] = num
+pickle.dump(test_number_map, open('test_data_numbers.p', "wb"))
 
-for experiment in [exp23]:
+name_map = {exp13: 'exp_13', exp22  :'exp_22', exp13b : 'exp_13b', exp23 : 'exp_23', exp25 : 'exp_25'}
+
+for experiment in [exp22, exp23, exp25, exp13b]:
     with open(experiment) as f:
         gen_content = f.readlines()
     # you may also want to remove whitespace characters like `\n` at the end of each line
     generated_samples = [x.strip() for x in gen_content] 
-    hypotheses_num = min(len(generated_samples), 1000)
-    trimmed_gen = sample(generated_samples, hypotheses_num)
-    generation_sent_as_dict, generation_tokens_as_dict = return_length_dict(trimmed_gen, gen = True)
+    generation_sent_as_dict, generation_tokens_as_dict = return_length_dict(generated_samples, gen = True)
+    generation_number_map = {}
+    
+    for i in list(generation_tokens_as_dict.keys()):
+        value = generation_tokens_as_dict[i]        
+        num = min(1000, len(value))
+        generation_tokens_as_dict[i] = sample(value, num)
+        generation_number_map[i] = num
+    pickle.dump(generation_number_map, open('gen_data_numbers_' + name_map[experiment] +'.p', "wb"))
+       
     calculate_corpus_bleu_by_length(test_tokens_as_dict, generation_tokens_as_dict, save_filename = name_map[experiment])
     print(name_map[experiment] + ' over.')
 
