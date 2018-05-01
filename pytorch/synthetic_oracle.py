@@ -7,7 +7,7 @@ Finally, you train your ARAE variant on this, and you can evaluate through train
 import torch as t
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.nn.functional as F
-from utils import variable, to_gpu
+from utils import variable, to_gpu, pad_packed_sequence
 
 
 class Oracle(t.nn.Module):
@@ -44,7 +44,8 @@ class Oracle(t.nn.Module):
         hidden = self.init_hidden(indices.size(0))
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
-        return self.linear(packed_output)
+        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=max(lengths)) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
+        return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
 
     def generate(self, batch_size, maxlen, sample=True, temp=1.):
         state = self.init_hidden(batch_size)
