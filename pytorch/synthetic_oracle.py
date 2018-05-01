@@ -45,7 +45,10 @@ class Oracle(t.nn.Module):
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
-        return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
+        print('output.size()')
+        print(output.size())
+        return self.linear(output)
+        # return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
 
     def generate(self, batch_size, maxlen, sample=True, temp=1.):
         state = self.init_hidden(batch_size)
