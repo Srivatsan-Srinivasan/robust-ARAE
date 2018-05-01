@@ -14,13 +14,14 @@ def l2normalize(v, eps=1e-12):
 
 
 class SpectralNorm(nn.Module):
-    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=10000):
+    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=10000, logname=''):
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name
         self.power_iterations = power_iterations
         self.update_count = 0
         self.log_freq = log_freq
+        self.logname = logname
         self.writer = writer
         if not self._made_params():
             self._make_params()
@@ -45,9 +46,9 @@ class SpectralNorm(nn.Module):
         if self.update_count % self.log_freq == 0:
             true_sigma = np.linalg.norm(w.data.cpu().numpy(), 2)
             sig = sigma.data.cpu().numpy()[0]
-            self.writer.add_scalar('spectral_norm_approx_'+self.name, sig, self.update_count) if self.writer is not None else None
-            self.writer.add_scalar('spectral_norm_true_'+self.name, true_sigma, self.update_count) if self.writer is not None else None
-            self.writer.add_scalar('spectral_norm_error_'+self.name, np.abs(true_sigma - sig), self.update_count) if self.writer is not None else None
+            self.writer.add_scalar('spectral_norm_approx_'+self.logname, sig, self.update_count) if self.writer is not None else None
+            self.writer.add_scalar('spectral_norm_true_'+self.logname, true_sigma, self.update_count) if self.writer is not None else None
+            self.writer.add_scalar('spectral_norm_error_'+self.logname, np.abs(true_sigma - sig), self.update_count) if self.writer is not None else None
 
         self.update_count += 1
 

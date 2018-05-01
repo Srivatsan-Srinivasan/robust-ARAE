@@ -42,7 +42,7 @@ class MLP_D(nn.Module):
 
         for i in range(len(layer_sizes) - 1):
             if spectralnorm:
-                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer=writer, log_freq=log_freq, name='layer'+str(i))
+                layer = SpectralNorm(nn.Linear(layer_sizes[i], layer_sizes[i + 1]), writer=writer, log_freq=log_freq, logname='layer'+str(i))
             else:
                 layer = nn.Linear(layer_sizes[i], layer_sizes[i + 1])
             setattr(self, 'layer' + str(i + 1), layer)
@@ -55,7 +55,7 @@ class MLP_D(nn.Module):
             setattr(self, 'activation' + str(i + 1), activation)
 
         if spectralnorm:
-            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput), writer=writer, log_freq=log_freq, name='layer'+str(len(layer_sizes)))
+            layer = SpectralNorm(nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput), writer=writer, log_freq=log_freq, logname='layer'+str(len(layer_sizes)))
         else:
             layer = nn.Linear(layer_sizes[-1] + int(std_minibatch), noutput)
 
