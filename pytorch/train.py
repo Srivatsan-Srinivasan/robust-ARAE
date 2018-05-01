@@ -316,9 +316,9 @@ allow_termination = True
 if args.progressive_vocab :
     # This will still retain overall number of tokens to the initial vocabulary size, just modify data.
     orig_corpus = deepcopy(corpus)
-    if args.POV_vocab:
-        corpus.test = retokenize_data_for_POS(orig_corpus.test, POS_Schedule[prog_vocab_iterator], orig_corpus.dictionary)
-        corpus.train = retokenize_data_for_POS(orig_corpus.train, POS_Schedule[prog_vocab_iterator], orig_corpus.dictionary)
+    if args.POS_vocab:
+        corpus.test = retokenize_data_for_POS(orig_corpus.test, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
+        corpus.train = retokenize_data_for_POS(orig_corpus.train, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
     else:
         corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
         corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
@@ -451,13 +451,14 @@ while epoch <= args.epochs:
             
             #Check if we need to progress vocabulary.
             if niter_global % 1000 == 0 and args.progressive_vocab:
-                if prog_vocab_iterator < len(prog_vocab_list) - 1:
+                cutoff = len(POS_Schedule) - 1 if args.POS_vocab else len(prog_vocab_list) - 1
+                if prog_vocab_iterator < cutoff:
                     test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args, log = False)
                     if accuracy > args.vocabulary_switch_cutoff :
                             prog_vocab_iterator += 1                            
                             if args.POS_vocab:
-                                corpus.test = retokenize_data_for_POS(orig_corpus.test, POS_Schedule[prog_vocab_iterator], orig_corpus.dictionary)
-                                corpus.train = retokenize_data_for_POS(orig_corpus.train, POS_Schedule[prog_vocab_iterator], orig_corpus.dictionary)                                
+                                corpus.test = retokenize_data_for_POS(orig_corpus.test, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
+                                corpus.train = retokenize_data_for_POS(orig_corpus.train, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])                                
                                 allow_termination = ( prog_vocab_iterator == len(POS_Schedule) - 1 )
                                 if args.tensorboard : 
                                     writer.add_scalar('POS_vocab_iterator', prog_vocab_iterator, epoch)
@@ -465,7 +466,7 @@ while epoch <= args.epochs:
                                 corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
                                 corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
                                 print("After modification vocab of train : %d, test : %d", max([max(s) for s in corpus.train]), max([max(s) for s in corpus.test]))
-			                      allow_termination = ( prog_vocab_iterator == len(prog_vocab_list) - 1 ) 
+                                allow_termination = ( prog_vocab_iterator == len(prog_vocab_list) - 1 ) 
                                 if args.tensorboard :
                                     writer.add_scalar('progressive_vocab_size', prog_vocab_list[prog_vocab_iterator], epoch)
                             

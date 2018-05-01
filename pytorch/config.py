@@ -27,7 +27,8 @@ Key_to_POS_Map = get_reverse_POS_Map(POS_Map)
 POS_Schedule = [
 {'Noun' :1000, 'Verb' : 500, 'Adjective' :200, 'Adverb' :50, 'Misc':30, 'Pronoun': 10, 'Others':0},
 {'Noun' :3000, 'Verb' : 1000, 'Adjective' :400, 'Adverb' :100, 'Misc':50, 'Pronoun': 20, 'Others':30},
-{'Noun' :5000, 'Verb' : 1700, 'Adjective' :800, 'Adverb' :200, 'Misc':100, 'Pronoun': 44, 'Others':97}
+{'Noun' :5000, 'Verb' : 1700, 'Adjective' :800, 'Adverb' :200, 'Misc':100, 'Pronoun': 44, 'Others':97},
+['all']
 ]
     
 prog_vocab_list = [1000, 2000, 5000, 8000, 11000]

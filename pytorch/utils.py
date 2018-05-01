@@ -4,7 +4,7 @@ import random
 import torch as t
 import time
 from nltk import pos_tag
-from config import *
+from config import POS_Map, Key_to_POS_Map, POS_Schedule, prog_vocab_list 
 from tqdm import tqdm
 class Timer(object):
     """
@@ -463,16 +463,16 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
 
 def get_int_token_POS(word, POS_schedule, Dictionary):
     for k in list(POS_schedule.keys()):
-        if word in Dictionary.pos2wordids[:POS_schedule[k]]:
+        if word in Dictionary.pos2wordids[k][:POS_schedule[k]]:
             return word        
         else:
-            pos = Key_to_POS_Map[Dictionary.int_word2pos[word]]
+            pos = Dictionary.int_word2pos[word]
             return Dictionary.word2idx['<oov_' + k + '>']            
     
 def retokenize_sentence_for_POS_schedule(sentence, POS_schedule, Dictionary):      
     return [get_int_token_POS(word, POS_schedule, Dictionary) for word in sentence]
 
-def retokenize_data_for_POS(data, POS_schedule = ['all'], Dictionary):
+def retokenize_data_for_POS(data,Dictionary, POS_schedule = ['all']): 
     if POS_schedule == ['all']:
         return data 
     data = [retokenize_sentence_for_POS_schedule(sentence, POS_schedule, Dictionary) for sentence in data]
