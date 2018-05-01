@@ -203,24 +203,32 @@ def return_POS_list(words):
 
 class Dictionary(object):
     def __init__(self, POS_Vocab = False):
-        self.word2idx = {}        
-        self.word2pos = {}  
+        self.word2idx = {} 
+        self.idx2word = {}
+         
+        
         #Given POS, returns ;ist of integer mapping of words in POS descending order of frequency
         #on the pruned vocabulary.
         self.pos2wordids = {}
-        self.idx2word = {}
+        self.int_word2pos = {}
+        self.word2pos = {}         
         self.POS_Vocab = POS_Vocab
         
         self.word2idx['<pad>'] = 0
         self.word2idx['<sos>'] = 1
         self.word2idx['<eos>'] = 2
         self.word2idx['<oov>'] = 3
-        
+                           
         if self.POS_Vocab:
             for k in list(POS_Map.keys()):
                 self.word2idx['<oov_' + k + '>'] = len(self.word2idx)
+                self.int_word2pos[self.word2idx['<oov_' + k + '>']] = k
                 self.pos2wordids[k] = [self.word2idx['<oov_' + k + '>']]                
-                
+        
+            self.pos2wordids['Others'] =  self.pos2wordids['Others'] + [0,1,2,3]       
+            for i in [0,1,2,3]:
+                self.int_word2pos[i] = 'Others'
+            
         self.wordcounts = {}
         
     # to track word counts
@@ -257,6 +265,7 @@ class Dictionary(object):
                 if self.POS_Vocab:
                     #It will always exist since we have added it in init.
                     self.pos2wordids[self.word2pos[word]].append(self.word2idx[word])
+                    self.int_word2pos[self.word2idx[word]] = self.word2pos[word]
                                     
         print("original vocab {}; pruned to {}".
               format(len(self.wordcounts), len(self.word2idx)))
@@ -441,7 +450,7 @@ def get_ppl(lm, sentences):
     ppl = 10 ** -(total_nll / total_wc)
     return ppl
 
-
+   
 def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
     # data in format of list of lists. outer list for each sentence. inner list contains
     # words as int.
@@ -452,7 +461,23 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
     data = [retokenize_sentence(sentence, vocab_size) for sentence in data]
     return data
 
-        
+def get_int_token_POS(word, POS_schedule, Dictionary):
+    for k in list(POS_schedule.keys()):
+        if word in Dictionary.pos2wordids[:POS_schedule[k]]:
+            return word        
+        else:
+            pos = Key_to_POS_Map[Dictionary.int_word2pos[word]]
+            return Dictionary.word2idx['<oov_' + k + '>']            
+    
+def retokenize_sentence_for_POS_schedule(sentence, POS_schedule, Dictionary):      
+    return [get_int_token_POS(word, POS_schedule, Dictionary) for word in sentence]
+
+def retokenize_data_for_POS(data, POS_schedule = ['all'], Dictionary):
+    if POS_schedule == ['all']:
+        return data 
+    data = [retokenize_sentence_for_POS_schedule(sentence, POS_schedule, Dictionary) for sentence in data]
+    print("After re-tokenizing POS distribution is : ", POS_schedule)
+    return data   
         
         
     
