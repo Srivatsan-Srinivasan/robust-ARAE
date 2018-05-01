@@ -229,10 +229,10 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
 
 def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
     """Evaluate the performance of a simple language model (KENLM) that is trained on synthetic sentences"""
-    # generate 100000 examples
+    # generate 500 examples
     indices = []
     noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
-    for i in range(1000):
+    for i in range(5):
         noise.data.normal_(0, 1)
 
         fake_hidden = gan_gen(noise)
@@ -240,9 +240,7 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
         indices.append(max_indices.data.cpu().numpy())
 
     # Evaluate the PPL with the oracle
-    indices = np.concatenate(indices, axis=0)
-    print('indices.shape')
-    print(indices.shape)
+    indices = np.concatenate(indices, axis=0).squeeze()
     lengths = np.sum((indices > 2), 1).tolist()
     indices = variable(indices, gpu_id=args.gpu_id, cuda=args.cuda, to_float=False)
     ppl = oracle.get_ppl(indices-3, lengths)
