@@ -38,11 +38,6 @@ class Oracle(t.nn.Module):
 
     def forward(self, indices, lengths):
         embeddings = self.embedding(indices)
-        print('embeddings.size()')
-        print(embeddings.size())
-        print('len(lengths)')
-        print(len(lengths))
-        print(lengths)
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
@@ -50,8 +45,6 @@ class Oracle(t.nn.Module):
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
-        print('output.size()')
-        print(output.size())
         return self.linear(output)
         # return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
 
