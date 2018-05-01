@@ -3,7 +3,8 @@ import numpy as np
 import random
 import torch as t
 import time
-
+from nltk import pos_tag
+from config import *
 
 class Timer(object):
     """
@@ -67,7 +68,8 @@ def check_args(args):
         assert 0 <= args.gpu_id <= t.cuda.device_count() - 1
     if args.gpu_id is not None and args.n_gpus > 1:
         raise ValueError("If you decide to use a specific GPU (args.gpu_id is not None), you cannot also choose to use all of them (args.n_gpus > 1)")
-
+    if not args.progressive_vocab and args.POS_vocab:
+        raise ValueError("If you need to use POS Vocab set progressive vocab to true")
 
 def create_tensorboard_dir(logdir):
     if logdir not in os.listdir('tensorboard/'):
@@ -186,26 +188,53 @@ def to_gpu(gpu, var, gpu_id=None):
         return var.cuda(gpu_id)
     return var
 
+def find_pos(x, POS_Map):
+    if x in Key_to_POS_Map:
+        return Key_to_POS_Map[x]
+    else:
+        return 'Others'
+    
+def return_POS_list(words): 
+    pos_map = pos_tag(words)
+    #POS is a list of tuples of word and POS identifier.
+
+    pos_list = [find_pos(i[1]) for i in pos_map]
+    return pos_list        
 
 class Dictionary(object):
-    def __init__(self):
-        self.word2idx = {}
+    def __init__(self, POS_Vocab = False):
+        self.word2idx = {}        
+        self.word2pos = {}  
+        #Given POS, returns ;ist of integer mapping of words in POS descending order of frequency
+        #on the pruned vocabulary.
+        self.pos2wordids = {}
         self.idx2word = {}
+        self.POS_Vocab = POS_Vocab
+        
         self.word2idx['<pad>'] = 0
         self.word2idx['<sos>'] = 1
         self.word2idx['<eos>'] = 2
         self.word2idx['<oov>'] = 3
+        
+        if self.POS_Vocab:
+            for k in list(POS_Map.keys()):
+                self.word2idx['<oov_' + k + '>'] = len(self.word2idx)
+                self.pos2wordids[k] = [self.word2idx['<oov_' + k + '>']]                
+                
         self.wordcounts = {}
-
+        
     # to track word counts
-    def add_word(self, word):
+    def add_word(self, word, pos = None):
         if word not in self.wordcounts:
             self.wordcounts[word] = 1
         else:
             self.wordcounts[word] += 1
+            
+        if self.POS_Vocab:
+            self.word2pos[word] = pos
 
     # prune vocab based on count k cutoff or most frequently seen k words
-    def prune_vocab(self, k=5, cnt=False):
+    def prune_vocab(self, k=5, cnt=False, pos_map = {}):
         # get all words and their respective counts
         vocab_list = [(word, count) for word, count in self.wordcounts.items()]
         if cnt:
@@ -224,16 +253,24 @@ class Dictionary(object):
         for word in self.pruned_vocab:
             if word not in self.word2idx:
                 self.word2idx[word] = len(self.word2idx)
+                
+                if self.POS_Vocab:
+                    #It will always exist since we have added it in init.
+                    self.pos2wordids[self.word2pos[word]].append(self.word2idx[word])
+                                    
         print("original vocab {}; pruned to {}".
               format(len(self.wordcounts), len(self.word2idx)))
+        print("POS distribution in pruned vocab : ", dict(zip(list(self.pos2wordids.keys()), 
+                                                    [len(x) for x in list(self.pos2wordids.values())] ))
+             )
         self.idx2word = {v: k for k, v in self.word2idx.items()}
 
     def __len__(self):
         return len(self.word2idx)
 
-
 class Corpus(object):
-    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, word2idx=None, idx2word=None):
+    def __init__(self, path, maxlen, vocab_size=11000, lowercase=False, word2idx=None, 
+                 idx2word=None,POS_Vocab = False):
         """
         :param path: path to the directory containing the dataset
                      ex: snli_lm/
@@ -242,7 +279,7 @@ class Corpus(object):
                                    You can pass them as inputs of the Corpus so that it doesn't recompute the mappings word - idx
                                    Otherwise it would be randomly shuffled
         """
-        self.dictionary = Dictionary()
+        self.dictionary = Dictionary(POS_Vocab)
         if word2idx is not None:
             assert idx2word is not None
             self.dictionary.word2idx = word2idx
@@ -252,6 +289,7 @@ class Corpus(object):
         self.vocab_size = vocab_size
         self.train_path = os.path.join(path, 'train.txt')
         self.test_path = os.path.join(path, 'test.txt')
+        self.POS_Vocab = POS_Vocab
 
         # make the vocabulary from training set
         if word2idx is None:
@@ -260,7 +298,7 @@ class Corpus(object):
         self.train = self.tokenize(self.train_path)
         self.test = self.tokenize(self.test_path)
 
-    def make_vocab(self):
+    def make_vocab(self, POS_Vocab = False):
         assert os.path.exists(self.train_path)
         # Add words to the dictionary
         with open(self.train_path, 'r') as f:
@@ -270,8 +308,14 @@ class Corpus(object):
                     words = line[:-1].lower().split(" ")
                 else:
                     words = line[:-1].split(" ")
-                for word in words:
-                    self.dictionary.add_word(word)
+                               
+                if self.POS_Vocab:
+                    pos_list = return_POS_list(words)
+                    for word, pos in zip(words,pos_list):
+                        self.dictionary.add_word(word, pos)                        
+                else:    
+                    for word in words:
+                        self.dictionary.add_word(word)                  
 
         # prune the vocabulary
         self.dictionary.prune_vocab(k=self.vocab_size, cnt=False)
@@ -407,3 +451,18 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
 
     data = [retokenize_sentence(sentence, vocab_size) for sentence in data]
     return data
+
+def retokenize_sentence_for_POS(sentence, POS_schedule):
+        get_int_token = lambda w, v: w if (w <= v) else unk_token
+        return [get_int_token(word, vocab_size) for word in sentence]
+    
+def retokenize_data_for_given_POS_schedule(data, POS_schedule = ['all'], dictionary):
+    #trivial short circuit.
+    if POS_schedule == ['all']:
+        return data
+    else:
+        data = [retokenize_sentence_fo_POS(sentence, POS_schedule) for sentence in data]
+        
+        
+        
+    

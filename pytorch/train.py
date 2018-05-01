@@ -153,6 +153,9 @@ def init_config():
                                  'Additional loss added to the critic')
         parser.add_argument('--progressive_vocab', action='store_true',
                             help='Whether to train sequentially with increasing vocab')
+        parser.add_argument('--POS_vocab', action='store_true',
+                            help='Whether to train sequentially with increasing vocab')
+        
         parser.add_argument('--vocabulary_switch_cutoff', type=float, default = 0.85,
                             help='Accuracy cutoff to switch to next level of vocab')
         parser.add_argument('--eps_drift', type=float, default=None,
@@ -227,7 +230,9 @@ if torch.cuda.is_available():
 corpus = Corpus(args.data_path,
                 maxlen=args.maxlen,
                 vocab_size=args.vocab_size,
-                lowercase=args.lowercase)
+                lowercase=args.lowercase,
+                POS_Vocab = args.POS_vocab)
+
 # dumping vocabulary
 with open('./output/{}/vocab.json'.format(args.outf), 'w') as f:
     json.dump(corpus.dictionary.word2idx, f)
