@@ -44,12 +44,11 @@ class SpectralNorm(nn.Module):
 
         if self.update_count % self.log_freq == 0:
             true_sigma = np.linalg.norm(w.data.cpu().numpy(), 2)
-            print('true_sigma.shape')
-            print(true_sigma.shape)
-            print('sigma.shape')
-            print(sigma.data.cpu().numpy().shape)
-            self.writer.add_scalar('spectral_norm_approx_'+self.name, sigma.data.cpu().numpy(), self.update_count) if self.writer is not None else None
+            sig = sigma.data.cpu().numpy()[0]
+            self.writer.add_scalar('spectral_norm_approx_'+self.name, sig, self.update_count) if self.writer is not None else None
             self.writer.add_scalar('spectral_norm_true_'+self.name, true_sigma, self.update_count) if self.writer is not None else None
+            self.writer.add_scalar('spectral_norm_error_'+self.name, (true_sigma - sig)**2, self.update_count) if self.writer is not None else None
+
         self.update_count += 1
 
         # Setting the weight seen by the module(in this case MLP) as spectral-normalized.
