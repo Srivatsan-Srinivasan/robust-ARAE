@@ -5,7 +5,7 @@ import torch as t
 import time
 from nltk import pos_tag
 from config import *
-
+from tqdm import tqdm
 class Timer(object):
     """
     EXAMPLE:
@@ -188,7 +188,7 @@ def to_gpu(gpu, var, gpu_id=None):
         return var.cuda(gpu_id)
     return var
 
-def find_pos(x, POS_Map):
+def find_pos(x):
     if x in Key_to_POS_Map:
         return Key_to_POS_Map[x]
     else:
@@ -302,7 +302,7 @@ class Corpus(object):
         assert os.path.exists(self.train_path)
         # Add words to the dictionary
         with open(self.train_path, 'r') as f:
-            for line in f:
+            for line in tqdm(f):
                 if self.lowercase:
                     # -1 to get rid of \n character
                     words = line[:-1].lower().split(" ")
@@ -452,16 +452,6 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
     data = [retokenize_sentence(sentence, vocab_size) for sentence in data]
     return data
 
-def retokenize_sentence_for_POS(sentence, POS_schedule):
-        get_int_token = lambda w, v: w if (w <= v) else unk_token
-        return [get_int_token(word, vocab_size) for word in sentence]
-    
-def retokenize_data_for_given_POS_schedule(data, POS_schedule = ['all'], dictionary):
-    #trivial short circuit.
-    if POS_schedule == ['all']:
-        return data
-    else:
-        data = [retokenize_sentence_fo_POS(sentence, POS_schedule) for sentence in data]
         
         
         

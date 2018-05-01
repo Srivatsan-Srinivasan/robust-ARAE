@@ -14,12 +14,13 @@ POS_Map = {'Noun': ['NN','NNS','NNP', 'NNPS' ],
            'Misc' :  ['WDT', 'TO', 'POS', 'MD', 'IN', 'DT', 'EX', 'CC']
 }
 
-def reverse_POS_Map(POS_Map):
+def get_reverse_POS_Map(POS_Map):
+    reverse_POS_Map = {}
     for key in POS_Map.keys():
         vals = POS_Map[key]
         for v in list(vals):
             reverse_POS_Map[v] = key
     return reverse_POS_Map
 
-Key_to_POS_Map = reverse_POS_Map
+Key_to_POS_Map = get_reverse_POS_Map(POS_Map)
     
