@@ -16,7 +16,7 @@ class MLP_D(nn.Module):
     timer = Timer('Disc')
 
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
-                 std_minibatch=True, batchnorm=False, spectralnorm=False, writer=None, gpu_id=None, log_freq=100000,
+                 std_minibatch=True, batchnorm=False, spectralnorm=False, writer=None, gpu_id=None, log_freq=10000,
                  lambda_GP=10, timeit=None, polar=True, dropout=None, lambda_dropout=None
                  ):
         super(MLP_D, self).__init__()

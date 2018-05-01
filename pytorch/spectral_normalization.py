@@ -4,12 +4,9 @@ https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/blob/mas
 """
 
 import torch
-from torch.optim.optimizer import Optimizer, required
-from torch.autograd import Variable
-import torch.nn.functional as F
 from torch import nn
-from torch import Tensor
 from torch.nn import Parameter
+import numpy as np
 
 
 def l2normalize(v, eps=1e-12):
@@ -17,7 +14,7 @@ def l2normalize(v, eps=1e-12):
 
 
 class SpectralNorm(nn.Module):
-    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=100000):
+    def __init__(self, module, name='weight', power_iterations=1, writer=None, log_freq=10000):
         super(SpectralNorm, self).__init__()
         self.module = module
         self.name = name
@@ -43,10 +40,16 @@ class SpectralNorm(nn.Module):
 
         height = w.data.shape[0]
         sigma, norm_weights = self.calc_spectral_norm(u, v, w, height)
-        norm_recomputed, weights = self.calc_spectral_norm(u, v, norm_weights, height)
+        # norm_recomputed, weights = self.calc_spectral_norm(u, v, norm_weights, height)  # not used anyway...
 
-        if self.update_count % self.log_freq == 0:  # it is always 1 anyway...
-            self.writer.add_scalar('spectral_norm', norm_recomputed, self.update_count) if self.writer is not None else None
+        if self.update_count % self.log_freq == 0:
+            true_sigma = np.linalg.norm(w.data.cpu().numpy(), 2)
+            print('true_sigma.shape')
+            print(true_sigma.shape)
+            print('sigma.shape')
+            print(sigma.data.cpu().numpy().shape)
+            self.writer.add_scalar('spectral_norm_approx_'+self.name, sigma.data.cpu().numpy(), self.update_count) if self.writer is not None else None
+            self.writer.add_scalar('spectral_norm_true_'+self.name, true_sigma, self.update_count) if self.writer is not None else None
         self.update_count += 1
 
         # Setting the weight seen by the module(in this case MLP) as spectral-normalized.
