@@ -239,10 +239,10 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
         max_indices = autoencoder.generate(fake_hidden, args.maxlen)
         indices.append(max_indices.data.cpu().numpy())
 
-    indices = variable(np.concatenate(indices, axis=0), gpu_id=args.gpu_id, cuda=args.cuda, to_float=False)
-
-    # train language model on generated examples
+    # Evaluate the PPL with the oracle
+    indices = np.concatenate(indices, axis=0)
     lengths = np.sum((indices > 2), 1).tolist()
+    indices = variable(indices, gpu_id=args.gpu_id, cuda=args.cuda, to_float=False)
     ppl = oracle.get_ppl(indices-3, lengths)
 
     return ppl
