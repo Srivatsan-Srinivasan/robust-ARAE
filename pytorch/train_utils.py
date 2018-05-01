@@ -241,6 +241,8 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
 
     # Evaluate the PPL with the oracle
     indices = np.concatenate(indices, axis=0)
+    print('indices.shape')
+    print(indices.shape)
     lengths = np.sum((indices > 2), 1).tolist()
     indices = variable(indices, gpu_id=args.gpu_id, cuda=args.cuda, to_float=False)
     ppl = oracle.get_ppl(indices-3, lengths)
