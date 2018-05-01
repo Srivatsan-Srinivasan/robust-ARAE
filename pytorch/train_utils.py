@@ -242,11 +242,15 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
     # Evaluate the PPL with the oracle
     indices = np.concatenate(indices, axis=0).squeeze()
     lengths = np.sum((indices > 2), 1).tolist()
+    print('indices.shape')
+    print(indices.shape)
     indices_lengths = list(sorted([(i, l) for i, l in zip(indices, lengths)], reverse=True, key=lambda x: x[1]))
+    print('indices_lengths[0]')
+    print(indices_lengths[0])
     indices = []
     lengths = []
     for (i, l) in indices_lengths:
-        indices.append(i)
+        indices.append(i.reshape((1, -1)))
         lengths.append(l)
     indices = np.concatenate(indices, axis=0)
     print('indices')
