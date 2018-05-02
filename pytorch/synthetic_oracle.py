@@ -38,6 +38,10 @@ class Oracle(t.nn.Module):
 
     def forward(self, indices, lengths):
         embeddings = self.embedding(indices)
+        print(indices[0])
+        print(indices[1])
+        print(indices[2])
+        print(indices[3])
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
