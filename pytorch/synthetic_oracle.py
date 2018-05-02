@@ -27,7 +27,7 @@ class Oracle(t.nn.Module):
                               num_layers=nlayers,
                               batch_first=True)
         self.gpu = gpu
-        self.embedding = t.nn.Embedding(ntokens, emsize)
+        self.embedding = t.nn.Embedding(ntokens + 3, emsize)  # the last 3 tokens are padding, sos, eos, but the oracle can never output these
         self.linear = t.nn.Linear(nhidden, ntokens)
         self.start_symbols = to_gpu(gpu, variable(t.ones(10, 1).long(), to_float=False, cuda=False, volatile=False), gpu_id=gpu_id)
 
@@ -37,11 +37,15 @@ class Oracle(t.nn.Module):
         return (to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id))
 
     def forward(self, indices, lengths):
+        """
+
+        :param indices: a variable containing a LongTensor
+                        The idx of the words in this LongTensor should be in the ORACLE SPACE
+                        To go from ARAE SPACE to ORACLE SPACE, do i := (i-3) + (i<=2)*ntokens
+        :param lengths:
+        :return:
+        """
         embeddings = self.embedding(indices)
-        print(indices[0])
-        print(indices[1])
-        print(indices[2])
-        print(indices[3])
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
@@ -80,7 +84,9 @@ class Oracle(t.nn.Module):
             inputs = embedding*1.
 
         max_indices = t.stack(all_indices, 1)
-        return max_indices.squeeze() + 3  # avoid the 3 first tokens that are used for padding/start/end. Note that there is no OOV
+        # avoid the 3 first tokens that are used for padding/start/end. Note that there is no OOV
+        # these idx are in the ARAE representation
+        return max_indices.squeeze() + 3
 
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
