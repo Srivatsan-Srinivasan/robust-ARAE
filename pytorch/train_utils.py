@@ -13,7 +13,7 @@ from synthetic_oracle import Oracle
 
 
 def load_oracle(args):
-    oracle = Oracle(300, 300, 11000, 1, gpu=True, gpu_id=args.gpu_id)
+    oracle = Oracle(300, 300, 11000, 1, gpu=args.cuda, gpu_id=args.gpu_id)
     oracle.load_state_dict(t.load(args.data_path+'/synthetic_oracle.pt'))
     return oracle
 
