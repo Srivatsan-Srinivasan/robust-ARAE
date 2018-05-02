@@ -241,6 +241,9 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
 
     # Evaluate the PPL with the oracle
     indices = np.concatenate(indices, axis=0).squeeze()
+    np.save('array_du_desespoir.npy', indices)
+    print(args.gpu_id, args.cuda, args.ntokens, oracle.gpu_id)
+    print(oracle.linear.weight)
     lengths = 500*[indices.shape[1]]
     # lengths = np.argmax(indices == 2,  1).tolist()  # 2 is the EOS token. This thing finds the first occurence of the EOS token, its idx is the length
     # indices_lengths = list(sorted([(i, l) for i, l in zip(indices, lengths)], reverse=True, key=lambda x: x[1]))
