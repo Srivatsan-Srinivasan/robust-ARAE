@@ -55,7 +55,7 @@ class Oracle(t.nn.Module):
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
         # output: (batch_size, max_len, hdim)
-        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
+        output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=indices.size(1))
         # output: (batch_size, max_len, ntokens)
         return self.linear(output)
 
@@ -95,10 +95,11 @@ class Oracle(t.nn.Module):
         output = self.forward(indices, lengths)
 
         # mask the eos, sos, pad tokens, that the oracle never saw and for which the predictions do not make sense
-        mask = indices.gt(self.ntokens-1)  # gt: greater than.
+        mask = indices.lt(self.ntokens)  # gt: greater than.
         masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
-        output_mask = mask.unsqueeze(1).expand(mask.size(0), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
+        output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
         flattened_output = output.view(-1, self.ntokens)
+        output_mask = output_mask.contiguous().view(-1, self.ntokens)
         masked_output = flattened_output.masked_select(output_mask).view(-1, self.ntokens)  # batch_size x max_len classification problems, without the padding
         loss = F.cross_entropy(masked_output, masked_indices)  # batch_size x max_len classification problems
 
