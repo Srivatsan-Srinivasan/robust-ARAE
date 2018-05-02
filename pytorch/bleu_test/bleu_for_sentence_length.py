@@ -98,7 +98,7 @@ for experiment in [exp22, exp23, exp25, exp13b]:
     
     for i in list(generation_tokens_as_dict.keys()):
         value = generation_tokens_as_dict[i]        
-        num = min(1000, len(value))
+        num = min(200, len(value))
         generation_tokens_as_dict[i] = sample(value, num)
         generation_number_map[i] = num
     pickle.dump(generation_number_map, open('gen_data_numbers_' + name_map[experiment] +'.p', "wb"))
