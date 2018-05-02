@@ -14,8 +14,9 @@ from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan
-from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size, retokenize_data_for_POS
 from copy import deepcopy
+from config import POS_Map, Key_to_POS_Map, POS_Schedule, prog_vocab_list
 
 # Terminal arg parsing
 def init_config():
@@ -153,6 +154,9 @@ def init_config():
                                  'Additional loss added to the critic')
         parser.add_argument('--progressive_vocab', action='store_true',
                             help='Whether to train sequentially with increasing vocab')
+        parser.add_argument('--POS_vocab', action='store_true',
+                            help='Whether to train sequentially with increasing vocab')
+        
         parser.add_argument('--vocabulary_switch_cutoff', type=float, default = 0.85,
                             help='Accuracy cutoff to switch to next level of vocab')
         parser.add_argument('--eps_drift', type=float, default=None,
@@ -227,7 +231,9 @@ if torch.cuda.is_available():
 corpus = Corpus(args.data_path,
                 maxlen=args.maxlen,
                 vocab_size=args.vocab_size,
-                lowercase=args.lowercase)
+                lowercase=args.lowercase,
+                POS_Vocab = args.POS_vocab)
+
 # dumping vocabulary
 with open('./output/{}/vocab.json'.format(args.outf), 'w') as f:
     json.dump(corpus.dictionary.word2idx, f)
@@ -304,16 +310,20 @@ if args.ae_lr_scheduler:
     scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
 
 prog_vocab_iterator = 0
-prog_vocab_list = [1000, 2000, 5000, 8000, 11000]
+
 allow_termination = True
 
 if args.progressive_vocab :
     # This will still retain overall number of tokens to the initial vocabulary size, just modify data.
     orig_corpus = deepcopy(corpus)
-    corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
-    corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
-    print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
-    print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
+    if args.POS_vocab:
+        corpus.test = retokenize_data_for_POS(orig_corpus.test, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
+        corpus.train = retokenize_data_for_POS(orig_corpus.train, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
+    else:
+        corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+        corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+        print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
+        print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
     allow_termination = False
 
 test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
@@ -441,21 +451,29 @@ while epoch <= args.epochs:
             
             #Check if we need to progress vocabulary.
             if niter_global % 1000 == 0 and args.progressive_vocab:
-                if prog_vocab_iterator < len(prog_vocab_list) - 1:
+                cutoff = len(POS_Schedule) - 1 if args.POS_vocab else len(prog_vocab_list) - 1
+                if prog_vocab_iterator < cutoff:
                     test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args, log = False)
                     if accuracy > args.vocabulary_switch_cutoff :
-                            prog_vocab_iterator += 1
-                            corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
-                            corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
-                            print("After modification vocab of train : %d, test : %d", max([max(s) for s in corpus.train]), max([max(s) for s in corpus.test]))
-				
-                            allow_termination = (prog_vocab_iterator == len(prog_vocab_list) - 1 ) 
+                            prog_vocab_iterator += 1                            
+                            if args.POS_vocab:
+                                corpus.test = retokenize_data_for_POS(orig_corpus.test, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])
+                                corpus.train = retokenize_data_for_POS(orig_corpus.train, orig_corpus.dictionary, POS_schedule = POS_Schedule[prog_vocab_iterator])                                
+                                allow_termination = ( prog_vocab_iterator == len(POS_Schedule) - 1 )
+                                if args.tensorboard : 
+                                    writer.add_scalar('POS_vocab_iterator', prog_vocab_iterator, epoch)
+                            else:
+                                corpus.test = retokenize_data_for_vocab_size(orig_corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+                                corpus.train = retokenize_data_for_vocab_size(orig_corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size = prog_vocab_list[prog_vocab_iterator])
+                                print("After modification vocab of train : %d, test : %d", max([max(s) for s in corpus.train]), max([max(s) for s in corpus.test]))
+                                allow_termination = ( prog_vocab_iterator == len(prog_vocab_list) - 1 ) 
+                                if args.tensorboard :
+                                    writer.add_scalar('progressive_vocab_size', prog_vocab_list[prog_vocab_iterator], epoch)
+                            
                             test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
                             train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
                             print("Short circuiting the epoch(will start from scratch) since the vocabulary changed")
-                            vocab_changed = True
-                            if args.tensorboard :
-                                writer.add_scalar('progressive_vocab_size', prog_vocab_list[prog_vocab_iterator], epoch)
+                            vocab_changed = True                            
                             break
     
     #Start the epoch over again(from scratch) incase vocab changed.
