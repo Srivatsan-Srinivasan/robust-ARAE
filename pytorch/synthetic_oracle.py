@@ -54,9 +54,10 @@ class Oracle(t.nn.Module):
         hidden = self.init_hidden(indices.size(0))
         # Encode
         packed_output, state = self.lstm(packed_embeddings, hidden)
+        # output: (batch_size, max_len, hdim)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
+        # output: (batch_size, max_len, ntokens)
         return self.linear(output)
-        # return self.linear(output.contiguous().view(-1, self.nhidden)).view(indices.size(0), output.size(1), self.ntokens)
 
     def generate(self, batch_size, maxlen, sample=True, temp=1.):
         state = self.init_hidden(batch_size)
@@ -92,7 +93,16 @@ class Oracle(t.nn.Module):
 
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
-        ppl = t.exp(F.cross_entropy(output, indices))
+
+        # mask the eos, sos, pad tokens, that the oracle never saw and for which the predictions do not make sense
+        mask = indices.gt(self.ntokens-1)  # gt: greater than.
+        masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
+        output_mask = mask.unsqueeze(1).expand(mask.size(0), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
+        flattened_output = output.view(-1, self.ntokens)
+        masked_output = flattened_output.masked_select(output_mask).view(-1, self.ntokens)  # batch_size x max_len classification problems, without the padding
+        loss = F.cross_entropy(masked_output, masked_indices)  # batch_size x max_len classification problems
+
+        ppl = t.exp(loss)
         return ppl
 
 
@@ -110,14 +120,14 @@ def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu, 
     for length, how_many in lengths.items():
 
         # Init
-        dataset[length] = variable(t.zeros(how_many, length), to_float=False, gpu_id=oracle.gpu_id, cuda=gpu)
+        dataset[length] = variable(t.zeros(how_many, length), to_float=False, gpu_id=oracle.gpu_id, cuda=gpu).long()
 
         # Generate sentences, one batch at a time
         for i in range(0, how_many, n_per_batch):
             if i + n_per_batch >= how_many:
-                dataset[length][i:, :] = oracle.generate(how_many - i, length)
+                dataset[length][i:, :] = oracle.generate(how_many - i, length).long()
             else:
-                generated = oracle.generate(n_per_batch, length)
+                generated = oracle.generate(n_per_batch, length).long()
                 dataset[length][i:i + n_per_batch, :] = generated
 
         # Add OOV words
