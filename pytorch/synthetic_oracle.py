@@ -29,7 +29,9 @@ class Oracle(t.nn.Module):
         self.gpu = gpu
         self.embedding = t.nn.Embedding(ntokens + 3, emsize)  # the last 3 tokens are padding, sos, eos, but the oracle can never output these
         self.linear = t.nn.Linear(nhidden, ntokens)
-        self.start_symbols = to_gpu(gpu, variable(t.ones(10, 1).long(), to_float=False, cuda=False, volatile=False), gpu_id=gpu_id)
+        self.start_symbols = variable(t.ones(10, 1).long(), to_float=False, cuda=gpu, volatile=False, gpu_id=gpu_id)
+        if self.gpu:
+            self.cuda(self.gpu_id)
 
     def init_hidden(self, bsz):
         zeros1 = variable(t.zeros(self.nlayers, bsz, self.nhidden), gpu_id=self.gpu_id, cuda=self.gpu)
