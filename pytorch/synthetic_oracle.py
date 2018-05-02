@@ -50,6 +50,9 @@ class Oracle(t.nn.Module):
         embeddings = self.embedding(indices)
         print('embeddings.size()')
         print(embeddings.size())
+        print(embeddings)
+        print(lengths)
+        print(len(lengths), max(lengths), min(lengths))
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
