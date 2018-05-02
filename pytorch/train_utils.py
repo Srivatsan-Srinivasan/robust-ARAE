@@ -251,6 +251,9 @@ def train_lm_synthetic(gan_gen, autoencoder, oracle, args):
     indices = np.concatenate(indices, axis=0)
     indices = variable(indices, gpu_id=args.gpu_id, cuda=args.cuda, to_float=False).long()
     indices = (indices - 3)*((indices > 2).long()) + args.ntokens*((indices <= 2).long())
+    print(indices.min(), indices.max())
+    print(lengths)
+    print(args.ntokens)
     ppl = oracle.get_ppl(indices, lengths)
 
     return ppl
