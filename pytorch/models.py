@@ -420,7 +420,7 @@ class Seq2Seq(nn.Module):
         Monitor gradient norm
         This quantity is used to scale the gradients of the GAN (see train_utils.train_gan_d)
         """
-        if self.gpu is not None:
+        if self.gpu:
             norm = t.norm(grad, 2, 1)
             Seq2Seq.grad_norm[norm.get_device()] = norm.detach().data.mean()
             return grad
