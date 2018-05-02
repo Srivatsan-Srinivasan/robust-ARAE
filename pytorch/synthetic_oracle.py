@@ -95,7 +95,7 @@ class Oracle(t.nn.Module):
         output = self.forward(indices, lengths)
 
         # mask the eos, sos, pad tokens, that the oracle never saw and for which the predictions do not make sense
-        mask = indices.lt(self.ntokens)  # gt: greater than.
+        mask = indices.lt(self.ntokens)  # lt: less than.
         masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
         output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
         flattened_output = output.view(-1, self.ntokens)
