@@ -94,6 +94,8 @@ class Oracle(t.nn.Module):
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
 
+        print('output.size()')
+        print(output.size())
         # mask the eos, sos, pad tokens, that the oracle never saw and for which the predictions do not make sense
         mask = indices.lt(self.ntokens)  # lt: less than.
         masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
