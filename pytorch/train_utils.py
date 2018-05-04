@@ -275,7 +275,7 @@ def train_lm_aae(autoencoder, corpus, eval_path, save_path, args):
     noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
     for i in range(1000):
         noise.data.normal_(0, 1)
-        noise = l2normalize(noise)
+        noise = l2normalize(noise, dim=1)
 
         fake_hidden = noise
         max_indices = autoencoder.generate(fake_hidden, args.maxlen)
@@ -590,7 +590,7 @@ def train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, batch, arg
     # generate fake codes
     fake_hidden = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
     fake_hidden.data.normal_(0, 1)
-    fake_hidden = l2normalize(fake_hidden)
+    fake_hidden = l2normalize(fake_hidden, dim=1)
 
     # loss / backprop
     errD_fake = gan_disc(fake_hidden.detach())

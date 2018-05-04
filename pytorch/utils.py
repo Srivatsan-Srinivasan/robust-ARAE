@@ -441,5 +441,8 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
     return data
 
 
-def l2normalize(v, eps=1e-12):
-    return v / (v.norm() + eps)
+def l2normalize(v, dim=None, eps=1e-12):
+    if dim is None:
+        return v / (v.norm() + eps)
+    else:
+        return v / (v.norm(dim=dim, keepdim=True).expand_as(v) + eps)

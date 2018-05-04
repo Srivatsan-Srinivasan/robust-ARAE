@@ -322,7 +322,7 @@ fixed_noise = to_gpu(args.cuda,
                      Variable(torch.ones(args.batch_size, args.z_size)),
                      args.gpu_id)
 fixed_noise.data.normal_(0, 1)
-fixed_noise = l2normalize(fixed_noise)
+fixed_noise = l2normalize(fixed_noise, dim=1)
 
 best_ppl = None
 impatience = 0
