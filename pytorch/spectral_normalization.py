@@ -3,14 +3,12 @@ Taken from:
 https://github.com/christiancosgrove/pytorch-spectral-normalization-gan/blob/master/spectral_normalization.py
 """
 
+import numpy as np
 import torch
 from torch import nn
 from torch.nn import Parameter
-import numpy as np
 
-
-def l2normalize(v, eps=1e-12):
-    return v / (v.norm() + eps)
+from utils import l2normalize
 
 
 class SpectralNorm(nn.Module):

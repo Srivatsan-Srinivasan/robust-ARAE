@@ -13,8 +13,8 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import Seq2Seq, MLP_D, MLP_G
-from train_utils import save_model, evaluate_autoencoder_synthetic, train_lm_synthetic, train_ae, train_gan_g, train_gan_d, get_optimizers_gan, get_synthetic_dataset, load_oracle
-from utils import to_gpu, SyntheticCorpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer
+from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan, get_optimizers_disc, train_aae_d, evaluate_generator_aae, train_lm_aae
+from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size, l2normalize
 
 
 # Terminal arg parsing
@@ -60,8 +60,6 @@ def init_config():
                                  'every 100 iterations')
         parser.add_argument('--hidden_init', action='store_true',
                             help="initialize decoder hidden state with encoder's")
-        parser.add_argument('--arch_g', type=str, default='300-300',
-                            help='generator architecture (MLP)')
         parser.add_argument('--arch_d', type=str, default='300-300',
                             help='critic/discriminator architecture (MLP)')
         parser.add_argument('--z_size', type=int, default=100,
@@ -82,8 +80,6 @@ def init_config():
                             help="Whether to compute minibatch std in the discriminator as an additional feature")
         parser.add_argument('--bn_disc', action='store_true',
                             help="Whether to use batchnorm in the discriminator")
-        parser.add_argument('--bn_gen', action='store_true',
-                            help="Whether to use batchnorm in the generator")
         parser.add_argument('--l2_reg_disc', type=float, default=None,
                             help="Whether to use l2 regularization on the last layer of the discriminator (it tends to diverge)"
                                  "Try with 100 = 10^2 = 1/sig^2")
@@ -120,8 +116,6 @@ def init_config():
                             help='number of autoencoder iterations in training')
         parser.add_argument('--niters_gan_d', type=int, default=5,
                             help='number of discriminator iterations in training')
-        parser.add_argument('--niters_gan_g', type=int, default=1,
-                            help='number of generator iterations in training')
         parser.add_argument('--niters_gan_schedule', type=str, default='2-4-6',
                             help='epoch counts to increase number of GAN training '
                                  ' iterations (increment by 1 each time)')
@@ -129,8 +123,6 @@ def init_config():
                             help='rmsprop or adam')
         parser.add_argument('--lr_ae', type=float, default=1,
                             help='autoencoder learning rate')
-        parser.add_argument('--lr_gan_g', type=float, default=5e-05,
-                            help='generator learning rate')
         parser.add_argument('--lr_gan_d', type=float, default=1e-05,
                             help='critic/discriminator learning rate')
         parser.add_argument('--beta1', type=float, default=0.9,
@@ -227,17 +219,18 @@ if torch.cuda.is_available():
 ###############################################################################
 
 # create corpus
-
-train, test = get_synthetic_dataset(args)
-corpus = SyntheticCorpus(train, test,
-                         maxlen=args.maxlen,
-                         vocab_size=args.vocab_size)
+corpus = Corpus(args.data_path,
+                maxlen=args.maxlen,
+                vocab_size=args.vocab_size,
+                lowercase=args.lowercase)
+# dumping vocabulary
+with open('./output/{}/vocab.json'.format(args.outf), 'w') as f:
+    json.dump(corpus.dictionary.word2idx, f)
 
 # save arguments
-ntokens = corpus.vocab_size + 3
+ntokens = len(corpus.dictionary.word2idx)
 print("Vocabulary Size: {}".format(ntokens))
-args.ntokens = ntokens - 3
-oracle = load_oracle(args)
+args.ntokens = ntokens
 with open('./output/{}/args.json'.format(args.outf), 'w') as f:
     json.dump(vars(args), f)
 with open("./output/{}/logs.txt".format(args.outf), 'w') as f:
@@ -252,7 +245,7 @@ print("Loaded data!")
 # Build the models
 ###############################################################################
 
-ntokens = corpus.vocab_size + 3
+ntokens = len(corpus.dictionary.word2idx)
 create_tensorboard_dir(args.tensorboard_logdir) if args.tensorboard else None
 writer = SummaryWriter(log_dir='tensorboard/' + args.tensorboard_logdir) if args.tensorboard else None
 global_timer = Timer('global', enabled=args.timeit is None, log_freq=args.timeit, writer=writer)  # @todo: time train functions with this one
@@ -275,8 +268,6 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       norm_penalty_threshold=args.norm_penalty_threshold,
                       bidirectionnal=args.bidirectionnal
                       )
-gan_gen = MLP_G(ninput=args.z_size, noutput=args.nhidden_enc, layers=args.arch_g, activation=activation_from_str(args.gan_activation),
-                weight_init=args.gan_weight_init, batchnorm=args.bn_gen, gpu=args.cuda, gpu_id=args.gpu_id, timeit=args.timeit, writer=writer)
 gan_disc = MLP_D(ninput=args.nhidden_enc, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, polar=args.polar,
                  spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP,
@@ -286,29 +277,30 @@ criterion_ce = nn.CrossEntropyLoss()
 
 if args.cuda:
     autoencoder = autoencoder.cuda(args.gpu_id)
-    gan_gen = gan_gen.cuda(args.gpu_id)
     gan_disc = gan_disc.cuda(args.gpu_id)
-    oracle = oracle.cuda(args.gpu_id)
     criterion_ce = criterion_ce.cuda(args.gpu_id)
 
 if torch.cuda.device_count() > 1 and args.n_gpus > 1:
     print("Let's use", args.n_gpus, "GPUs!")
-    gan_gen = nn.DataParallel(gan_gen)
     gan_disc = nn.DataParallel(gan_disc)
     autoencoder = nn.DataParallel(autoencoder)
 
 print(autoencoder)
-print(gan_gen)
 print(gan_disc)
 
 optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
-optimizer_gan_g, optimizer_gan_d = get_optimizers_gan(gan_gen, gan_disc, args)
+optimizer_gan_g, optimizer_gan_d = get_optimizers_disc(gan_disc, args)
 
 scheduler = None
 if args.ae_lr_scheduler:
     scheduler = ReduceLROnPlateau(optimizer_ae, mode='min', factor=.5, patience=1, threshold=1e-3)
 
 # This will still retain overall number of tokens to the initial vocabulary size, just modify data.
+corpus.test = retokenize_data_for_vocab_size(corpus.test, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size=ntokens)
+corpus.train = retokenize_data_for_vocab_size(corpus.train, unk_token=corpus.dictionary.word2idx['<oov>'], vocab_size=ntokens)
+print("After modification, train data has max vocabulary of %d", max([max(s) for s in corpus.train]))
+print("After modification, test data has max vocabulary of %d", max([max(s) for s in corpus.test]))
+
 test_data = batchify(corpus.test, eval_batch_size, shuffle=False, gpu_id=args.gpu_id)
 train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
 print('Train data has %d batches' % len(train_data))
@@ -331,6 +323,7 @@ fixed_noise = to_gpu(args.cuda,
                      Variable(torch.ones(args.batch_size, args.z_size)),
                      args.gpu_id)
 fixed_noise.data.normal_(0, 1)
+fixed_noise = l2normalize(fixed_noise)
 
 best_ppl = None
 impatience = 0
@@ -357,7 +350,7 @@ for epoch in range(1, args.epochs + 1):
         # train autoencoder ----------------------------
         for i in range(args.niters_ae):
             if niter == len(train_data):
-                break  # end of
+                break  # end of epoch
             total_loss_ae, start_time = train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args, writer, niter_global + (-1 + epoch) * len(train_data))
             niter += 1
 
@@ -367,28 +360,24 @@ for epoch in range(1, args.epochs + 1):
             # train discriminator/critic
             for i in range(args.niters_gan_d):
                 # feed a seen sample within this epoch; good for early training
-                errD, errD_real, errD_fake = train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer, niter_global + (-1 + epoch) * len(train_data))
-
-            # train generator
-            for i in range(args.niters_gan_g):
-                errG = train_gan_g(gan_gen, gan_disc, optimizer_gan_g, args, writer, niter_global + (-1 + epoch) * len(train_data))
+                errD, errD_real, errD_fake = train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer, niter_global + (-1 + epoch) * len(train_data))
 
         niter_global += 1
 
-        tensorboard(niter_global + (-1 + epoch) * len(train_data), writer, gan_gen, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, gan_gen.module, gan_disc.module, autoencoder.module,
+        tensorboard(niter_global + (-1 + epoch) * len(train_data), writer, None, gan_disc, autoencoder, args.tensorboard_freq) if args.n_gpus == 1 else tensorboard(niter_global, writer, None, gan_disc.module, autoencoder.module,
                                                                                                                                                                        args.tensorboard_freq)
         if niter_global % 100 == 0:
             print('[%d/%d][%d/%d] Loss_D: %.8f (Loss_D_real: %.8f '
-                  'Loss_D_fake: %.8f) Loss_G: %.8f'
+                  'Loss_D_fake: %.8f)'
                   % (epoch, args.epochs, niter, len(train_data),
                      errD.data[0], errD_real.data[0],
-                     errD_fake.data[0], errG.data[0]))
+                     errD_fake.data[0]))
             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                 f.write('[%d/%d][%d/%d] Loss_D: %.8f (Loss_D_real: %.8f '
-                        'Loss_D_fake: %.8f) Loss_G: %.8f\n'
+                        'Loss_D_fake: %.8f)\n'
                         % (epoch, args.epochs, niter, len(train_data),
                            errD.data[0], errD_real.data[0],
-                           errD_fake.data[0], errG.data[0]))
+                           errD_fake.data[0]))
 
             # exponentially decaying noise on autoencoder
             if args.n_gpus == 1:
@@ -396,22 +385,34 @@ for epoch in range(1, args.epochs + 1):
             else:  # in that case `autoencoder` is a DataParallel object, and we have to access its module
                 autoencoder.module.noise_radius = autoencoder.module.noise_radius * args.noise_anneal
 
-            if niter_global % 5 == 0:
-                ppl = train_lm_synthetic(gan_gen, autoencoder, oracle, args)
+            if niter_global % 3000 == 0:
+                evaluate_generator_aae(autoencoder, corpus, fixed_noise, "epoch{}_step{}".format(epoch, niter_global), args)  # evaluate_generator(fixed_noise, "epoch{}_step{}".format(epoch, niter_global))
 
                 # evaluate with lm
                 if not args.no_earlystopping and epoch > args.min_epochs:
+                    eval_path = os.path.join(args.data_path, "test.txt")
+                    save_path = "output/{}/epoch{}_step{}_lm_generations".format(args.outf, epoch, niter_global)
+                    ppl = train_lm_aae(autoencoder, corpus, eval_path, save_path, args)
+                    if args.tensorboard:
+                        writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch - 1) * len(train_data))
+                    print("Perplexity {}".format(ppl))
+                    all_ppl.append(ppl)
+                    print(all_ppl)
+                    with open("./output/{}/logs.txt".
+                                      format(args.outf), 'a') as f:
+                        f.write("\n\nPerplexity {}\n".format(ppl))
+                        f.write(str(all_ppl) + "\n\n")
                     if best_ppl is None or ppl < best_ppl:
                         impatience = 0
                         best_ppl = ppl
                         print("New best ppl {}\n".format(best_ppl))
                         with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                             f.write("New best ppl {}\n".format(best_ppl))
-                        save_model(autoencoder, gan_gen, gan_disc, args)
+                        save_model(autoencoder, None, gan_disc, args)
                     else:
                         if args.save_intermediate is not None:
                             if best_ppl + args.save_intermediate >= ppl:
-                                save_model(autoencoder, gan_gen, gan_disc, args, intermediate=True, ppl=ppl)
+                                save_model(autoencoder, None, gan_disc, args, intermediate=True, ppl=ppl)
 
                         impatience += 1
                         # end training
@@ -423,7 +424,7 @@ for epoch in range(1, args.epochs + 1):
 
     # end of epoch ----------------------------
     # evaluation
-    test_loss, accuracy = evaluate_autoencoder_synthetic(autoencoder, corpus, criterion_ce, test_data, epoch, args)
+    test_loss, accuracy = evaluate_autoencoder(autoencoder, corpus, criterion_ce, test_data, epoch, args)
     if args.tensorboard:
         writer.add_scalar('acc_recons', accuracy, niter_global + (epoch - 1) * len(train_data))
         writer.add_scalar('test_recons_loss', test_loss, niter_global + (epoch - 1) * len(train_data))
@@ -447,10 +448,10 @@ for epoch in range(1, args.epochs + 1):
     if not args.no_earlystopping and epoch >= args.min_epochs:
         eval_path = os.path.join(args.data_path, "test.txt")
         save_path = "./output/{}/end_of_epoch{}_lm_generations".format(args.outf, epoch)
-        ppl = train_lm_synthetic(gan_gen, autoencoder, oracle, args)
+        ppl = train_lm_aae(autoencoder, corpus, eval_path, save_path, args)
         scheduler.step(ppl) if scheduler is not None else None
         if args.tensorboard:
-            writer.add_scalar('ppl', ppl, niter_global + (epoch - 1) * len(train_data))
+            writer.add_scalar('reverse_ppl', ppl, niter_global + (epoch - 1) * len(train_data))
 
         print("Perplexity {}".format(ppl))
         all_ppl.append(ppl)
@@ -464,11 +465,11 @@ for epoch in range(1, args.epochs + 1):
             print("New best ppl {}\n".format(best_ppl))
             with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
                 f.write("New best ppl {}\n".format(best_ppl))
-            save_model(autoencoder, gan_gen, gan_disc, args)
+            save_model(autoencoder, None, gan_disc, args)
         else:
             if args.save_intermediate is not None:
                 if best_ppl + args.save_intermediate >= ppl:
-                    save_model(autoencoder, gan_gen, gan_disc, args, intermediate=True, ppl=ppl)
+                    save_model(autoencoder, None, gan_disc, args, intermediate=True, ppl=ppl)
 
             impatience += 1
             # end training

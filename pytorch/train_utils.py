@@ -5,7 +5,7 @@ import torch
 from torch.autograd import Variable
 from torch.nn import functional as F
 from models import Seq2Seq
-from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold
+from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold, l2normalize
 import pickle
 from sklearn.utils import shuffle
 import torch as t
@@ -13,7 +13,7 @@ from synthetic_oracle import Oracle
 
 
 def load_oracle(args):
-    oracle = Oracle(300, 300, 11000, 1, gpu=args.cuda, gpu_id=args.gpu_id)
+    oracle = Oracle(300, 300, args.ntokens, 1, gpu=args.cuda, gpu_id=args.gpu_id)
     oracle.load_state_dict(t.load(args.data_path+'/synthetic_oracle.pt'))
     return oracle
 
@@ -54,21 +54,37 @@ def get_optimizers_gan(gan_gen, gan_disc, args):
         raise NotImplementedError("Choose adam or rmsprop")
 
 
+def get_optimizers_disc(gan_disc, args):
+    if args.optim_gan.lower() == 'adam':
+        optimizer_gan_d = torch.optim.Adam(filter(lambda p: p.requires_grad, gan_disc.parameters()),
+                                           lr=args.lr_gan_d,
+                                           betas=(args.beta1, 0.999))
+        return optimizer_gan_d
+    elif args.optim_gan.lower() == 'rmsprop':
+        optimizer_gan_d = torch.optim.RMSprop(filter(lambda p: p.requires_grad, gan_disc.parameters()),
+                                              lr=args.lr_gan_d)
+        return optimizer_gan_d
+    else:
+        raise NotImplementedError("Choose adam or rmsprop")
+
+
 def save_model(autoencoder, gan_gen, gan_disc, args, last=False, intermediate=False, ppl=None):
     if not intermediate:
         print("Saving models")
         with open('./output/{}/autoencoder_model.pt'.format(args.outf) if not last else './output/{}/autoencoder_model_last.pt'.format(args.outf), 'wb') as f:
             torch.save(autoencoder.state_dict(), f)
-        with open('./output/{}/gan_gen_model.pt'.format(args.outf) if not last else './output/{}/gan_gen_model_last.pt'.format(args.outf), 'wb') as f:
-            torch.save(gan_gen.state_dict(), f)
+        if gan_gen is not None:
+            with open('./output/{}/gan_gen_model.pt'.format(args.outf) if not last else './output/{}/gan_gen_model_last.pt'.format(args.outf), 'wb') as f:
+                torch.save(gan_gen.state_dict(), f)
         with open('./output/{}/gan_disc_model.pt'.format(args.outf) if not last else './output/{}/gan_disc_model_last.pt'.format(args.outf), 'wb') as f:
             torch.save(gan_disc.state_dict(), f)
     else:
         print("Saving intermediate models with ppl : %.2f" % ppl)
         with open('./output/{}/autoencoder_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
             torch.save(autoencoder.state_dict(), f)
-        with open('./output/{}/gan_gen_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
-            torch.save(gan_gen.state_dict(), f)
+        if gan_gen is not None:
+            with open('./output/{}/gan_gen_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
+                torch.save(gan_gen.state_dict(), f)
         with open('./output/{}/gan_disc_model_intermediate_ppl_{}.pt'.format(args.outf, str(ppl)), 'wb') as f:
             torch.save(gan_disc.state_dict(), f)
 
@@ -178,6 +194,31 @@ def evaluate_generator(gan_gen, autoencoder, corpus, noise, epoch, args):
             f.write("\n")
 
 
+def evaluate_generator_aae(autoencoder, corpus, noise, epoch, args):
+    autoencoder.eval()
+
+    # generate from fixed random noise
+    fake_hidden = noise
+    autoencoder_ = autoencoder if args.n_gpus == 1 else autoencoder.module
+    max_indices = autoencoder_.generate(fake_hidden, args.maxlen, sample=args.sample)
+
+    with open("./output/%s/%s_generated.txt" % (args.outf, epoch), "w") as f:
+        max_indices = max_indices.data.cpu().numpy()
+        for idx in max_indices:
+            # generated sentence
+            words = [corpus.dictionary.idx2word[x] for x in idx]
+            # truncate sentences to first occurrence of <eos>
+            truncated_sent = []
+            for w in words:
+                if w != '<eos>':
+                    truncated_sent.append(w)
+                else:
+                    break
+            chars = " ".join(truncated_sent)
+            f.write(chars)
+            f.write("\n")
+
+
 def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
     """Evaluate the performance of a simple language model (KENLM) that is trained on synthetic sentences"""
     # generate 100000 examples
@@ -187,6 +228,56 @@ def train_lm(gan_gen, autoencoder, corpus, eval_path, save_path, args):
         noise.data.normal_(0, 1)
 
         fake_hidden = gan_gen(noise)
+        max_indices = autoencoder.generate(fake_hidden, args.maxlen)
+        indices.append(max_indices.data.cpu().numpy())
+
+    indices = np.concatenate(indices, axis=0)
+
+    # write generated sentences to text file
+    with open(save_path + ".txt", "w") as f:
+        # laplacian smoothing
+        for word in corpus.dictionary.word2idx.keys():
+            f.write(word + "\n")
+        for idx in indices:
+            # generated sentence
+            # print(idx[0],"###")
+            words = [corpus.dictionary.idx2word[x[0]] for x in idx]
+
+            # truncate sentences to first occurrence of <eos>
+            truncated_sent = []
+            for w in words:
+                if w != '<eos>':
+                    truncated_sent.append(w)
+                else:
+                    break
+            chars = " ".join(truncated_sent)
+            f.write(chars + "\n")
+
+    # train language model on generated examples
+    lm = train_ngram_lm(kenlm_path=args.kenlm_path,
+                        data_path=save_path + ".txt",
+                        output_path=save_path + ".arpa",
+                        N=args.N)
+
+    # load sentences to evaluate on
+    with open(eval_path, 'r') as f:
+        lines = f.readlines()
+    sentences = [l.replace('\n', '') for l in lines]
+    ppl = get_ppl(lm, sentences)
+
+    return ppl
+
+
+def train_lm_aae(autoencoder, corpus, eval_path, save_path, args):
+    """Evaluate the performance of a simple language model (KENLM) that is trained on synthetic sentences"""
+    # generate 100000 examples
+    indices = []
+    noise = to_gpu(args.cuda, Variable(torch.ones(100, args.z_size)), gpu_id=args.gpu_id)
+    for i in range(1000):
+        noise.data.normal_(0, 1)
+        noise = l2normalize(noise)
+
+        fake_hidden = noise
         max_indices = autoencoder.generate(fake_hidden, args.maxlen)
         indices.append(max_indices.data.cpu().numpy())
 
@@ -417,6 +508,93 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
 
     # loss / backprop
     fake_hidden = gan_gen(noise)
+    errD_fake = gan_disc(fake_hidden.detach())
+    errD_fake.backward(mone)
+
+    errD_grad = None
+    if args.gradient_penalty:
+        errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
+        errD_grad.backward(one)
+
+    # regularization
+    l2_reg = None
+    if args.l2_reg_disc is not None:
+        if not args.spectralnorm:
+            layer = getattr(gan_disc, 'layer%d' % gan_disc.n_layers)
+            weight = layer.weight
+            l2_reg = args.l2_reg_disc * weight.norm(2)
+        else:
+            layer = getattr(gan_disc, 'layer%d' % gan_disc.n_layers).module
+            weight = layer.weight_bar
+            l2_reg = args.l2_reg_disc * weight.norm(2)
+        l2_reg.backward(one)
+
+    if args.eps_drift is not None:
+        errD_drift = args.eps_drift * torch.mean(errD_real.pow(2))
+        errD_drift.backward(one)
+
+    errD_dropout = None
+    if args.lambda_dropout is not None and args.dropout_penalty is not None:
+        errD_dropout = gan_disc.dropout_penalty(variable(real_hidden.data, cuda=args.cuda, gpu_id=args.gpu_id))
+        errD_dropout.backward(one)
+
+    # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
+    torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
+
+    optimizer_gan_d.step()
+    optimizer_ae.step()
+    errD = -(errD_real - errD_fake)
+
+    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, errD_dropout, l2_reg, writer, n_iter)
+
+    return errD, errD_real, errD_fake
+
+
+def train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, batch, args, writer, n_iter):
+    """
+    Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
+    consistency between G and D, AND between the two parts of the loss of D
+
+    It is because f is 1-Lipschitz iff -f also is
+
+    See the comment of martinarjovsky on:
+        * https://github.com/martinarjovsky/WassersteinGAN/issues/9
+        * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
+    """
+    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]), gpu_id=args.gpu_id)
+    mone = one * -1
+    # clamp parameters to a cube
+    if not args.gradient_penalty and not args.spectralnorm:
+        for p in gan_disc.parameters():
+            p.data.clamp_(-args.gan_clamp, args.gan_clamp)
+
+    autoencoder.train()
+    autoencoder.zero_grad()
+    gan_disc.train()
+    gan_disc.zero_grad()
+
+    # positive samples ----------------------------
+    # generate real codes
+    source, target, lengths = batch
+    source = to_gpu(args.cuda, Variable(source), gpu_id=args.gpu_id)
+    target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)
+
+    # batch_size x nhidden
+    real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=False, encode_only=True)
+    grad_norm = sum(list(Seq2Seq.grad_norm.values()))
+    real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
+
+    # loss / backprop
+    errD_real = gan_disc(real_hidden, mean=False, writer=writer)
+    torch.mean(errD_real).backward(one, retain_graph=args.eps_drift is not None)
+
+    # negative samples ----------------------------
+    # generate fake codes
+    fake_hidden = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
+    fake_hidden.data.normal_(0, 1)
+    fake_hidden = l2normalize(fake_hidden)
+
+    # loss / backprop
     errD_fake = gan_disc(fake_hidden.detach())
     errD_fake.backward(mone)
 

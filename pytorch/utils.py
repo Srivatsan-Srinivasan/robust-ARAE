@@ -115,7 +115,7 @@ def tensorboard(niter_global, writer, gan_gen, gan_disc, autoencoder, log_freq):
         return
     else:
         if niter_global % log_freq == 0:
-            gan_gen.tensorboard(writer, niter_global)
+            gan_gen.tensorboard(writer, niter_global) if gan_gen is not None else None
             gan_disc.tensorboard(writer, niter_global)
             autoencoder.tensorboard(writer, niter_global)
 
@@ -439,3 +439,7 @@ def retokenize_data_for_vocab_size(data, unk_token=3, vocab_size=10000):
 
     data = [retokenize_sentence(sentence, vocab_size) for sentence in data]
     return data
+
+
+def l2normalize(v, eps=1e-12):
+    return v / (v.norm() + eps)
