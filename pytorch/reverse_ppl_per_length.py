@@ -2,6 +2,8 @@ import argparse
 import numpy as np
 from utils import variable
 import os
+from collections import Counter
+assert 'snli_lm_synthetic' in os.listdir('./'), "You need to create a folder snli_lm_synthetic first"
 
 
 def init_config():
@@ -23,9 +25,6 @@ def init_config():
                              "indicate what ppl the model has (it is indicated in the filename .pt)")
     args = parser.parse_args()
     return args
-
-
-assert 'snli_lm_synthetic' in os.listdir('./'), "You need to create a folder snli_lm_synthetic first"
 
 
 args = init_config()
@@ -79,13 +78,16 @@ else:
         return model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc
     ppl = args.ppl
     model_args, word2idx, idx2word, autoencoder, gan_gen, gan_disc = load_models('output/'+args.model, 'intermediate_ppl_' + str(ppl))
+autoencoder.__cuda__(args.gpu_id)
+gan_gen.__cuda__(args.gpu_id)
+gan_disc.__cuda__(args.gpu_id)
+autoencoder.eval()
+gan_gen.eval()
+gan_disc.eval()
 
 
-from collections import Counter
 counter = Counter()
 ready = False
-
-
 outf = 'snli_lm_synthetic/' + args.outf
 i = 0
 while not ready:
