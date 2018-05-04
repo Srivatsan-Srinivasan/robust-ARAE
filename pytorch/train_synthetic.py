@@ -396,7 +396,7 @@ for epoch in range(1, args.epochs + 1):
             else:  # in that case `autoencoder` is a DataParallel object, and we have to access its module
                 autoencoder.module.noise_radius = autoencoder.module.noise_radius * args.noise_anneal
 
-            if niter_global % 5 == 0:
+            if niter_global % 3000 == 0:
                 ppl = train_lm_synthetic(gan_gen, autoencoder, oracle, args)
 
                 # evaluate with lm
