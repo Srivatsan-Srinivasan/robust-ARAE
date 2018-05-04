@@ -48,23 +48,14 @@ class Oracle(t.nn.Module):
         :return:
         """
         embeddings = self.embedding(indices)
-        print('embeddings.size()')
-        print(embeddings.size())
-        print(embeddings)
-        print(lengths)
-        print(len(lengths), max(lengths), min(lengths))
         packed_embeddings = pack_padded_sequence(input=embeddings,
                                                  lengths=lengths,
                                                  batch_first=True)
         hidden = self.init_hidden(indices.size(0))
         # Encode
-        print('hep')
         packed_output, state = self.lstm(packed_embeddings, hidden)
-        print('hep')
         # output: (batch_size, max_len, hdim)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=indices.size(1))
-        print('output.size()')
-        print(output.size())
         # output: (batch_size, max_len, ntokens)
         return self.linear(output)
 
