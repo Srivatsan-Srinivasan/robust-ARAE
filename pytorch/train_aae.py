@@ -62,8 +62,6 @@ def init_config():
                             help="initialize decoder hidden state with encoder's")
         parser.add_argument('--arch_d', type=str, default='300-300',
                             help='critic/discriminator architecture (MLP)')
-        parser.add_argument('--z_size', type=int, default=100,
-                            help='dimension of random noise z to feed into generator')
         parser.add_argument('--temp', type=float, default=1,
                             help='softmax temperature (lower --> more discrete)')
         parser.add_argument('--enc_grad_norm', type=bool, default=True,
@@ -196,6 +194,7 @@ def init_config():
 args = init_config()
 print(vars(args))
 check_args(args)
+args.z_size = args.nhidden_enc
 
 # make output directory if it doesn't already exist
 if not os.path.isdir('./output'):
