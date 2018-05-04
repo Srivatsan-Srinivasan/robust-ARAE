@@ -15,6 +15,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import Seq2Seq, MLP_D, MLP_G
 from train_utils import save_model, evaluate_autoencoder_synthetic, train_lm_synthetic, train_ae, train_gan_g, train_gan_d, get_optimizers_gan, get_synthetic_dataset, load_oracle
 from utils import to_gpu, SyntheticCorpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer
+import ast
 
 
 # Terminal arg parsing
@@ -68,7 +69,7 @@ def init_config():
                             help='dimension of random noise z to feed into generator')
         parser.add_argument('--temp', type=float, default=1,
                             help='softmax temperature (lower --> more discrete)')
-        parser.add_argument('--enc_grad_norm', type=bool, default=True,
+        parser.add_argument('--enc_grad_norm', type=ast.literal_eval, default=True,
                             help='norm code gradient from critic->encoder')
         parser.add_argument('--gan_toenc', type=float, default=-0.01,
                             help='weight factor passing gradient from gan to encoder')
