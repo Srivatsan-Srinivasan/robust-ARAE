@@ -289,7 +289,7 @@ print(autoencoder)
 print(gan_disc)
 
 optimizer_ae = optim.SGD(autoencoder.parameters(), lr=args.lr_ae)
-optimizer_gan_g, optimizer_gan_d = get_optimizers_disc(gan_disc, args)
+optimizer_gan_d = get_optimizers_disc(gan_disc, args)
 
 scheduler = None
 if args.ae_lr_scheduler:
