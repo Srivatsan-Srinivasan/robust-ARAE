@@ -94,8 +94,6 @@ class Oracle(t.nn.Module):
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
 
-        print('output.size()')
-        print(output.size())
         # mask the eos, sos, pad tokens, that the oracle never saw and for which the predictions do not make sense
         mask = indices.lt(self.ntokens)  # lt: less than.
         masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
@@ -106,7 +104,7 @@ class Oracle(t.nn.Module):
         loss = F.cross_entropy(masked_output, masked_indices)  # batch_size x max_len classification problems
 
         ppl = t.exp(loss)
-        return ppl
+        return ppl.cpu().data.numpy()[0]
 
 
 def generate_synthetic_dataset(lengths, emsize, nhidden, ntokens, nlayers, gpu, gpu_id=None,
