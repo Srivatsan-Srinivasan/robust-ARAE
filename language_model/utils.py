@@ -2,10 +2,7 @@ import numpy as np
 import torch as t
 import pickle
 import os
-from sklearn.utils import shuffle
 import random
-
-os.chdir('../HW2')  # so that there is not an import bug if the working directory isn't already HW2
 from const import *
 
 
