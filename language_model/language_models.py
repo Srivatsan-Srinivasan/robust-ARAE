@@ -27,8 +27,8 @@ class LSTM(t.nn.Module):
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim')
         self.batch_size = params.get('batch_size')
-        self.embedding_dim = params.get('emsize')
-        self.vocab_size = params.get('ntokens')
+        self.embedding_dim = params.get('embedding_dim')
+        self.vocab_size = params.get('vocab_size')
         self.num_layers = params.get('num_layers')
         self.dropout = params.get('dropout')
         self.embed_dropout = params.get('embed_dropout')
