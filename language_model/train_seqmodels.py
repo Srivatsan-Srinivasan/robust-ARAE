@@ -64,7 +64,7 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
     if val_iter_ is not None:
         model.eval()
         print("Model initialized")
-        val_loss = predict(model, val_iter_, cuda=cuda)
+        val_loss = predict(model, val_iter_, cuda=cuda, gpu_id=gpu_id)
         model.train()
 
     if scheduler is not None:
@@ -110,7 +110,7 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
         if val_iter_ is not None:
             model.eval()
             former_val_loss = val_loss * 1.
-            val_loss = predict(model, val_iter_, cuda=cuda)
+            val_loss = predict(model, val_iter_, cuda=cuda, gpu_id=gpu_id)
             if scheduler is not None:
                 scheduler.step(val_loss)
             if val_loss > former_val_loss:
