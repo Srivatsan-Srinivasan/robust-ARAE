@@ -10,7 +10,7 @@ import torch.nn as nn, torch as t
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
 import json
-from util import ReduceLROnPlateau, LambdaLR, data_generator, save_model
+from utils import ReduceLROnPlateau, LambdaLR, data_generator, save_model
 
 
 def init_optimizer(opt_params, model):

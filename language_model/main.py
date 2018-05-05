@@ -28,7 +28,7 @@ parser.add_argument('--monitor', default=False, help='States if you need to pick
 parser.add_argument('--save', action='store_true')
 parser.add_argument('--output_filename', default=None, help='Where the model is saved', type=str)
 parser.add_argument('--data_path', required=True, type=str)
-parser.add_argument('--early_stopping', default=False, help='Whether to stop training once the validation error starts increasing', type=ast.literal_eval)
+parser.add_argument('--early_stopping', action='store_true')
 
 # MODEL PARAMS
 parser.add_argument('--model', default='LSTM', help='state which model to use')
