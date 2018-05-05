@@ -61,7 +61,7 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, test_iter, = generate_iterators(args)
+train_iter, test_iter = generate_iterators(args)
 
 # Call for different models code should be here.
 # Train Model
