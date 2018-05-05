@@ -43,6 +43,7 @@ parser.add_argument('--emb_train', default=True, type=ast.literal_eval)
 parser.add_argument('--clip_g_n', default=0.25, type=float)
 parser.add_argument('--batch_norm', default=False, type=ast.literal_eval, help='Whether to include batch normalization or not')
 parser.add_argument('--tie_weights', default=False, type=ast.literal_eval, help='For LSTM model whether to make output and embedding weights match')
+parser.add_argument('--maxlen', default=30, type=int)
 
 # OPTIMIZER PARAMS
 parser.add_argument('--optimizer', default='SGD', type=str)
