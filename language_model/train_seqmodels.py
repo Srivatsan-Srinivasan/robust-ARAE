@@ -11,6 +11,7 @@ import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
 import json
 from utils import ReduceLROnPlateau, LambdaLR, save_model
+from sklearn.utils import shuffle
 
 
 def init_optimizer(opt_params, model):
@@ -54,7 +55,7 @@ def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, 
     return train_iter_, val_iter_, model, criterion, optimizer, scheduler
 
 
-def train(train_iter, val_iter=None, early_stopping=False, save=False, save_path=None,
+def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, save_path=None,
           model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False):
     # Initialize model and other variables
     train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda)
@@ -77,6 +78,8 @@ def train(train_iter, val_iter=None, early_stopping=False, save=False, save_path
 
         # Initialize hidden layer and memory(for LSTM). Converting to variable later.
         model.hidden = model.init_hidden()
+
+        train_iter = shuffle(corpus.train)
 
         # Actual training loop.     
         for source, target, lengths in train_iter:
