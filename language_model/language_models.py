@@ -17,6 +17,7 @@ from const import *
 
 class LSTM(t.nn.Module):
     def __init__(self, params):
+        print(params)
         super(LSTM, self).__init__()
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
