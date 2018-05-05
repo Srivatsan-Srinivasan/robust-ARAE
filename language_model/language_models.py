@@ -24,16 +24,15 @@ class LSTM(t.nn.Module):
         self.params = params
 
         # Initialize hyperparams.
-        self.hidden_dim = params.get('hidden_dim', 100)
-        self.batch_size = params.get('batch_size', 32)
-        self.embedding_dim = embeddings.size(1)
-        self.vocab_size = embeddings.size(0)
-        self.output_size = params.get('output_size', self.vocab_size)
-        self.num_layers = params.get('num_layers', 1)
-        self.dropout = params.get('dropout', 0.5)
-        self.embed_dropout = params.get('embed_dropout')
-        self.train_embedding = params.get('train_embedding', False)
-        self.tie_weights = params.get('tie_weights')
+        self.hidden_dim = params.hidden_dim
+        self.batch_size = params.batch_size
+        self.embedding_dim = params.emsize
+        self.vocab_size = params.ntokens
+        self.num_layers = params.num_layers
+        self.dropout = params.dropout
+        self.embed_dropout = params.embed_dropout
+        self.train_embedding = True
+        self.tie_weights = False
 
         # Initialize embeddings.
         additional_dim = self.init_embedding_and_output(embeddings)
