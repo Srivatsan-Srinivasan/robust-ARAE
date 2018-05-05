@@ -666,7 +666,7 @@ def load_models(load_path, old=False):
                           nlayers=model_args['nlayers'],
                           hidden_init=model_args['hidden_init'],
                           norm_penalty=model_args['norm_penalty'],
-                          norm_penalty_threshold=model_args['norm_penalty_threshold'],
+                          norm_penalty_threshold=model_args['norm_penalty_threshold'] if 'norm_penalty_threshold' in model_args else None,
                           dropout=model_args['dropout'],
                           bidirectionnal=model_args['bidirectionnal']
                           )
