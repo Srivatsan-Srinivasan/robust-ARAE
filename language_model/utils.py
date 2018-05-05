@@ -1,6 +1,5 @@
 import numpy as np
 import torch as t
-from torchtext.vocab import Vectors, GloVe
 import pickle
 import os
 from sklearn.utils import shuffle
