@@ -86,7 +86,6 @@ class LSTM(t.nn.Module):
             return additional_dim
         elif not self.tie_weights:
             self.word_embeddings = t.nn.Embedding(self.vocab_size, self.embedding_dim)
-            self.word_embeddings.weight = nn.Parameter(embeddings, requires_grad=self.train_embedding)
             self.hidden2out = nn.Linear(self.hidden_dim, self.output_size)
             return 0
         else:
