@@ -28,7 +28,7 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda):
+def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda, gpu_id):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
     model = LSTM(model_params)
@@ -50,15 +50,15 @@ def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, 
         scheduler = None
 
     if cuda:
-        model = model.cuda()
-        criterion = criterion.cuda()
+        model = model.cuda(gpu_id)
+        criterion = criterion.cuda(gpu_id)
     return train_iter_, val_iter_, model, criterion, optimizer, scheduler
 
 
-def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, save_path=None,
-          model_params={}, opt_params={}, train_params={}, cuda=CUDA_DEFAULT, reshuffle_train=False):
+def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
+          model_params={}, opt_params={}, train_params={}, cuda=True):
     # Initialize model and other variables
-    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda)
+    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda, gpu_id)
 
     # First validation round before any training
     if val_iter_ is not None:
@@ -83,6 +83,8 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
 
         # Actual training loop.     
         for source, target, lengths in train_iter:
+            if cuda:
+                source, target = source.cuda(gpu_id), target.cuda(gpu_id)
 
             optimizer.zero_grad()
 
@@ -131,17 +133,19 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
     return model
 
 
-def predict(model, test_iter, cuda=True):
+def predict(model, test_iter, cuda=True, gpu_id=None):
     # Monitoring loss
     total_loss = 0
     count = 0
     criterion = TemporalCrossEntropyLoss(size_average=False)
     if cuda:
-        criterion = criterion.cuda()
+        criterion = criterion.cuda(gpu_id)
 
     # Actual training loop.
     for source, target, lengths in test_iter:
 
+        if cuda:
+            source, target = source.cuda(gpu_id), target.cuda(gpu_id)
         model.hidden = model.init_hidden()
         output, model_hidden = model(source)
 
