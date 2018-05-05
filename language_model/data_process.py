@@ -1,11 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 22:31:49 2018
-
-@author: SrivatsanPC
-"""
-import torchtext
-from torchtext.vocab import Vectors, GloVe
 from utils import variable, Corpus, batchify
 from const import *
 import numpy as np
