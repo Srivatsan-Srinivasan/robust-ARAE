@@ -3,7 +3,6 @@ import torch as t
 import pickle
 import os
 import random
-from const import *
 
 
 def length_sort(items, lengths, descending=True):
@@ -181,23 +180,27 @@ def batchify(data, bsz, shuffle=False, gpu=False, gpu_id=None):
     return batches
 
 
-def variable(array, requires_grad=False, to_float=True, cuda=CUDA_DEFAULT):
+def variable(array, requires_grad=False, to_float=True, cuda=True, volatile=False, gpu_id=None):
     """Wrapper for t.autograd.Variable"""
-    #import pdb; pdb.set_trace()
     if isinstance(array, np.ndarray):
-        v = t.autograd.Variable(t.from_numpy(array), requires_grad=requires_grad)
+        vv = t.from_numpy(array)
+        vv = vv.cuda(gpu_id) if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, list) or isinstance(array, tuple):
-        v = t.autograd.Variable(t.from_numpy(np.array(array)), requires_grad=requires_grad)
+        vv = t.from_numpy(np.array(array))
+        vv = vv.cuda(gpu_id) if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, float) or isinstance(array, int):
-        v = t.autograd.Variable(t.from_numpy(np.array([array])), requires_grad=requires_grad)
-    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array, t.cuda.LongTensor):
-        v = t.autograd.Variable(array, requires_grad=requires_grad)            
+        vv = t.from_numpy(np.array([array]))
+        vv = vv.cuda(gpu_id) if cuda else vv
+        v = t.autograd.Variable(vv, requires_grad=requires_grad, volatile=volatile)
+    elif isinstance(array, t.Tensor) or isinstance(array, t.FloatTensor) or isinstance(array, t.DoubleTensor) or isinstance(array, t.LongTensor) or isinstance(array, t.cuda.FloatTensor) or isinstance(array, t.cuda.DoubleTensor) or isinstance(array,
+                                                                                                                                                                                                                                                  t.cuda.LongTensor):
+        v = t.autograd.Variable(array.cuda(gpu_id) if cuda else array, requires_grad=requires_grad, volatile=volatile)
     elif isinstance(array, t.autograd.Variable):
-        v = array
+        v = array.cuda(gpu_id) if cuda else array
     else:
         raise ValueError("type(array): %s" % type(array))
-    if cuda and not v.is_cuda:
-        v = v.cuda()
     if to_float:
         return v.float()
     else:
