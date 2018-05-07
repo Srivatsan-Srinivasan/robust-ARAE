@@ -92,7 +92,7 @@ def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save
             output, _ = model(source, lengths)
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)
-            loss = criterion(output.view(batch_size, -1, sent_length), target)
+            loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
             # backprop
             loss.backward()
 
@@ -148,15 +148,11 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
         output, _ = model(source, lengths)
 
         # Dimension matching to cut it right for loss function.
-        print('target')
-        print(target)
-        print('output')
-        print(output)
         batch_size, sent_length = target.size(0), target.size(1)
-        loss = criterion(output.view(batch_size, -1, sent_length), target)
+        loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
 
         # monitoring
-        count += target.size(0) * target.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+        count += batch_size * sent_length  # in that case there are batch_size x bbp_length classifications per batch
         total_loss += t.sum(loss.data)
 
     # monitoring
