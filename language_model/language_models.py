@@ -11,6 +11,9 @@ from torch.autograd import Variable
 import torch.nn as nn
 import torch.nn.functional as F
 import os
+
+from torch.nn.utils.rnn import pack_padded_sequence
+
 from utils import *
 from const import *
 
@@ -39,7 +42,7 @@ class LSTM(t.nn.Module):
         additional_dim = self.init_embedding_and_output(embeddings)
 
         # Initialize network modules.
-        self.model_rnn = nn.LSTM(self.embedding_dim + additional_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers)
+        self.model_rnn = nn.LSTM(self.embedding_dim + additional_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
 
         self.hidden = self.init_hidden()
         if self.embed_dropout:
@@ -88,21 +91,21 @@ class LSTM(t.nn.Module):
         else:
             raise ValueError("One of the conditions before should have been True. Problem in the code.")
 
-    def forward(self, x_batch, debug=False):
-        if debug:
-            import pdb
-            pdb.set_trace()
+    def forward(self, x_batch, lengths):
 
         # EMBEDDING
         embeds = self.word_embeddings(x_batch)
         # going from ` batch_size x bptt_length x embed_dim` to `bptt_length x batch_size x embed_dim`
-        embeds = embeds.permute(1, 0, 2)
         if self.embed_dropout:
             embeds = self.dropout_1(embeds)
+        packed_embeddings = pack_padded_sequence(input=embeds,
+                                                 lengths=lengths,
+                                                 batch_first=True)
 
         # RECURRENT
-        rnn_out, self.hidden = self.model_rnn(embeds, self.hidden)
-        rnn_out = rnn_out.permute(1, 0, 2)
+        self.model_rnn.flatten_parameters()
+        packed_output, state = self.model_rnn(packed_embeddings)
+        rnn_out, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=max(lengths))
         rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT

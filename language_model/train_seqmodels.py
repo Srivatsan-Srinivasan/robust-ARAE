@@ -88,7 +88,7 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
             optimizer.zero_grad()
 
             model.hidden = model.init_hidden(source.size(0))
-            output, model_hidden = model(source)
+            output, _ = model(source, lengths)
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)
             loss = criterion(output.view(batch_size, -1, sent_length), target)
@@ -147,8 +147,7 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
 
         if cuda:
             source, target = source.cuda(gpu_id), target.cuda(gpu_id)
-        model.hidden = model.init_hidden(source.size(0))
-        output, model_hidden = model(source)
+        output, _ = model(source, lengths)
 
         # Dimension matching to cut it right for loss function.
         batch_size, sent_length = target.size(0), target.size(1)
