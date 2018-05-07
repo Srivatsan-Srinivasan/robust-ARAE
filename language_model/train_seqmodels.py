@@ -76,9 +76,6 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
         total_loss = 0
         count = 0
 
-        # Initialize hidden layer and memory(for LSTM). Converting to variable later.
-        model.hidden = model.init_hidden()
-
         train_iter = shuffle(corpus.train)
 
         # Actual training loop.     
@@ -90,7 +87,7 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
 
             optimizer.zero_grad()
 
-            model.hidden = model.init_hidden()
+            model.hidden = model.init_hidden(source.size(0))
             output, model_hidden = model(source)
             # Dimension matching to cut it right for loss function.
             batch_size, sent_length = target.size(0), target.size(1)
@@ -150,7 +147,7 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
 
         if cuda:
             source, target = source.cuda(gpu_id), target.cuda(gpu_id)
-        model.hidden = model.init_hidden()
+        model.hidden = model.init_hidden(source.size(0))
         output, model_hidden = model(source)
 
         # Dimension matching to cut it right for loss function.

@@ -27,8 +27,6 @@ class LSTM(t.nn.Module):
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim')
         self.batch_size = params.get('batch_size')
-        print('self.batch_size')
-        print(self.batch_size)
         self.embedding_dim = params.get('embedding_dim')
         self.vocab_size = params.get('vocab_size')
         self.num_layers = params.get('num_layers')
@@ -48,12 +46,12 @@ class LSTM(t.nn.Module):
             self.dropout_1 = nn.Dropout(self.dropout)
         self.dropout_2 = nn.Dropout(self.dropout)
 
-    def init_hidden(self):
+    def init_hidden(self, batch_size=None):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         return tuple((
-            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag)
         ))
 
     def init_embedding_and_output(self, embeddings):
