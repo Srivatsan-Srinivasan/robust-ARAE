@@ -10,7 +10,7 @@ import torch.nn as nn, torch as t
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
 import json
-from utils import ReduceLROnPlateau, LambdaLR, save_model
+from utils import ReduceLROnPlateau, LambdaLR, save_model, batchify
 from sklearn.utils import shuffle
 
 
@@ -28,15 +28,13 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, ntokens, cuda, gpu_id):
+def _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
     model_params['ntokens'] = ntokens
     model = LSTM(model_params)
     model.train()  # important!
 
-    train_iter_ = train_iter
-    val_iter_ = val_iter
     optimizer = init_optimizer(opt_params, model)
     criterion = TemporalCrossEntropyLoss(size_average=False)
 
@@ -53,19 +51,19 @@ def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, 
     if cuda:
         model = model.cuda(gpu_id)
         criterion = criterion.cuda(gpu_id)
-    return train_iter_, val_iter_, model, criterion, optimizer, scheduler
+    return model, criterion, optimizer, scheduler
 
 
-def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
+def train(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
           model_params={}, opt_params={}, train_params={}, cuda=True):
     # Initialize model and other variables
-    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, ntokens, cuda, gpu_id)
+    model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id)
 
     # First validation round before any training
-    if val_iter_ is not None:
+    if val_iter is not None:
         model.eval()
         print("Model initialized")
-        val_loss = predict(model, val_iter_, cuda=cuda, gpu_id=gpu_id)
+        val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
         model.train()
 
     if scheduler is not None:
@@ -77,7 +75,7 @@ def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save
         total_loss = 0
         count = 0
 
-        train_iter = shuffle(corpus.train)
+        train_iter = batchify(corpus.train, model_params['batch_size'], shuffle=True, gpu_id=gpu_id)
 
         # Actual training loop.     
         for source, target, lengths in train_iter:
@@ -107,10 +105,10 @@ def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save
         # monitoring
         avg_loss = total_loss / count
         print("Average loss after %d epochs is %.4f" % (epoch, avg_loss))
-        if val_iter_ is not None:
+        if val_iter is not None:
             model.eval()
             former_val_loss = val_loss * 1.
-            val_loss = predict(model, val_iter_, cuda=cuda, gpu_id=gpu_id)
+            val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
             if scheduler is not None:
                 scheduler.step(val_loss)
             if val_loss > former_val_loss:
