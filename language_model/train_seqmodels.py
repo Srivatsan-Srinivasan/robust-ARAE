@@ -28,9 +28,10 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda, gpu_id):
+def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, ntokens, cuda, gpu_id):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
+    model_params['ntokens'] = ntokens
     model = LSTM(model_params)
     model.train()  # important!
 
@@ -55,10 +56,10 @@ def _train_initialize_variables(model_params, train_iter, val_iter, opt_params, 
     return train_iter_, val_iter_, model, criterion, optimizer, scheduler
 
 
-def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
+def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
           model_params={}, opt_params={}, train_params={}, cuda=True):
     # Initialize model and other variables
-    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, cuda, gpu_id)
+    train_iter_, val_iter_, model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, train_iter, val_iter, opt_params, ntokens, cuda, gpu_id)
 
     # First validation round before any training
     if val_iter_ is not None:

@@ -11,11 +11,12 @@ def generate_iterators(args):
                     maxlen=args.maxlen,
                     vocab_size=args.vocab_size,
                     lowercase=True)
+    ntokens = len(corpus.dictionary.word2idx)
 
     test_data = batchify(corpus.test, args.batch_size, shuffle=False, gpu_id=args.gpu_id)
     train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
 
-    return train_data, test_data, corpus
+    return train_data, test_data, corpus, ntokens
 
 
 def generate_text(trained_model, expt_name, TEXT, context_size=None, n=20, cuda=CUDA_DEFAULT, h_dim=100):

@@ -61,11 +61,11 @@ check_args(args)
 model_params, opt_params, train_params = get_params(args)
 
 # Load data code should be here. Vocab size function of text.
-train_iter, test_iter, corpus = generate_iterators(args)
+train_iter, test_iter, corpus, ntokens = generate_iterators(args)
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(train_iter, corpus, val_iter=test_iter, early_stopping=args.early_stopping, save=args.save, save_path=args.output_filename,
+trained_model = train(train_iter, corpus, ntokens, val_iter=test_iter, early_stopping=args.early_stopping, save=args.save, save_path=args.output_filename,
                       model_params=model_params, opt_params=opt_params, train_params=train_params, cuda=args.cuda, gpu_id=args.gpu_id)
 
 
