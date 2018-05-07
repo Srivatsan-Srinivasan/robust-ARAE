@@ -91,7 +91,7 @@ def train(train_iter, corpus, ntokens, val_iter=None, early_stopping=False, save
             model.hidden = model.init_hidden(source.size(0))
             output, _ = model(source, lengths)
             # Dimension matching to cut it right for loss function.
-            batch_size, sent_length = target.size(0), target.size(1)
+            batch_size, sent_length = source.size(0), source.size(1)
             loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
             # backprop
             loss.backward()
@@ -148,7 +148,7 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
         output, _ = model(source, lengths)
 
         # Dimension matching to cut it right for loss function.
-        batch_size, sent_length = target.size(0), target.size(1)
+        batch_size, sent_length = source.size(0), source.size(1)
         loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
 
         # monitoring
