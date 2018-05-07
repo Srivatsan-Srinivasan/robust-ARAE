@@ -1,19 +1,5 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 15:46:07 2018
-
-@author: SrivatsanPC
-"""
-
-import torch as t
-import numpy as np
-from torch.autograd import Variable
 import torch.nn as nn
-import torch.nn.functional as F
-import os
-
 from torch.nn.utils.rnn import pack_padded_sequence
-
 from utils import *
 from const import *
 

@@ -628,7 +628,7 @@ class Seq2Seq(nn.Module):
         # Distributional properties of codes
         trace_cov = np.trace(np.cov(self.hidden.data.cpu().numpy().T))  # @todo: use a bigger number of samples than just the last batch to estimate this ?
         writer.add_scalar('trace_cov_ae', trace_cov, n_iter)
-        norm_code = t.mean(t.sum(self.hidden ** 2, 1))
+        norm_code = t.mean(self.hidden.norm(2, 1))
         writer.add_scalar('l2_norm_enc', norm_code, n_iter)
 
     def __cuda__(self, gpu_id=None):
