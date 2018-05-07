@@ -144,12 +144,13 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
     for source, target, lengths in test_iter:
 
         source, target = variable(source, cuda=cuda, gpu_id=gpu_id, to_float=False).long(), variable(target, cuda=cuda, gpu_id=gpu_id, to_float=False).long()
-
-        if cuda:
-            source, target = source.cuda(gpu_id), target.cuda(gpu_id)
         output, _ = model(source, lengths)
 
         # Dimension matching to cut it right for loss function.
+        print('target')
+        print(target)
+        print('output')
+        print(output)
         batch_size, sent_length = target.size(0), target.size(1)
         loss = criterion(output.view(batch_size, -1, sent_length), target)
 
