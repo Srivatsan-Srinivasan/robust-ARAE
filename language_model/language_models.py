@@ -20,13 +20,15 @@ class LSTM(t.nn.Module):
         print(params)
         super(LSTM, self).__init__()
         print("Initializing LSTM")
-        self.cuda_flag = params.get('cuda', CUDA_DEFAULT)
+        self.cuda_flag = params.get('cuda')
         self.model_str = 'LSTM'
         self.params = params
 
         # Initialize hyperparams.
         self.hidden_dim = params.get('hidden_dim')
         self.batch_size = params.get('batch_size')
+        print('self.batch_size')
+        print(self.batch_size)
         self.embedding_dim = params.get('embedding_dim')
         self.vocab_size = params.get('vocab_size')
         self.num_layers = params.get('num_layers')
@@ -49,13 +51,10 @@ class LSTM(t.nn.Module):
     def init_hidden(self):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
-        if self.model_str in ['GRU', 'BiGRU']:
-            return variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
-        else:
-            return tuple((
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-                variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
-            ))
+        return tuple((
+            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag),
+            variable(np.zeros((self.num_layers, self.batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+        ))
 
     def init_embedding_and_output(self, embeddings):
         """
