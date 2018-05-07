@@ -4,7 +4,7 @@ Created on Fri Feb  9 16:12:30 2018
 
 @author: SrivatsanPC
 """
-from language_models import LSTM, TemporalCrossEntropyLoss
+from language_models import LSTM, TemporalCrossEntropyLoss, variable
 from const import *
 import torch.nn as nn, torch as t
 import torch.optim as optim
@@ -86,6 +86,8 @@ def train(train_iter, corpus, val_iter=None, early_stopping=False, save=False, s
             if cuda:
                 source, target = source.cuda(gpu_id), target.cuda(gpu_id)
 
+            source, target = variable(source, cuda=cuda, gpu_id=gpu_id, to_float=False).long(), variable(target, cuda=cuda, gpu_id=gpu_id, to_float=False).long()
+
             optimizer.zero_grad()
 
             model.hidden = model.init_hidden()
@@ -143,6 +145,8 @@ def predict(model, test_iter, cuda=True, gpu_id=None):
 
     # Actual training loop.
     for source, target, lengths in test_iter:
+
+        source, target = variable(source, cuda=cuda, gpu_id=gpu_id, to_float=False).long(), variable(target, cuda=cuda, gpu_id=gpu_id, to_float=False).long()
 
         if cuda:
             source, target = source.cuda(gpu_id), target.cuda(gpu_id)

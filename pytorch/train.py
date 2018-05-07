@@ -1,3 +1,6 @@
+"""
+Train ARAE
+"""
 import argparse
 import json
 import math
