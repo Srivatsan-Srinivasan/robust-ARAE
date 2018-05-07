@@ -12,7 +12,7 @@ def generate_iterators(args):
                     vocab_size=args.vocab_size,
                     lowercase=True)
 
-    test_data = batchify(corpus.test, 10, shuffle=False, gpu_id=args.gpu_id)
+    test_data = batchify(corpus.test, args.batch_size, shuffle=False, gpu_id=args.gpu_id)
     train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
 
     return train_data, test_data, corpus
