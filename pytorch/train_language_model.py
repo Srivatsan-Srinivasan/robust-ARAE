@@ -1,11 +1,9 @@
 import argparse
 import torch as t
-from language_model.process_params import check_args, get_params
-from language_model.train_seqmodels import train
-from language_model.data_process import generate_iterators
+from train_utils import train, generate_iterators, get_params, check_args
 import ast
 import json
-from language_model.utils import save_model
+from utils import save_nnlm
 
 t.manual_seed(1)
 # Create Parser.
@@ -64,7 +62,7 @@ trained_model = train(corpus, ntokens, val_iter=test_iter, early_stopping=args.e
 
 # Dummy code.
 print('saving model')
-save_model(trained_model, args.output_filename)
+save_nnlm(trained_model, args.output_filename)
 with open('argparse.json', 'w') as f:
     json.dump(vars(args), f)
 

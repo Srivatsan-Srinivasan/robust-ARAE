@@ -1,13 +1,13 @@
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from language_model.utils import *
+from utils import *
 import torch.nn.functional as F
 
 
-class LSTM(t.nn.Module):
+class NNLM(t.nn.Module):
     def __init__(self, params):
         print(params)
-        super(LSTM, self).__init__()
+        super(NNLM, self).__init__()
         print("Initializing LSTM")
         self.cuda_flag = params.get('cuda')
         self.model_str = 'LSTM'

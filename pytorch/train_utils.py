@@ -1,15 +1,21 @@
+import json
 import math
+import pickle
 import time
+
 import numpy as np
 import torch
+import torch as t
+from sklearn.utils import shuffle
+from torch import optim as optim
 from torch.autograd import Variable
 from torch.nn import functional as F
+from torch.nn.utils import clip_grad_norm
+
+from language_model import NNLM, TemporalCrossEntropyLoss
+from utils import ReduceLROnPlateau, LambdaLR, batchify, Corpus
 from models import Seq2Seq
-from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold, l2normalize
-import pickle
-from sklearn.utils import shuffle
-import torch as t
-from language_model.language_models import LSTM as Oracle
+from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold, l2normalize, save_nnlm
 
 
 def load_oracle(args):
@@ -22,7 +28,7 @@ def load_oracle(args):
         'dropout': .5,
         'ntokens': 11004
     }
-    oracle = Oracle(params)
+    oracle = NNLM(params)
     oracle.load_state_dict(t.load(args.data_path+'/nnlm.pt'))
     oracle.__cuda__(args.gpu_id)
     return oracle
@@ -667,3 +673,213 @@ def grad_hook(grad, grad_norm, args):
     # weight factor and sign flip
     normed_grad *= -math.fabs(args.gan_toenc)
     return normed_grad
+
+
+def init_optimizer(opt_params, model):
+    optimizer = opt_params.get('optimizer', 'SGD')
+    lr = opt_params.get('lr', 0.1)
+    l2_penalty = opt_params.get('l2_penalty', 0)
+    if optimizer == 'SGD':
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
+    if optimizer == 'Adam':
+        optimizer = optim.Adam(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
+    if optimizer == 'Adamax':
+        optimizer = optim.Adamax(filter(lambda p: p.requires_grad, model.parameters()), lr=lr, weight_decay=l2_penalty)
+
+    return optimizer
+
+
+def _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id):
+    """Helper function that just initializes everything at the beginning of the train function"""
+    # Params passed in as dict to model.
+    model_params['ntokens'] = ntokens
+    model = NNLM(model_params)
+    model.train()  # important!
+
+    optimizer = init_optimizer(opt_params, model)
+    criterion = TemporalCrossEntropyLoss(size_average=False)
+
+    if opt_params['lr_scheduler'] is not None and opt_params['optimizer'] == 'SGD':
+        if opt_params['lr_scheduler'] == 'plateau':
+            scheduler = ReduceLROnPlateau(optimizer, mode='min', factor=.5, patience=1)
+        elif opt_params['lr_scheduler'] == 'delayedexpo':
+            scheduler = LambdaLR(optimizer, lr_lambda=[lambda epoch: float(epoch<=4) + float(epoch>4)*1.2**(-epoch)])
+        else:
+            raise NotImplementedError('only plateau scheduler has been implemented so far')
+    else:
+        scheduler = None
+
+    if cuda:
+        model = model.cuda(gpu_id)
+        criterion = criterion.cuda(gpu_id)
+    return model, criterion, optimizer, scheduler
+
+
+def train(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
+          model_params={}, opt_params={}, train_params={}, cuda=True):
+    # Initialize model and other variables
+    model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id)
+
+    # First validation round before any training
+    if val_iter is not None:
+        model.eval()
+        print("Model initialized")
+        val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
+        model.train()
+
+    if scheduler is not None:
+        scheduler.step(val_loss)
+
+    print("All set. Actual Training begins")
+    for epoch in range(train_params.get('n_ep', 30)):
+        # Monitoring loss
+        total_loss = 0
+        count = 0
+
+        train_iter = batchify(corpus.train, model_params['batch_size'], shuffle=True, gpu_id=gpu_id)
+
+        # Actual training loop.
+        for source, target, lengths in train_iter:
+            if cuda:
+                source, target = source.cuda(gpu_id), target.cuda(gpu_id)
+
+            source, target = variable(source, cuda=cuda, gpu_id=gpu_id, to_float=False).long(), variable(target, cuda=cuda, gpu_id=gpu_id, to_float=False).long()
+
+            optimizer.zero_grad()
+
+            model.hidden = model.init_hidden(source.size(0))
+            output, _ = model(source, lengths)
+            # Dimension matching to cut it right for loss function.
+            batch_size, sent_length = source.size(0), source.size(1)
+            loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
+            # backprop
+            loss.backward()
+
+            # Clip gradients to prevent exploding gradients in RNN/LSTM/GRU
+            clip_grad_norm(model.parameters(), model_params.get("clip_grad_norm", 5))
+            optimizer.step()
+
+            # monitoring
+            count += source.size(0) * source.size(1)  # in that case there are batch_size x bbp_length classifications per batch
+            total_loss += t.sum(loss.data)  # .data to break so that you dont keep references
+
+        # monitoring
+        avg_loss = total_loss / count
+        print("Average loss after %d epochs is %.4f" % (epoch, avg_loss))
+        if val_iter is not None:
+            model.eval()
+            former_val_loss = val_loss * 1.
+            val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
+            if scheduler is not None:
+                scheduler.step(val_loss)
+            if val_loss > former_val_loss:
+                if early_stopping:
+                    break
+            else:
+                if save:
+                    assert save_path is not None
+                    # weights
+                    save_model(model, save_path + '.pytorch')
+                    # params
+                    with open(save_path + '.params.json', 'w') as fp:
+                        json.dump(model.params, fp)
+                    # loss
+                    with open(save_path + '.losses.txt', 'w') as fp:
+                        fp.write('val: ' + str(val_loss))
+                        fp.write('train: ' + str(avg_loss))
+            model.train()
+
+    return model
+
+
+def predict(model, test_iter, cuda=True, gpu_id=None):
+    # Monitoring loss
+    total_loss = 0
+    count = 0
+    criterion = TemporalCrossEntropyLoss(size_average=False)
+    if cuda:
+        criterion = criterion.cuda(gpu_id)
+
+    # Actual training loop.
+    for source, target, lengths in test_iter:
+
+        source, target = variable(source, cuda=cuda, gpu_id=gpu_id, to_float=False).long(), variable(target, cuda=cuda, gpu_id=gpu_id, to_float=False).long()
+        output, _ = model(source, lengths)
+
+        # Dimension matching to cut it right for loss function.
+        batch_size, sent_length = source.size(0), source.size(1)
+        loss = criterion(output.view(batch_size, -1, sent_length), target.view(batch_size, sent_length))
+
+        # monitoring
+        count += batch_size * sent_length  # in that case there are batch_size x bbp_length classifications per batch
+        total_loss += t.sum(loss.data)
+
+    # monitoring
+    avg_loss = total_loss / count
+    print("Validation loss is %.4f" % avg_loss)
+    return avg_loss
+
+
+def generate_iterators(args):
+    # Data distributed with the assignment
+
+    corpus = Corpus(args.data_path,
+                    maxlen=args.maxlen,
+                    vocab_size=args.vocab_size,
+                    lowercase=True)
+    ntokens = len(corpus.dictionary.word2idx)
+
+    test_data = batchify(corpus.test, args.batch_size, shuffle=False, gpu_id=args.gpu_id)
+    train_data = batchify(corpus.train, args.batch_size, shuffle=True, gpu_id=args.gpu_id)
+
+    return train_data, test_data, corpus, ntokens
+
+
+optimizers = ['SGD', 'Adam', 'AdaMax']
+model_params_args_map = {'num_layers': 'lstm_nl',
+                         'hidden_dim': 'lstm_h_dim',
+                         'embedding_dim': 'emb_size',
+                         'batch_size': 'batch_size',
+                         'dropout': 'dropout',
+                         'context_size': 'context_size',
+                         'train_embedding': 'emb_train',
+                         'clip_grad_norm': 'clip_g_n',
+                         'cuda': 'cuda',
+                         'batch_norm': 'batch_norm',
+                         'nnlm_h_dim': 'nnlm_h_dim',
+                         'activation': 'activation',
+                         'vocab_size': 'vocab_size',
+                         'embed_dropout': 'embed_dropout',
+                         'tie_weights': 'tie_weights'
+                         }
+opt_params_args_map = {'optimizer': 'optimizer',
+                       'lr': 'lr',
+                       'l2_penalty': 'l2_penalty',
+                       'lr_scheduler': 'lr_scheduler'
+                       }
+train_params_args_map = {'n_ep': 'n_ep',
+                         }
+
+
+def get_params(args):
+    model_params = {}
+    opt_params = {}
+    train_params = {}
+    args = vars(args)
+    for k, v in model_params_args_map.items():
+        if v in args:
+            model_params[k] = args[v]
+    for k, v in opt_params_args_map.items():
+        if v in args:
+            opt_params[k] = args[v]
+    for k, v in train_params_args_map.items():
+        if v in args:
+            train_params[k] = args[v]
+
+    return model_params, opt_params, train_params
+
+
+def check_args(args):
+    if args.optimizer not in optimizers:
+        raise Exception("Given optimizer string not in valid models. Add your new model to const.py and train_utils.py" +
+                        "Could also be case mismatch. Check const.py")
