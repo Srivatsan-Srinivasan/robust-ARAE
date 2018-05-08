@@ -37,8 +37,8 @@ class LSTM(t.nn.Module):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
         # will return torch variable.
         return tuple((
-            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag),
-            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag)
+            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag, gpu_id=self.gpu_id),
+            variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag, gpu_id=self.gpu_id)
         ))
 
     def forward(self, x_batch, lengths):
@@ -61,6 +61,10 @@ class LSTM(t.nn.Module):
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
+
+    def __cuda__(self, gpu_id):
+        self.cuda(gpu_id)
+        self.gpu_id = gpu_id
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):
