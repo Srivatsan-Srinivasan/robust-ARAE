@@ -39,7 +39,7 @@ def get_synthetic_dataset(args):
     Returns the train/test lists from the file `<args.data_path>/synthetic_dataset.pkl`
     These two lists are used to instantiate the SyntheticCorpus
     """
-    with open(args.data_path + '/synthetic_dataset.pkl', 'rb') as f:
+    with open(args.data_path + '/synthetic_dataset_nnlm.pkl', 'rb') as f:
         dataset = pickle.load(f)
     dataset_ = []
     for i,l in dataset.items():
