@@ -65,4 +65,6 @@ trained_model = train(corpus, ntokens, val_iter=test_iter, early_stopping=args.e
 # Dummy code.
 print('saving model')
 save_model(trained_model, args.output_filename)
-json.dump(vars(args), 'argparse.json')
+with open('argparse.json', 'w') as f:
+    json.dump(vars(args), f)
+

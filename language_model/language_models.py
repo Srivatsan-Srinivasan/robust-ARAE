@@ -29,7 +29,6 @@ class LSTM(t.nn.Module):
         # Initialize network modules.
         self.model_rnn = nn.LSTM(self.embedding_dim, self.hidden_dim, dropout=self.dropout, num_layers=self.num_layers, batch_first=True)
 
-        self.hidden = self.init_hidden()
         if self.embed_dropout:
             self.dropout_1 = nn.Dropout(self.dropout)
         self.dropout_2 = nn.Dropout(self.dropout)
