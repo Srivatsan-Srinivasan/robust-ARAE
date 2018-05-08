@@ -502,6 +502,8 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)
 
     # batch_size x nhidden
+    print('t.min(source), t.max(source)')
+    print(t.min(source), t.max(source))
     real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=False, encode_only=True)
     grad_norm = sum(list(Seq2Seq.grad_norm.values()))
     real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
