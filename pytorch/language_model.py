@@ -72,7 +72,7 @@ class NNLM(t.nn.Module):
         flattened_output = output.view(-1, self.ntokens)
         output_mask = output_mask.contiguous().view(-1, self.ntokens)
         masked_output = flattened_output.masked_select(output_mask).view(-1, self.ntokens)  # batch_size x max_len classification problems, without the padding
-        loss = F.cross_entropy(masked_output, masked_indices)  # batch_size x max_len classification problems
+        loss = F.cross_entropy(masked_output, masked_indices, size_average=True)  # batch_size x max_len classification problems
 
         ppl = t.exp(loss)
         return ppl.cpu().data.numpy()[0]
