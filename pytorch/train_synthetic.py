@@ -37,7 +37,8 @@ def init_config():
         # Data Processing Arguments
         parser.add_argument('--vocab_size', type=int, default=11004,
                             help='cut vocabulary down to this size '
-                                 '(most frequently seen words in train)')
+                                 '(most frequently seen words in train)'
+                                 'DONT FORGET THE PAD/EOS/SOS/OOV TOKENS !!!')
         parser.add_argument('--maxlen', type=int, default=30,
                             help='maximum sentence length')
         parser.add_argument('--lowercase', action='store_true',
