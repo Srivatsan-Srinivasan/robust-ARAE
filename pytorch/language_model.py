@@ -67,9 +67,15 @@ class NNLM(t.nn.Module):
         return out_linear, state
 
     def get_ppl(self, indices, lengths):
+        print('indices')
+        print(indices)
+        print('lengths')
+        print(lengths)
         output, _ = self.forward(indices, lengths)
+        print('output')
+        print(output)
         batch_size, sent_length = indices.size(0), indices.size(1)
-        loss = self.criterion(output.view(batch_size, -1, sent_length), indices.view(batch_size, sent_length))
+        loss = self.criterion.forward(output.view(batch_size, -1, sent_length), indices.view(batch_size, sent_length))
         loss /= batch_size * sent_length
         return t.exp(loss).data.cpu().numpy()[0]
 
