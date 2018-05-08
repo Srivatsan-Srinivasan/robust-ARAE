@@ -1,22 +1,15 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 15:25:48 2018
-
-@author: SrivatsanPC
-"""
-
-# Mostly dummy code for now to illustrate argparser.
 import argparse
 import torch as t
 from process_params import check_args, get_params
-from const import *
-from train_seqmodels import train, predict
-from data_process import generate_iterators, generate_text
+from train_seqmodels import train
+from data_process import generate_iterators
 import ast
+import json
+from utils import save_model
 
 t.manual_seed(1)
 # Create Parser.
-parser = argparse.ArgumentParser(description="For CS287 HW2")
+parser = argparse.ArgumentParser()
 
 # Add arguments to be parsed.
 # GENERAL PARAMS
@@ -70,4 +63,6 @@ trained_model = train(corpus, ntokens, val_iter=test_iter, early_stopping=args.e
 
 
 # Dummy code.
-print("The model is ", args.model)
+print('saving model')
+save_model(trained_model, args.output_filename)
+json.dump(vars(args), 'argparse.json')
