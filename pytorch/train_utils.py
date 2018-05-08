@@ -41,10 +41,7 @@ def get_synthetic_dataset(args):
     """
     with open(args.data_path + '/synthetic_dataset_nnlm.pkl', 'rb') as f:
         dataset = pickle.load(f)
-    dataset_ = []
-    for i,l in dataset.items():
-        dataset_ += l
-    dataset = shuffle(dataset_)
+    dataset = shuffle(dataset)
     n = len(dataset)
     train, test = dataset[:int(.95 * n)], dataset[int(.95 * n):]
     return train, test
