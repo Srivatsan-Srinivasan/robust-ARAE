@@ -63,7 +63,7 @@ class NNLM(t.nn.Module):
         return out_linear, state
 
     def get_ppl(self, indices, lengths):
-        output = self.forward(indices, lengths)
+        output, _ = self.forward(indices, lengths)
 
         # mask the pad tokens
         mask = indices.gt(0)  # gt: greater than.
