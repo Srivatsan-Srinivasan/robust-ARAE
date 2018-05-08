@@ -1,6 +1,6 @@
 import argparse
 import torch as t
-from train_utils import train, generate_iterators, get_params, check_args
+from train_utils import train_nnlm, generate_iterators, get_params, check_args
 import ast
 import json
 from utils import save_nnlm
@@ -56,8 +56,8 @@ train_iter, test_iter, corpus, ntokens = generate_iterators(args)
 
 # Call for different models code should be here.
 # Train Model
-trained_model = train(corpus, ntokens, val_iter=test_iter, early_stopping=args.early_stopping, save=args.save, save_path=args.output_filename,
-                      model_params=model_params, opt_params=opt_params, train_params=train_params, cuda=args.cuda, gpu_id=args.gpu_id)
+trained_model = train_nnlm(corpus, ntokens, val_iter=test_iter, early_stopping=args.early_stopping, save=args.save, save_path=args.output_filename,
+                           model_params=model_params, opt_params=opt_params, train_params=train_params, cuda=args.cuda, gpu_id=args.gpu_id)
 
 
 # Dummy code.

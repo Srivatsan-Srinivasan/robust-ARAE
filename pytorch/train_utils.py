@@ -675,7 +675,7 @@ def grad_hook(grad, grad_norm, args):
     return normed_grad
 
 
-def init_optimizer(opt_params, model):
+def init_optimizer_nnlm(opt_params, model):
     optimizer = opt_params.get('optimizer', 'SGD')
     lr = opt_params.get('lr', 0.1)
     l2_penalty = opt_params.get('l2_penalty', 0)
@@ -689,14 +689,14 @@ def init_optimizer(opt_params, model):
     return optimizer
 
 
-def _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id):
+def _train_nnlm_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id):
     """Helper function that just initializes everything at the beginning of the train function"""
     # Params passed in as dict to model.
     model_params['ntokens'] = ntokens
     model = NNLM(model_params)
     model.train()  # important!
 
-    optimizer = init_optimizer(opt_params, model)
+    optimizer = init_optimizer_nnlm(opt_params, model)
     criterion = TemporalCrossEntropyLoss(size_average=False)
 
     if opt_params['lr_scheduler'] is not None and opt_params['optimizer'] == 'SGD':
@@ -715,16 +715,16 @@ def _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id)
     return model, criterion, optimizer, scheduler
 
 
-def train(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
-          model_params={}, opt_params={}, train_params={}, cuda=True):
+def train_nnlm(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save_path=None, gpu_id=None,
+               model_params={}, opt_params={}, train_params={}, cuda=True):
     # Initialize model and other variables
-    model, criterion, optimizer, scheduler = _train_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id)
+    model, criterion, optimizer, scheduler = _train_nnlm_initialize_variables(model_params, opt_params, ntokens, cuda, gpu_id)
 
     # First validation round before any training
     if val_iter is not None:
         model.eval()
         print("Model initialized")
-        val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
+        val_loss = predict_nnlm(model, val_iter, cuda=cuda, gpu_id=gpu_id)
         model.train()
 
     if scheduler is not None:
@@ -769,7 +769,7 @@ def train(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save
         if val_iter is not None:
             model.eval()
             former_val_loss = val_loss * 1.
-            val_loss = predict(model, val_iter, cuda=cuda, gpu_id=gpu_id)
+            val_loss = predict_nnlm(model, val_iter, cuda=cuda, gpu_id=gpu_id)
             if scheduler is not None:
                 scheduler.step(val_loss)
             if val_loss > former_val_loss:
@@ -792,7 +792,7 @@ def train(corpus, ntokens, val_iter=None, early_stopping=False, save=False, save
     return model
 
 
-def predict(model, test_iter, cuda=True, gpu_id=None):
+def predict_nnlm(model, test_iter, cuda=True, gpu_id=None):
     # Monitoring loss
     total_loss = 0
     count = 0

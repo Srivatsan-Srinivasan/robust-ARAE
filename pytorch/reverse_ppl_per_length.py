@@ -44,4 +44,3 @@ with open('snli_lm_synthetic/'+args.outf, 'w') as f:
     f.write(args.source_file)
     f.write('\n')
     f.write('\n'.join([str(r) for r in results]))
-

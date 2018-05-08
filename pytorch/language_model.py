@@ -1,7 +1,9 @@
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from utils import *
 import torch.nn.functional as F
+import torch as t
+import numpy as np
+from utils import variable, pad_packed_sequence
 
 
 class NNLM(t.nn.Module):
@@ -32,6 +34,8 @@ class NNLM(t.nn.Module):
         if self.embed_dropout:
             self.dropout_1 = nn.Dropout(self.dropout)
         self.dropout_2 = nn.Dropout(self.dropout)
+
+        self.criterion = TemporalCrossEntropyLoss(size_average=False)
 
     def init_hidden(self, batch_size=None):
         # The axes semantics are (num_layers, minibatch_size, hidden_dim). The helper function
@@ -64,18 +68,10 @@ class NNLM(t.nn.Module):
 
     def get_ppl(self, indices, lengths):
         output, _ = self.forward(indices, lengths)
-
-        # mask the pad tokens
-        mask = indices.gt(0)  # gt: greater than.
-        masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
-        output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
-        flattened_output = output.view(-1, self.ntokens)
-        output_mask = output_mask.contiguous().view(-1, self.ntokens)
-        masked_output = flattened_output.masked_select(output_mask).view(-1, self.ntokens)  # batch_size x max_len classification problems, without the padding
-        loss = F.cross_entropy(masked_output, masked_indices, size_average=True)  # batch_size x max_len classification problems
-
-        ppl = t.exp(loss)
-        return ppl.cpu().data.numpy()[0]
+        batch_size, sent_length = indices.size(0), indices.size(1)
+        loss = self.criterion(output.view(batch_size, -1, sent_length), indices.view(batch_size, sent_length))
+        loss /= batch_size * sent_length
+        return t.exp(loss).data.cpu().numpy()[0]
 
     def generate(self, batch_size, maxlen, gpu_id=None, gpu=True, sample=True, temp=1.):
         state = self.init_hidden(batch_size)
@@ -113,6 +109,7 @@ class NNLM(t.nn.Module):
     def __cuda__(self, gpu_id):
         self.cuda(gpu_id)
         self.gpu_id = gpu_id
+        self.criterion.cuda(self.gpu_id)
 
 
 def generate_synthetic_dataset(oracle, n, maxlen, gpu, gpu_id=None, add_eos=True, add_sos=True, n_per_batch=500):
