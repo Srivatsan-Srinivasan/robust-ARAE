@@ -1,7 +1,7 @@
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence
-from utils import *
-from const import *
+from language_model.utils import *
+import torch.nn.functional as F
 
 
 class LSTM(t.nn.Module):
@@ -62,9 +62,77 @@ class LSTM(t.nn.Module):
         out_linear = self.hidden2out(rnn_out)
         return out_linear, self.hidden
 
+    def get_ppl(self, indices, lengths):
+        output = self.forward(indices, lengths)
+
+        # mask the pad tokens
+        mask = indices.gt(0)  # gt: greater than.
+        masked_indices = indices.masked_select(mask)  # it flattens the output to n_examples x sentence_length
+        output_mask = mask.unsqueeze(2).expand(mask.size(0), mask.size(1), self.ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
+        flattened_output = output.view(-1, self.ntokens)
+        output_mask = output_mask.contiguous().view(-1, self.ntokens)
+        masked_output = flattened_output.masked_select(output_mask).view(-1, self.ntokens)  # batch_size x max_len classification problems, without the padding
+        loss = F.cross_entropy(masked_output, masked_indices)  # batch_size x max_len classification problems
+
+        ppl = t.exp(loss)
+        return ppl.cpu().data.numpy()[0]
+
+    def generate(self, batch_size, maxlen, gpu_id=None, gpu=True, sample=True, temp=1.):
+        state = self.init_hidden(batch_size)
+
+        # <sos>
+        start_symbols = variable(t.ones(10, 1).long(), to_float=False, cuda=gpu, volatile=False, gpu_id=gpu_id)
+        start_symbols.data.resize_(batch_size, 1)
+        start_symbols.data.fill_(1)
+
+        embedding = self.word_embeddings(start_symbols)
+        inputs = embedding * 1.
+
+        # unroll
+        all_indices = []
+        for i in range(maxlen):
+            output, state = self.model_rnn(inputs, state)
+            output = output.float()
+            state = state[0].detach(), state[1].detach()
+            overvocab = self.hidden2out(output.squeeze(1))
+
+            if not sample:
+                vals, indices = t.max(overvocab, 1)  # this is not an error on newer PyTorch
+            else:
+                # sampling
+                probs = F.softmax(overvocab / temp, dim=1)
+                indices = t.multinomial(probs, 1)
+
+            all_indices.append(indices)
+            embedding = self.word_embeddings(indices)
+            inputs = embedding * 1.
+
+        max_indices = t.stack(all_indices, 1)
+        return max_indices.squeeze()
+
     def __cuda__(self, gpu_id):
         self.cuda(gpu_id)
         self.gpu_id = gpu_id
+
+
+def generate_synthetic_dataset(oracle, n, maxlen, gpu, gpu_id=None, add_eos=True, add_sos=True, n_per_batch=500):
+    # Init
+    dataset = []
+
+    while len(dataset) <= n:
+
+        # Generate sentences, one batch at a time
+        x = oracle.generate(n_per_batch, maxlen, gpu=gpu, gpu_id=gpu_id, sample=True, temp=1.).long()
+
+        # Add EOS and SOS tokens
+        if add_sos:
+            x = t.cat([variable(t.ones(n_per_batch, 1), to_float=False, cuda=gpu, gpu_id=gpu_id).long(), x], 1)
+        if add_eos:
+            x = t.cat([x, variable(2 * t.ones(n_per_batch, 1), to_float=False, cuda=gpu, gpu_id=gpu_id).long()], 1)
+
+        dataset += x.data.cpu().numpy().tolist()
+
+    return dataset, oracle
 
 
 class TemporalCrossEntropyLoss(t.nn.modules.loss._WeightedLoss):

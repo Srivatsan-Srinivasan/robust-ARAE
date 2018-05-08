@@ -235,9 +235,9 @@ corpus = SyntheticCorpus(train, test,
                          vocab_size=args.vocab_size)
 
 # save arguments
-ntokens = corpus.vocab_size + 3
+ntokens = corpus.vocab_size
 print("Vocabulary Size: {}".format(ntokens))
-args.ntokens = ntokens - 3
+args.ntokens = ntokens
 oracle = load_oracle(args)
 with open('./output/{}/args.json'.format(args.outf), 'w') as f:
     json.dump(vars(args), f)
@@ -289,7 +289,6 @@ if args.cuda:
     autoencoder = autoencoder.cuda(args.gpu_id)
     gan_gen = gan_gen.cuda(args.gpu_id)
     gan_disc = gan_disc.cuda(args.gpu_id)
-    oracle = oracle.cuda(args.gpu_id)
     criterion_ce = criterion_ce.cuda(args.gpu_id)
 
 if torch.cuda.device_count() > 1 and args.n_gpus > 1:

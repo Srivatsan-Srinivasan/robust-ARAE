@@ -1,16 +1,10 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 16:12:30 2018
-
-@author: SrivatsanPC
-"""
-from language_models import LSTM, TemporalCrossEntropyLoss, variable
-from const import *
+from language_model.language_models import LSTM, TemporalCrossEntropyLoss, variable
+from language_model.const import *
 import torch.nn as nn, torch as t
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm
 import json
-from utils import ReduceLROnPlateau, LambdaLR, save_model, batchify
+from language_model.utils import ReduceLROnPlateau, LambdaLR, save_model, batchify
 from sklearn.utils import shuffle
 
 

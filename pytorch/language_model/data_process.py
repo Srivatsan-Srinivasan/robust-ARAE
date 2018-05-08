@@ -1,5 +1,5 @@
-from utils import variable, Corpus, batchify
-from const import *
+from language_model.utils import variable, Corpus, batchify
+from language_model.const import *
 import numpy as np
 from torch.autograd import Variable
 

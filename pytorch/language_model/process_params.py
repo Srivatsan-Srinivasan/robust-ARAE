@@ -1,11 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 22:01:14 2018
-
-@author: SrivatsanPC
-"""
-
-from const import *
+from language_model.const import *
 
 
 def get_params(args):

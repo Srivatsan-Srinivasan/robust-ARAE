@@ -1,11 +1,11 @@
 import argparse
 import torch as t
-from process_params import check_args, get_params
-from train_seqmodels import train
-from data_process import generate_iterators
+from language_model.process_params import check_args, get_params
+from language_model.train_seqmodels import train
+from language_model.data_process import generate_iterators
 import ast
 import json
-from utils import save_model
+from language_model.utils import save_model
 
 t.manual_seed(1)
 # Create Parser.

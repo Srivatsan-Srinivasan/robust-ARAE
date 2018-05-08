@@ -9,12 +9,22 @@ from utils import to_gpu, variable, train_ngram_lm, get_ppl, threshold, l2normal
 import pickle
 from sklearn.utils import shuffle
 import torch as t
-from synthetic_oracle import Oracle
+from language_model.language_models import LSTM as Oracle
 
 
 def load_oracle(args):
-    oracle = Oracle(300, 300, args.ntokens, 1, gpu=args.cuda, gpu_id=args.gpu_id)
-    oracle.load_state_dict(t.load(args.data_path+'/synthetic_oracle.pt'))
+    params = {
+        'cuda': True,
+        'hidden_dim': 300,
+        'embedding_dim': 300,
+        'batch_size': 64,
+        'num_layers': 1,
+        'dropout': .5,
+        'ntokens': 11004
+    }
+    oracle = Oracle(params)
+    oracle.load_state_dict(t.load(args.data_path+'/nnlm.pt'))
+    oracle.__cuda__(args.gpu_id)
     return oracle
 
 

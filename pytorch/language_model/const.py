@@ -1,10 +1,3 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Fri Feb  9 15:28:37 2018
-
-@author: SrivatsanPC
-"""
-
 models = ['BNLSTM', 'NNLM', 'NNLM2', 'LSTM', 'BiLSTM', 'BiGRU', 'GRU', 'Trigram']
 optimizers = ['SGD', 'Adam', 'AdaMax']
 recur_models = ['BNLSTM', 'LSTM', 'GRU', 'BiLSTM', 'BiGRU']
