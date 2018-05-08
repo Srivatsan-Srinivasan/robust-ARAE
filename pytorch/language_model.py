@@ -60,7 +60,7 @@ class NNLM(t.nn.Module):
 
         # OUTPUT
         out_linear = self.hidden2out(rnn_out)
-        return out_linear, self.hidden
+        return out_linear, state
 
     def get_ppl(self, indices, lengths):
         output = self.forward(indices, lengths)
