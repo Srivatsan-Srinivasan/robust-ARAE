@@ -45,7 +45,7 @@ class NNLM(t.nn.Module):
             variable(np.zeros((self.num_layers, self.batch_size if batch_size is None else batch_size, self.hidden_dim)), cuda=self.cuda_flag, gpu_id=self.gpu_id)
         ))
 
-    def forward(self, x_batch, lengths):
+    def forward(self, x_batch, lengths, maxlen=None):
 
         # EMBEDDING
         embeds = self.word_embeddings(x_batch)
@@ -59,7 +59,7 @@ class NNLM(t.nn.Module):
         # RECURRENT
         self.model_rnn.flatten_parameters()
         packed_output, state = self.model_rnn(packed_embeddings)
-        rnn_out, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=max(lengths))
+        rnn_out, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=max(lengths) if maxlen is None else maxlen)
         rnn_out = self.dropout_2(rnn_out)
 
         # OUTPUT
@@ -71,11 +71,19 @@ class NNLM(t.nn.Module):
         print(indices)
         print('lengths')
         print(lengths)
-        output, _ = self.forward(indices, lengths)
+        output, _ = self.forward(indices, lengths, maxlen=indices.size(1))
         print('output')
         print(output)
         batch_size, sent_length = indices.size(0), indices.size(1)
-        loss = self.criterion.forward(output.view(batch_size, -1, sent_length), indices.view(batch_size, sent_length))
+
+        def f(i, j):
+            return 1 if j <= lengths[i] else 0
+        g = np.vectorize(f)
+        mask = np.fromfunction(lambda i, j: g(i, j), dtype=int, shape=(indices.size(0), indices.size(1)))
+        mask = variable(mask, cuda=True, gpu_id=self.gpu_id).long()
+        indices_ = indices*mask
+
+        loss = self.criterion.forward(output.view(batch_size, -1, sent_length), indices_.view(batch_size, sent_length))
         loss /= batch_size * sent_length
         return t.exp(loss).data.cpu().numpy()[0]
 
