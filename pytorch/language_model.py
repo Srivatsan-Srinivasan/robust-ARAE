@@ -67,13 +67,7 @@ class NNLM(t.nn.Module):
         return out_linear, state
 
     def get_ppl(self, indices, lengths):
-        print('indices')
-        print(indices)
-        print('lengths')
-        print(lengths)
         output, _ = self.forward(indices, lengths, maxlen=indices.size(1))
-        print('output')
-        print(output)
         batch_size, sent_length = indices.size(0), indices.size(1)
 
         def f(i, j):
