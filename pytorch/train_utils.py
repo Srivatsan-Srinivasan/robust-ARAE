@@ -29,11 +29,11 @@ def load_oracle(args):
         'ntokens': 11004
     }
     oracle = NNLM(params)
-    oracle.__cuda__(args.gpu_id)
     try:
         oracle.load_state_dict(t.load(args.data_path+'/nnlm.pt'))
     except:
-        oracle.load_state_dict(t.load(args.data_path+'/nnlm.pt'), map_location = lambda storage, loc: storage)
+        oracle.load_state_dict(t.load(args.data_path+'/nnlm.pt', map_location=lambda storage, loc: storage))
+    oracle.__cuda__(args.gpu_id)
     return oracle
 
 
