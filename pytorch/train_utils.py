@@ -153,7 +153,7 @@ def evaluate_autoencoder_synthetic(autoencoder, corpus, criterion_ce, data_sourc
     # Turn on evaluation mode which disables dropout.
     autoencoder.eval()
     total_loss = 0
-    ntokens = corpus.vocab_size + 3
+    ntokens = corpus.vocab_size
     all_accuracies = 0
     bcnt = 0
     for i, batch in enumerate(data_source):
