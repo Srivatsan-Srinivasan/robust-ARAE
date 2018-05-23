@@ -326,7 +326,7 @@ class Seq2Seq(nn.Module):
     grad_norm = {}
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
-    def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers, noise_radius=0.2, tie_weights=False, norm_penalty=None,
+    def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers_enc, nlayers_dec, noise_radius=0.2, tie_weights=False, norm_penalty=None,
                  norm_penalty_threshold=0, hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None,
                  writer=None, timeit=None, bidirectionnal=False,
                  ):
@@ -335,7 +335,8 @@ class Seq2Seq(nn.Module):
         self.nhidden_dec = nhidden_dec
         self.emsize = emsize
         self.ntokens = ntokens
-        self.nlayers = nlayers
+        self.nlayers_enc = nlayers_enc
+        self.nlayers_dec = nlayers_dec
         self.noise_radius = noise_radius
         self.hidden_init = hidden_init
         self.dropout = dropout
@@ -359,7 +360,7 @@ class Seq2Seq(nn.Module):
         # RNN Encoder and Decoder
         self.encoder = nn.LSTM(input_size=emsize,
                                hidden_size=nhidden_enc,
-                               num_layers=nlayers,
+                               num_layers=nlayers_enc,
                                dropout=dropout,
                                batch_first=True,
                                bidirectional=bidirectionnal)
@@ -367,7 +368,7 @@ class Seq2Seq(nn.Module):
         decoder_input_size = emsize + nhidden_enc
         self.decoder = nn.LSTM(input_size=decoder_input_size,
                                hidden_size=nhidden_dec,
-                               num_layers=1,
+                               num_layers=nlayers_dec,
                                dropout=dropout,
                                batch_first=True)
 
@@ -407,12 +408,12 @@ class Seq2Seq(nn.Module):
         self.linear.bias.data.fill_(0)
 
     def init_hidden(self, bsz):
-        zeros1 = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
-        zeros2 = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
+        zeros1 = Variable(t.zeros(self.nlayers_dec, bsz, self.nhidden_dec))
+        zeros2 = Variable(t.zeros(self.nlayers_dec, bsz, self.nhidden_dec))
         return to_gpu(self.gpu, zeros1, gpu_id=self.gpu_id), to_gpu(self.gpu, zeros2, gpu_id=self.gpu_id)
 
     def init_state(self, bsz):
-        zeros = Variable(t.zeros(self.nlayers, bsz, self.nhidden_dec))
+        zeros = Variable(t.zeros(self.nlayers_dec, bsz, self.nhidden_dec))
         return to_gpu(self.gpu, zeros, gpu_id=self.gpu_id)
 
     def store_grad_norm(self, grad):

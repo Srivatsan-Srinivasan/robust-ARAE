@@ -54,7 +54,9 @@ def init_config():
                             help='number of hidden units per layer')
         parser.add_argument('--nhidden_dec', type=int, default=300,
                             help='number of hidden units per layer')
-        parser.add_argument('--nlayers', type=int, default=1,
+        parser.add_argument('--nlayers_enc', type=int, default=1,
+                            help='number of layers')
+        parser.add_argument('--nlayers_dec', type=int, default=1,
                             help='number of layers')
         parser.add_argument('--noise_radius', type=float, default=0.2,
                             help='stdev of noise for autoencoder (regularizer)')
@@ -265,7 +267,8 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden_enc=args.nhidden_enc,
                       nhidden_dec=args.nhidden_dec,
                       ntokens=ntokens,
-                      nlayers=args.nlayers,
+                      nlayers_enc=args.nlayers_enc,
+                      nlayers_dec=args.nlayers_dec,
                       noise_radius=args.noise_radius,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
