@@ -392,13 +392,13 @@ class Seq2Seq(nn.Module):
 
         self.init_weights()
 
-        if timeit is not None:
-            Seq2Seq.timer.enabled = True
-            Seq2Seq.timer.log_freq = timeit
-            Seq2Seq.timer.writer = writer
-            # self.forward = Seq2Seq.timer.timeit(self.forward)
-            self.encode = Seq2Seq.timer.timeit(self.encode)
-            self.decode = Seq2Seq.timer.timeit(self.decode)
+        # if timeit is not None:
+        #     Seq2Seq.timer.enabled = True
+        #     Seq2Seq.timer.log_freq = timeit
+        #     Seq2Seq.timer.writer = writer
+        #     # self.forward = Seq2Seq.timer.timeit(self.forward)
+        #     self.encode = Seq2Seq.timer.timeit(self.encode)
+        #     self.decode = Seq2Seq.timer.timeit(self.decode)
 
     def init_weights(self):
         initrange = 0.1
