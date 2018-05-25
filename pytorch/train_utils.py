@@ -668,7 +668,7 @@ def train_aae_d(autoencoder, gan_disc, criterion_bce, optimizer_gan_d, batch, ar
 
     # backprop ---------------
     err = errD_real + errD_fake
-    err.backprop()
+    err.backward()
 
     # regularization
     l2_reg = None
