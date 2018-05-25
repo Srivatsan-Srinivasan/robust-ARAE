@@ -458,7 +458,7 @@ def train_ae_aae(autoencoder, disc, criterion_ce, criterion_bce, optimizer_ae, t
     true_or_fake = disc.forward(code, mean=False, writer=writer)  # probability of being a sample from the prior, estimated by the discriminator
 
     loss1 = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
-    loss2 = criterion_bce(true_or_fake, variable(t.ones(*true_or_fake.size()), to_float=False, cuda=args.cuda, gpu_id=args.gpu_id).long())
+    loss2 = criterion_bce(true_or_fake, variable(t.ones(*true_or_fake.size()), to_float=True, cuda=args.cuda, gpu_id=args.gpu_id))
     loss = loss1 + args.lambda_pd * loss2  # modified objective from https://arxiv.org/abs/1804.07972, different from initial AAE's objective https://arxiv.org/abs/1706.04223
     loss.backward()
 
@@ -655,7 +655,7 @@ def train_aae_d(autoencoder, gan_disc, criterion_bce, optimizer_gan_d, batch, ar
 
     # loss
     fake_prob = gan_disc.forward(fake_code, mean=False, writer=writer)
-    errD_fake = criterion_bce(fake_prob, variable(t.zeros(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=False).long())
+    errD_fake = criterion_bce(fake_prob, variable(t.zeros(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=True))
 
     # true samples from prior (uniform on unit sphere, i.e. rescaled standard gaussian) ----------------------------
     true_samples_from_prior = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
@@ -664,7 +664,7 @@ def train_aae_d(autoencoder, gan_disc, criterion_bce, optimizer_gan_d, batch, ar
 
     # loss
     real_prob = gan_disc.forward(true_samples_from_prior, mean=False, writer=writer)
-    errD_real = criterion_bce(real_prob, variable(t.ones(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=False).long())
+    errD_real = criterion_bce(real_prob, variable(t.ones(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=True))
 
     # backprop ---------------
     err = errD_real + errD_fake
