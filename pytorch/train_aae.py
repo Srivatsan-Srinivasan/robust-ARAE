@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 from torch.autograd import Variable
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from models import Seq2Seq, MLP_D, MLP_G
-from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan, get_optimizers_disc, train_aae_d, evaluate_generator_aae, train_lm_aae
+from train_utils import save_model, evaluate_autoencoder, evaluate_generator, train_lm, train_ae, train_gan_g, train_gan_d, get_optimizers_gan, get_optimizers_disc, train_aae_d, evaluate_generator_aae, train_lm_aae, train_ae_aae
 from utils import to_gpu, Corpus, batchify, activation_from_str, tensorboard, create_tensorboard_dir, check_args, Timer, retokenize_data_for_vocab_size, l2normalize
 
 
@@ -47,15 +47,19 @@ def init_config():
         # Model Arguments
         parser.add_argument('--emsize', type=int, default=300,
                             help='size of word embeddings')
+        parser.add_argument('--z_size', type=int, default=100,
+                            help='size of the code')
         parser.add_argument('--nhidden_enc', type=int, default=300,
                             help='number of hidden units per layer')
         parser.add_argument('--nhidden_dec', type=int, default=300,
                             help='number of hidden units per layer')
-        parser.add_argument('--nlayers', type=int, default=1,
+        parser.add_argument('--nlayers_enc', type=int, default=1,
                             help='number of layers')
-        parser.add_argument('--noise_radius', type=float, default=0.2,
+        parser.add_argument('--nlayers_dec', type=int, default=1,
+                            help='number of layers')
+        parser.add_argument('--noise_radius', type=float, default=0.1,
                             help='stdev of noise for autoencoder (regularizer)')
-        parser.add_argument('--noise_anneal', type=float, default=0.995,
+        parser.add_argument('--noise_anneal', type=float, default=1.,
                             help='anneal noise_radius exponentially by this'
                                  'every 100 iterations')
         parser.add_argument('--hidden_init', action='store_true',
@@ -74,8 +78,6 @@ def init_config():
                             help='What initializer you would like to use. `default` (Yoon\'s version) or `he` suppported')
         parser.add_argument('--gan_activation', default='lrelu', type=str,
                             help='Activation to use in GAN')
-        parser.add_argument('--std_minibatch', action='store_true',
-                            help="Whether to compute minibatch std in the discriminator as an additional feature")
         parser.add_argument('--bn_disc', action='store_true',
                             help="Whether to use batchnorm in the discriminator")
         parser.add_argument('--l2_reg_disc', type=float, default=None,
@@ -85,14 +87,6 @@ def init_config():
                             help="Whether to tie the weights of the embedding of the decoder and its linear layer")
         parser.add_argument('--bidirectionnal', action='store_true',
                             help="Whether the encoder should be bidirectionnal. If it is, it divides the hdim of the encoder by 2")
-        parser.add_argument('--polar', action='store_true',
-                            help='Whether to use polar interpolation for GP')
-        parser.add_argument('--norm_penalty', type=float, default=None,
-                            help='If you want to enforce a L2 regularization on the norm of the encoder, instead of forcing it to lie'
-                                 'on the unit sphere. This way you can use volume (as you do interpolation it may make more sense)'
-                                 'If you try it, use 1-10 as a starting point')
-        parser.add_argument('--norm_penalty_threshold', type=float, default=0.,
-                            help='Whether you want to penalize the norm of the code for being above this value')
         return parser
 
     def training(parser):
@@ -127,27 +121,7 @@ def init_config():
                             help='beta1 for adam. default=0.9')
         parser.add_argument('--clip', type=float, default=1,
                             help='gradient clipping, max norm')
-        parser.add_argument('--gan_clamp', type=float, default=0.01,
-                            help='WGAN clamp')
-        parser.add_argument('--gradient_penalty', action='store_true',
-                            help='Whether to use a gradient penalty in the discriminator loss, instead of the weight clipping')
-        parser.add_argument('--lambda_GP', type=float, default=10.,
-                            help='Regularization param for the gradient penalty')
-        parser.add_argument('--spectralnorm', action='store_true',
-                            help='Whether to use a spectral normalization in the discriminator loss')
-        parser.add_argument('--lambda_dropout', type=float, default=None,
-                            help='The coefficient in front of the dropout penalty'
-                                 '2 is the value they use in the paper')
-        parser.add_argument('--dropout_penalty', type=float, default=None,
-                            help='To enforce the Lipschitz continuity of the critic'
-                                 'See paper `Improving the improved WGAN`'
-                                 'Should be a small value (try .05)'
-                                 'Additional loss added to the critic')
-        parser.add_argument('--progressive_vocab', action='store_true',
-                            help='Whether to train sequentially with increasing vocab')
-        parser.add_argument('--eps_drift', type=float, default=None,
-                            help='Whether to add a term eps_drift*D(x)^2 in the loss of the discriminator'
-                                 'If None, add nothing')
+        parser.add_argument('--lambda_pd', type=float, default=10.)
         return parser
 
     def eval(parser):
@@ -193,8 +167,6 @@ def init_config():
 
 args = init_config()
 print(vars(args))
-check_args(args)
-args.z_size = args.nhidden_enc
 
 # make output directory if it doesn't already exist
 if not os.path.isdir('./output'):
@@ -253,7 +225,8 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       nhidden_enc=args.nhidden_enc,
                       nhidden_dec=args.nhidden_dec,
                       ntokens=ntokens,
-                      nlayers=args.nlayers,
+                      nlayers_enc=args.nlayers_enc,
+                      nlayers_dec=args.nlayers_dec,
                       noise_radius=args.noise_radius,
                       hidden_init=args.hidden_init,
                       dropout=args.dropout,
@@ -263,16 +236,17 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       timeit=args.timeit,
                       writer=writer,
                       tie_weights=args.tie_weights,
-                      norm_penalty=args.norm_penalty,
-                      norm_penalty_threshold=args.norm_penalty_threshold,
+                      norm_penalty=False,
+                      norm_penalty_threshold=None,
                       bidirectionnal=args.bidirectionnal
                       )
 gan_disc = MLP_D(ninput=args.nhidden_enc, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
-                 weight_init=args.gan_weight_init, std_minibatch=args.std_minibatch, batchnorm=args.bn_disc, polar=args.polar,
-                 spectralnorm=args.spectralnorm, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=args.lambda_GP,
-                 timeit=args.timeit, lambda_dropout=args.lambda_dropout, dropout=args.dropout_penalty)
+                 weight_init=args.gan_weight_init, std_minibatch=False, batchnorm=args.bn_disc, polar=False,
+                 spectralnorm=False, gpu=args.cuda, writer=writer, gpu_id=args.gpu_id, lambda_GP=None,
+                 timeit=args.timeit, lambda_dropout=None, dropout=args.dropout_penalty, sigmoid=True)
 
 criterion_ce = nn.CrossEntropyLoss()
+criterion_bce = nn.BCELoss()
 
 if args.cuda:
     autoencoder = autoencoder.cuda(args.gpu_id)
@@ -344,13 +318,14 @@ for epoch in range(1, args.epochs + 1):
 
     # loop through all batches in training data
     while niter < len(train_data):
-        if impatience > args.patience: break
+        if impatience > args.patience:
+            break
 
         # train autoencoder ----------------------------
         for i in range(args.niters_ae):
             if niter == len(train_data):
                 break  # end of epoch
-            total_loss_ae, start_time = train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args, writer, niter_global + (-1 + epoch) * len(train_data))
+            total_loss_ae, start_time = train_ae_aae(autoencoder, gan_disc, criterion_ce, criterion_bce, optimizer_ae, train_data, train_data[niter], total_loss_ae, start_time, i, ntokens, epoch, args, writer, niter_global + (-1 + epoch) * len(train_data))
             niter += 1
 
         # train gan ----------------------------------
@@ -359,7 +334,7 @@ for epoch in range(1, args.epochs + 1):
             # train discriminator/critic
             for i in range(args.niters_gan_d):
                 # feed a seen sample within this epoch; good for early training
-                errD, errD_real, errD_fake = train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, train_data[random.randint(0, len(train_data) - 1)], args, writer, niter_global + (-1 + epoch) * len(train_data))
+                errD, errD_real, errD_fake = train_aae_d(autoencoder, gan_disc, criterion_bce, optimizer_gan_d, train_data[random.randint(0, len(train_data) - 1)], args, writer, niter_global + (-1 + epoch) * len(train_data))
 
         niter_global += 1
 

@@ -17,7 +17,7 @@ class MLP_D(nn.Module):
 
     def __init__(self, ninput, noutput, layers, activation=nn.LeakyReLU(0.2), gpu=False, weight_init='default',
                  std_minibatch=True, batchnorm=False, spectralnorm=False, writer=None, gpu_id=None, log_freq=10000,
-                 lambda_GP=10, timeit=None, polar=True, dropout=None, lambda_dropout=None
+                 lambda_GP=10, timeit=None, polar=True, dropout=None, lambda_dropout=None, sigmoid=False
                  ):
         super(MLP_D, self).__init__()
         self.ninput = ninput
@@ -30,6 +30,7 @@ class MLP_D(nn.Module):
         self.lambda_GP = lambda_GP
         self.dropout = dropout  # THIS IS ONLY FOR THE DROPOUT PENALTY FROM THE PAPER `IMPROVING THE IMPROVED TRAINING OF WGAN` !!! This is not regular dropout. Just a way of enforcing Lipschitz continuity
         self.lambda_dropout = lambda_dropout
+        self.sigmoid = sigmoid
         if isinstance(activation, t.nn.ReLU):
             self.negative_slope = 0
         elif isinstance(activation, t.nn.LeakyReLU):
@@ -84,7 +85,10 @@ class MLP_D(nn.Module):
             x = t.cat([x, x_std_feature], 1)
 
         x = layer(x)
-        return t.mean(x) if mean else x
+        if not self.sigmoid:
+            return t.mean(x) if mean else x
+        else:
+            return t.mean(F.sigmoid(x)) if mean else F.sigmoid(x)
 
     def init_weights(self, weight_init='default'):
         if weight_init == 'default':
@@ -328,7 +332,7 @@ class Seq2Seq(nn.Module):
 
     def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers_enc, nlayers_dec, noise_radius=0.2, tie_weights=False, norm_penalty=None,
                  norm_penalty_threshold=0, hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None,
-                 writer=None, timeit=None, bidirectionnal=False,
+                 writer=None, timeit=None, bidirectionnal=False, z_size=None
                  ):
         super(Seq2Seq, self).__init__()
         self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
@@ -364,8 +368,14 @@ class Seq2Seq(nn.Module):
                                dropout=dropout,
                                batch_first=True,
                                bidirectional=bidirectionnal)
+        if z_size is not None:
+            self.z_size = z_size
+            self.linear_enc = nn.Linear(self.nhidden_enc, self.z_size)
+        else:
+            self.z_size = self.nhidden_enc
+            self.linear_enc = None
 
-        decoder_input_size = emsize + nhidden_enc
+        decoder_input_size = emsize + self.z_size
         self.decoder = nn.LSTM(input_size=decoder_input_size,
                                hidden_size=nhidden_dec,
                                num_layers=nlayers_dec,
@@ -427,7 +437,7 @@ class Seq2Seq(nn.Module):
             return grad
         return
 
-    def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False):
+    def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False, return_hidden=False):
         """
 
         :param indices: integer-encoded sentences. LongTensor
@@ -440,6 +450,7 @@ class Seq2Seq(nn.Module):
         batch_size, maxlen = indices.size()
 
         hidden = self.encode(indices, lengths, noise, keep_hidden=keep_hidden)
+        hidden = hidden if self.linear_enc is None else self.linear_enc.forward(hidden)
 
         if encode_only:
             return hidden
@@ -450,7 +461,7 @@ class Seq2Seq(nn.Module):
         decoded = self.decode(hidden, batch_size, maxlen,
                               indices=indices, lengths=lengths)
 
-        return decoded
+        return decoded if not return_hidden else decoded, hidden
 
     def encode(self, indices, lengths, noise, keep_hidden=False):
         """

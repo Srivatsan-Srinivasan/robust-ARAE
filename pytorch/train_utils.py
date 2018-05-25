@@ -426,6 +426,80 @@ def train_ae(autoencoder, criterion_ce, optimizer_ae, train_data, batch, total_l
     return total_loss_ae, start_time
 
 
+def train_ae_aae(autoencoder, disc, criterion_ce, criterion_bce, optimizer_ae, train_data, batch, total_loss_ae, start_time, i, ntokens, epoch, args, writer, n_iter):
+    """
+    Train autoencoder
+    :param batch: a 3-tuple (source_sentences, target_sentences, sentences_lengths)
+                  Note that the source and the target are the same, but with an SOS for source and EOS for target
+    """
+    autoencoder.train()
+    disc.eval()
+    autoencoder.zero_grad()
+
+    source, target, lengths = batch  # note that target is flattened
+    source = to_gpu(args.cuda, Variable(source), gpu_id=args.gpu_id)  # source has no end symbol
+    target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)  # target has no start symbol
+
+    # Create sentence length mask over padding
+    mask = target.gt(0)  # gt: greater than. 0 is the padding idx. All other idx are greater than 0
+    masked_target = target.masked_select(mask)  # it flattens the output to n_examples x sentence_length (minus the padding)
+    output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)  # replicate the mask for each vocabulary word. Size batch_size x |V|
+
+    # output: (batch_size, max_len, ntokens)
+    output, code = autoencoder.forward(source,
+                                       variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(),
+                                       noise=True,
+                                       keep_hidden=((i == (args.niters_ae - 1)) and args.tensorboard) or (args.norm_penalty is not None),
+                                       return_hidden=True)
+
+    # Loss and backprop
+    flattened_output = output.view(-1, ntokens)  # output_size: (batch_size x max_len, ntokens)
+    masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems, without the padding
+    true_or_fake = disc.forward(code, mean=False, writer=writer)  # probability of being a sample from the prior, estimated by the discriminator
+
+    loss1 = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
+    loss2 = criterion_bce(true_or_fake, variable(t.ones(*true_or_fake.size()), to_float=False, cuda=args.cuda, gpu_id=args.gpu_id).long())
+    loss = loss1 + args.lambda_pd * loss2  # modified objective from https://arxiv.org/abs/1804.07972, different from initial AAE's objective https://arxiv.org/abs/1706.04223
+    loss.backward()
+
+    # `clip_grad_norm` to prevent exploding gradient in RNNs / LSTMs
+    torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
+    optimizer_ae.step()
+
+    total_loss_ae += loss.data
+
+    accuracy = None
+    if i % args.log_interval == 0 and i > 0:
+        # accuracy
+        probs = F.softmax(masked_output, 1)
+        max_vals, max_indices = torch.max(probs, 1)
+        accuracy = torch.mean(max_indices.eq(masked_target).float()).data[0]
+
+        cur_loss = total_loss_ae[0] / args.log_interval
+        elapsed = time.time() - start_time
+        print('| epoch {:3d} | {:5d}/{:5d} batches | ms/batch {:5.2f} | '
+              'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f}'
+              .format(epoch, i, len(train_data),
+                      elapsed * 1000 / args.log_interval,
+                      cur_loss, math.exp(cur_loss), accuracy))
+
+        with open("./output/{}/logs.txt".format(args.outf), 'a') as f:
+            f.write('| epoch {:3d} | {:5d}/{:5d} batches | ms/batch {:5.2f} | '
+                    'loss {:5.2f} | ppl {:8.2f} | acc {:8.2f}\n'.
+                    format(epoch, i, len(train_data),
+                           elapsed * 1000 / args.log_interval,
+                           cur_loss, math.exp(cur_loss), accuracy))
+
+        total_loss_ae = 0
+        start_time = time.time()
+
+    if (i == (args.niters_ae - 1)) and args.tensorboard:  # keep gradients
+        autoencoder.keep_gradients()
+
+    tensorboard_ae(loss.data.cpu().numpy()[0], writer, n_iter)
+    return total_loss_ae, start_time
+
+
 def tensorboard_ae(loss, writer, n_iter, log_freq=100):
     if writer is not None:
         if n_iter % log_freq == 0:
@@ -557,7 +631,7 @@ def train_gan_d(autoencoder, gan_disc, gan_gen, optimizer_gan_d, optimizer_ae, b
     return errD, errD_real, errD_fake
 
 
-def train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, batch, args, writer, n_iter):
+def train_aae_d(autoencoder, gan_disc, criterion_bce, optimizer_gan_d, batch, args, writer, n_iter):
     """
     Note that the sign of the loss (choosing .backward(one) over .backward(mone)) doesn't matter, as long as there is
     consistency between G and D, AND between the two parts of the loss of D
@@ -568,47 +642,33 @@ def train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, batch, arg
         * https://github.com/martinarjovsky/WassersteinGAN/issues/9
         * https://cloud.githubusercontent.com/assets/5272722/22793339/9210a6ea-eebd-11e6-8f3d-aeae2827b955.png
     """
-    one = to_gpu(args.cuda, torch.FloatTensor(args.n_gpus * [1]), gpu_id=args.gpu_id)
-    mone = one * -1
-    # clamp parameters to a cube
-    if not args.gradient_penalty and not args.spectralnorm:
-        for p in gan_disc.parameters():
-            p.data.clamp_(-args.gan_clamp, args.gan_clamp)
 
-    autoencoder.train()
+    autoencoder.eval()
     autoencoder.zero_grad()
     gan_disc.train()
     gan_disc.zero_grad()
 
-    # positive samples ----------------------------
-    # generate real codes
+    # fake samples: encode the sentences and add noise ----------------------------
     source, target, lengths = batch
     source = to_gpu(args.cuda, Variable(source), gpu_id=args.gpu_id)
-    target = to_gpu(args.cuda, Variable(target), gpu_id=args.gpu_id)
+    fake_code = autoencoder.forward(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=True, encode_only=True)  # size: batch_size x nhidden
 
-    # batch_size x nhidden
-    real_hidden = autoencoder(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), noise=False, encode_only=True)
-    grad_norm = sum(list(Seq2Seq.grad_norm.values()))
-    real_hidden.register_hook(lambda grad: grad_hook(grad, grad_norm, args))
+    # loss
+    fake_prob = gan_disc.forward(fake_code, mean=False, writer=writer)
+    errD_fake = criterion_bce(fake_prob, variable(t.zeros(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=False).long())
 
-    # loss / backprop
-    errD_real = gan_disc(real_hidden, mean=False, writer=writer)
-    torch.mean(errD_real).backward(one, retain_graph=args.eps_drift is not None)
+    # true samples from prior (uniform on unit sphere, i.e. rescaled standard gaussian) ----------------------------
+    true_samples_from_prior = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
+    true_samples_from_prior.data.normal_(0, 1)
+    true_samples_from_prior = l2normalize(true_samples_from_prior, dim=1)
 
-    # negative samples ----------------------------
-    # generate fake codes
-    fake_hidden = to_gpu(args.cuda, Variable(torch.ones(args.batch_size, args.z_size)), gpu_id=args.gpu_id)
-    fake_hidden.data.normal_(0, 1)
-    fake_hidden = l2normalize(fake_hidden, dim=1)
+    # loss
+    real_prob = gan_disc.forward(true_samples_from_prior, mean=False, writer=writer)
+    errD_real = criterion_bce(real_prob, variable(t.ones(*fake_prob.size()), cuda=args.cuda, gpu_id=args.gpu_id, to_float=False).long())
 
-    # loss / backprop
-    errD_fake = gan_disc(fake_hidden.detach())
-    errD_fake.backward(mone)
-
-    errD_grad = None
-    if args.gradient_penalty:
-        errD_grad = gan_disc.gradient_penalty(real_hidden, fake_hidden)
-        errD_grad.backward(one)
+    # backprop ---------------
+    err = errD_real + errD_fake
+    err.backprop()
 
     # regularization
     l2_reg = None
@@ -623,25 +683,10 @@ def train_aae_d(autoencoder, gan_disc, optimizer_gan_d, optimizer_ae, batch, arg
             l2_reg = args.l2_reg_disc * weight.norm(2)
         l2_reg.backward(one)
 
-    if args.eps_drift is not None:
-        errD_drift = args.eps_drift * torch.mean(errD_real.pow(2))
-        errD_drift.backward(one)
-
-    errD_dropout = None
-    if args.lambda_dropout is not None and args.dropout_penalty is not None:
-        errD_dropout = gan_disc.dropout_penalty(variable(real_hidden.data, cuda=args.cuda, gpu_id=args.gpu_id))
-        errD_dropout.backward(one)
-
-    # `clip_grad_norm` to prevent exploding gradient problem in RNNs / LSTMs
-    torch.nn.utils.clip_grad_norm(autoencoder.parameters(), args.clip)
-
     optimizer_gan_d.step()
-    optimizer_ae.step()
-    errD = -(errD_real - errD_fake)
+    tensorboard_gan_d(errD_real, errD_fake, None, None, l2_reg, writer, n_iter)
 
-    tensorboard_gan_d(torch.mean(errD_real), errD_fake, errD_grad, errD_dropout, l2_reg, writer, n_iter)
-
-    return errD, errD_real, errD_fake
+    return err, errD_real, errD_fake
 
 
 def tensorboard_gan_d(loss_true, loss_fake, loss_grad, loss_dropout, l2_reg, writer, n_iter, log_freq=100):
