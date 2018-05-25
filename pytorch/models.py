@@ -452,6 +452,10 @@ class Seq2Seq(nn.Module):
         hidden = self.encode(indices, lengths, noise, keep_hidden=keep_hidden)
         hidden = hidden if self.linear_enc is None else self.linear_enc.forward(hidden)
 
+        print('self.linear_enc')
+        print(self.linear_enc)
+        print('hidden.size')
+        print(hidden.size)
         if encode_only:
             return hidden
 
