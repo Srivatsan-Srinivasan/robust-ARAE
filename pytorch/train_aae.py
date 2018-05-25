@@ -238,7 +238,8 @@ autoencoder = Seq2Seq(emsize=args.emsize,
                       tie_weights=args.tie_weights,
                       norm_penalty=False,
                       norm_penalty_threshold=None,
-                      bidirectionnal=args.bidirectionnal
+                      bidirectionnal=args.bidirectionnal,
+                      z_size=args.z_size
                       )
 gan_disc = MLP_D(ninput=args.z_size, noutput=1, layers=args.arch_d, activation=activation_from_str(args.gan_activation),
                  weight_init=args.gan_weight_init, std_minibatch=False, batchnorm=args.bn_disc, polar=False,

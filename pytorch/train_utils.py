@@ -455,7 +455,6 @@ def train_ae_aae(autoencoder, disc, criterion_ce, criterion_bce, optimizer_ae, t
     # Loss and backprop
     flattened_output = output.view(-1, ntokens)  # output_size: (batch_size x max_len, ntokens)
     masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)  # batch_size x max_len classification problems, without the padding
-    print(code.size(), args.z_size)
     true_or_fake = disc.forward(code, mean=False, writer=writer)  # probability of being a sample from the prior, estimated by the discriminator
 
     loss1 = criterion_ce(masked_output / args.temp, masked_target)  # batch_size x max_len classification problems
