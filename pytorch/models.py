@@ -491,9 +491,9 @@ class Seq2Seq(nn.Module):
         if self.dropout is not None:
             embeddings = self.dropout_enc(embeddings)
         print('dropout done')
-        packed_embeddings = pack_padded_sequence(input=embeddings,
-                                                 lengths=lengths_,
-                                                 batch_first=True)
+        print(embeddings)
+        print(lengths_)
+        packed_embeddings = pack_padded_sequence(input=embeddings, lengths=lengths_, batch_first=True)
         print('packing done')
 
         # Encode
