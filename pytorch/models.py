@@ -462,6 +462,7 @@ class Seq2Seq(nn.Module):
         decoded = self.decode(hidden, batch_size, maxlen,
                               indices=indices, lengths=lengths)
 
+        print(type(decoded))
         return decoded if not return_hidden else decoded, hidden
 
     def encode(self, indices, lengths, noise, keep_hidden=False):

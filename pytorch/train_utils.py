@@ -119,8 +119,9 @@ def evaluate_autoencoder(autoencoder, corpus, criterion_ce, data_source, epoch, 
         output_mask = mask.unsqueeze(1).expand(mask.size(0), ntokens)
 
         # output: batch x seq_len x ntokens
+        # @todo: problem here
         output = autoencoder.forward(source, variable(lengths, cuda=args.cuda, to_float=False, gpu_id=args.gpu_id).long(), True, return_hidden=False)  # output = autoencoder(source, lengths, noise=True)
-        assert not isinstance(output, tuple), output
+        assert not isinstance(output, tuple)
         flattened_output = output.view(-1, ntokens)
 
         masked_output = flattened_output.masked_select(output_mask).view(-1, ntokens)
