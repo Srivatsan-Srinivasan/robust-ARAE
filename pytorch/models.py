@@ -2,8 +2,8 @@ import torch as t
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
-# from torch.nn.utils.rnn import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
-from utils import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
+from torch.nn.utils.rnn import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
+# from utils import pack_padded_sequence  # , pad_packed_sequence  # use the utis.py version instead. Useful when doing data parallelism
 from utils import to_gpu, variable, pad_packed_sequence, Timer
 import json
 import os
@@ -547,7 +547,6 @@ class Seq2Seq(nn.Module):
                                                  batch_first=True)
 
         self.decoder.flatten_parameters()
-        print(packed_embeddings.size(), state.size())
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
