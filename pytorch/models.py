@@ -437,7 +437,7 @@ class Seq2Seq(nn.Module):
             return grad
         return
 
-    def forward(self, indices, lengths, noise, encode_only=False, keep_hidden=False, return_hidden=False):
+    def forward(self, indices, lengths, noise=True, encode_only=False, keep_hidden=False, return_hidden=False):
         """
 
         :param indices: integer-encoded sentences. LongTensor
