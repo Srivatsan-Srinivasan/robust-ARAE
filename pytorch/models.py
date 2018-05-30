@@ -476,7 +476,6 @@ class Seq2Seq(nn.Module):
         """
         # `lengths` should be a variable when you use several GPUs, so that the pytorch knows that it should be split
         # among the GPUs you are using
-        print('start')
         if isinstance(lengths, t.autograd.Variable):
             lengths_ = lengths.data.cpu().long().numpy().squeeze().tolist()
             if isinstance(lengths_, int):
@@ -486,20 +485,15 @@ class Seq2Seq(nn.Module):
         else:
             raise ValueError("Should be either variable or list")
 
-        print('verif done')
         embeddings = self.embedding(indices)
-        print('embed done')
         if self.dropout is not None:
             embeddings = self.dropout_enc(embeddings)
-        print('dropout done')
-        print(embeddings)
-        print(lengths_)
         packed_embeddings = pack_padded_sequence(input=embeddings, lengths=lengths_, batch_first=True)
-        print('packing done')
 
         # Encode
         self.encoder.flatten_parameters()
-        packed_output, state = self.encoder(packed_embeddings)
+        print(packed_embeddings)
+        packed_output, state = self.encoder.forward(packed_embeddings)
 
         hidden, cell = state
         # batch_size x nhidden
