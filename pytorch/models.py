@@ -335,6 +335,28 @@ class Seq2Seq(nn.Module):
                  norm_penalty_threshold=0, hidden_init=False, dropout=0, gpu=False, ngpus=1, gpu_id=None,
                  writer=None, timeit=None, bidirectionnal=False, z_size=None
                  ):
+        """
+
+        :param emsize:
+        :param nhidden_enc:
+        :param nhidden_dec:
+        :param ntokens:
+        :param nlayers_enc:
+        :param nlayers_dec:
+        :param noise_radius:
+        :param tie_weights:
+        :param norm_penalty:
+        :param norm_penalty_threshold:
+        :param hidden_init:
+        :param dropout:
+        :param gpu:
+        :param ngpus:
+        :param gpu_id:
+        :param writer:
+        :param timeit:
+        :param bidirectionnal:
+        :param z_size: for the AAE configuration, the encoder output dim must be the same as the dim of the prior
+        """
         super(Seq2Seq, self).__init__()
         self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
         self.nhidden_dec = nhidden_dec
