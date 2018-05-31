@@ -521,12 +521,10 @@ class Seq2Seq(nn.Module):
 
         hidden, cell = state
         # batch_size x nhidden
-        print(hidden.size())
         if not self.bidirectionnal:
             hidden = hidden[-1]  # get hidden state of last layer of encoder
         else:
             hidden = t.cat([hidden[-1], hidden[-2]], -1)
-        print(hidden.size())
 
         if self.norm_penalty is None:
             # normalize to unit ball (l2 norm of 1) - p=2, dim=1
@@ -572,13 +570,11 @@ class Seq2Seq(nn.Module):
         if self.dropout is not None:
             embeddings = self.dropout_dec(embeddings)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
-        print(augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
 
         self.decoder.flatten_parameters()
-        print(state[0].size(), state[1].size())
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
