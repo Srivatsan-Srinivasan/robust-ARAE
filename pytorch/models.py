@@ -358,8 +358,10 @@ class Seq2Seq(nn.Module):
         :param z_size: for the AAE configuration, the encoder output dim must be the same as the dim of the prior
         """
         super(Seq2Seq, self).__init__()
+        assert (not bidirectionnal) or (bidirectionnal and (nhidden_enc % 2 == 0))
         self.nhidden_enc = nhidden_enc if not bidirectionnal else nhidden_enc // 2
         self.nhidden_dec = nhidden_dec
+        self.bidirectionnal = bidirectionnal
         self.emsize = emsize
         self.ntokens = ntokens
         self.nlayers_enc = nlayers_enc
@@ -386,12 +388,13 @@ class Seq2Seq(nn.Module):
 
         # RNN Encoder and Decoder
         self.encoder = nn.LSTM(input_size=emsize,
-                               hidden_size=nhidden_enc,
+                               hidden_size=self.nhidden_enc,
                                num_layers=nlayers_enc,
                                dropout=dropout,
                                batch_first=True,
                                bidirectional=bidirectionnal)
         if z_size is not None:
+            # @todo: what happens if bidirectionnal==True ?
             self.z_size = z_size
             self.linear_enc = nn.Linear(self.nhidden_enc, self.z_size)
         else:
@@ -518,7 +521,12 @@ class Seq2Seq(nn.Module):
 
         hidden, cell = state
         # batch_size x nhidden
-        hidden = hidden[-1]  # get hidden state of last layer of encoder
+        print(hidden.size())
+        if not self.bidirectionnal:
+            hidden = hidden[-1]  # get hidden state of last layer of encoder
+        else:
+            hidden = t.cat([hidden[-1], hidden[-2]], -1)
+        print(hidden.size())
 
         if self.norm_penalty is None:
             # normalize to unit ball (l2 norm of 1) - p=2, dim=1
