@@ -328,7 +328,7 @@ class Seq2Seq(nn.Module):
     #  plotted in TensorBoard.
     # It is useful to put it as a class variable because when doing multi-gpu training you can no longer access
     # instance attributes(or at least it is buggy because each instance has a different value for self.grad_norm)
-    grad_norm = {}
+    grad_norm = {}  # purpose: storing the norm of the gradients to force gradients to have the same norm in the gan and the aae
     timer = Timer('AE', enabled=False, log_freq=0, writer=None)
 
     def __init__(self, emsize, nhidden_enc, nhidden_dec, ntokens, nlayers_enc, nlayers_dec, noise_radius=0.2, tie_weights=False, norm_penalty=None,
@@ -487,7 +487,7 @@ class Seq2Seq(nn.Module):
         decoded = self.decode(hidden, batch_size, maxlen,
                               indices=indices, lengths=lengths)
 
-        return decoded if not return_hidden else decoded, hidden
+        return decoded if not return_hidden else (decoded, hidden)
 
     def encode(self, indices, lengths, noise, keep_hidden=False):
         """
@@ -521,12 +521,10 @@ class Seq2Seq(nn.Module):
 
         hidden, cell = state
         # batch_size x nhidden
-        print(hidden.size())
         if not self.bidirectionnal:
             hidden = hidden[-1]  # get hidden state of last layer of encoder
         else:
             hidden = t.cat([hidden[-1], hidden[-2]], -1)
-        print(hidden.size())
 
         if self.norm_penalty is None:
             # normalize to unit ball (l2 norm of 1) - p=2, dim=1
@@ -572,13 +570,11 @@ class Seq2Seq(nn.Module):
         if self.dropout is not None:
             embeddings = self.dropout_dec(embeddings)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
-        print(augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
 
         self.decoder.flatten_parameters()
-        print(state[0].size(), state[1].size())
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
@@ -756,7 +752,8 @@ def load_ae(load_path, old=False):
                           nhidden_enc=model_args['nhidden_enc'] if not old else model_args['nhidden'],
                           nhidden_dec=model_args['nhidden_dec'] if not old else model_args['nhidden'],
                           ntokens=model_args['ntokens'],
-                          nlayers=model_args['nlayers'],
+                          nlayers_enc=model_args['nlayers_enc'],
+                          nlayers_dec=model_args['nlayers_dec'],
                           hidden_init=model_args['hidden_init'],
                           norm_penalty=model_args['norm_penalty'],
                           norm_penalty_threshold=model_args['norm_penalty_threshold'],
