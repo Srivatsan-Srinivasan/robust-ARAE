@@ -559,16 +559,18 @@ class Seq2Seq(nn.Module):
         else:
             state = self.init_hidden(batch_size)
 
-        # @todo: exposure bias ?
+        # @todo: remove exposure bias ?
         embeddings = self.embedding_decoder(indices)
         if self.dropout is not None:
             embeddings = self.dropout_dec(embeddings)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
+        print(augmented_embeddings.size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
 
         self.decoder.flatten_parameters()
+        print(state[0].size(), state[1].size())
         packed_output, state = self.decoder(packed_embeddings, state)
         output, _ = pad_packed_sequence(packed_output, batch_first=True, maxlen=maxlen) if self.ngpus > 1 else pad_packed_sequence(packed_output, batch_first=True, maxlen=None)
 
