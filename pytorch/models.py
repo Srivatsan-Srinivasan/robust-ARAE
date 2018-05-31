@@ -543,8 +543,6 @@ class Seq2Seq(nn.Module):
         if self.dropout is not None:
             embeddings = self.dropout_dec(embeddings)
         augmented_embeddings = t.cat([embeddings, all_hidden], 2)
-        print(augmented_embeddings.size())
-        print(state[0].size(), state[1].size())
         packed_embeddings = pack_padded_sequence(input=augmented_embeddings,
                                                  lengths=lengths_,
                                                  batch_first=True)
